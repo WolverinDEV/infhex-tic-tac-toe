@@ -49,11 +49,6 @@ const corsOptions: cors.CorsOptions | null = allowedOrigins.size > 0 ? {
     credentials: true
 } : null;
 
-app.on("mount", event => {
-    console.log("MOunt!");
-});
-console.log("XX!");
-
 // CORS middleware for API requests
 if (corsOptions) {
     app.use(cors(corsOptions));
@@ -74,7 +69,7 @@ type PlayerLeaveSource = 'leave-session' | 'disconnect';
 
 const gameSessions = new Map<string, StoredGameSession>();
 const turnTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
-const TURN_TIMEOUT_MS = 45_0000;
+const TURN_TIMEOUT_MS = 45_000;
 
 function getHeaderValue(value: string | string[] | undefined): string | null {
     if (typeof value === 'string') {
