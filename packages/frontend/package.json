@@ -15,6 +15,7 @@
         "@ih3t/shared": "workspace:*",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
+        "react-toastify": "^11.0.5",
         "socket.io-client": "^4.8.3"
     },
     "devDependencies": {

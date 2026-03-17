@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import { BoardState, ServerToClientEvents, ClientToServerEvents, SessionFinishReason, SessionInfo, SessionState } from '@ih3t/shared'
 import GameScreen from './components/GameScreen'
 import LobbyScreen from './components/LobbyScreen'
@@ -29,6 +31,12 @@ function App() {
 
   const syncAvailableSessions = (sessions: SessionInfo[]) => {
     setAvailableSessions(sessions.filter((session) => session.canJoin))
+  }
+
+  const showErrorToast = (message: string) => {
+    toast.error(message, {
+      toastId: `error:${message}`
+    })
   }
 
   const resetToLobby = () => {
@@ -81,6 +89,7 @@ function App() {
       console.log('Disconnected from server')
       setIsConnected(false)
       setCurrentPlayerId('')
+      showErrorToast('Disconnected from the server.')
       resetToLobby()
       setAvailableSessions([])
     })
@@ -134,6 +143,7 @@ function App() {
 
     socket.on('error', (error: string) => {
       console.error('Socket error:', error)
+      showErrorToast(error)
     })
 
     return () => {
@@ -148,6 +158,7 @@ function App() {
       syncAvailableSessions(sessions)
     } catch (error) {
       console.error('Failed to fetch sessions:', error)
+      showErrorToast('Failed to fetch available sessions.')
     }
   }
 
@@ -170,6 +181,7 @@ function App() {
       socketRef.current?.emit('join-session', data.sessionId)
     } catch (error) {
       console.error('Failed to create session:', error)
+      showErrorToast('Failed to create a session.')
     }
   }
 
@@ -193,8 +205,17 @@ function App() {
     }
   }
 
+  let screen = (
+    <LobbyScreen
+      isConnected={isConnected}
+      availableSessions={availableSessions}
+      onHostGame={hostGame}
+      onJoinGame={joinGame}
+    />
+  )
+
   if (screenState === 'playing') {
-    return (
+    screen = (
       <GameScreen
         sessionId={sessionId}
         players={players}
@@ -208,7 +229,7 @@ function App() {
   }
 
   if (screenState === 'winner') {
-    return (
+    screen = (
       <GameScreen
         sessionId={sessionId}
         players={players}
@@ -224,7 +245,7 @@ function App() {
   }
 
   if (screenState === 'loser') {
-    return (
+    screen = (
       <GameScreen
         sessionId={sessionId}
         players={players}
@@ -240,7 +261,7 @@ function App() {
   }
 
   if (screenState === 'waiting') {
-    return (
+    screen = (
       <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_28%),linear-gradient(160deg,_#0f172a,_#111827_45%,_#1e293b)] px-6 py-10 text-white">
         <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center">
           <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
@@ -277,12 +298,18 @@ function App() {
   }
 
   return (
-    <LobbyScreen
-      isConnected={isConnected}
-      availableSessions={availableSessions}
-      onHostGame={hostGame}
-      onJoinGame={joinGame}
-    />
+    <>
+      {screen}
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+      />
+    </>
   )
 }
 
