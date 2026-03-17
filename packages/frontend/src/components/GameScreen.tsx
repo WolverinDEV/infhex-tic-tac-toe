@@ -34,6 +34,18 @@ interface CubeCell {
   z: number
 }
 
+interface RenderableCell extends HexCell {
+  key: string
+  pointX: number
+  pointY: number
+}
+
+interface HudState {
+  centerCell: HexCell
+  hoveredCell: HexCell | null
+  scale: number
+}
+
 interface GameScreenProps {
   sessionId: string
   players: string[]
@@ -114,6 +126,12 @@ function traceHexPath(context: CanvasRenderingContext2D, centerX: number, center
   context.closePath()
 }
 
+function sameCell(a: HexCell | null, b: HexCell | null) {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return a.x === b.x && a.y === b.y
+}
+
 function GameScreen({
   sessionId,
   players,
@@ -124,151 +142,226 @@ function GameScreen({
 }: GameScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragStateRef = useRef<DragState | null>(null)
-  const [view, setView] = useState<ViewState>({ offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE })
-  const [hoveredCell, setHoveredCell] = useState<HexCell | null>(null)
+  const viewRef = useRef<ViewState>({ offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE })
+  const hoveredCellRef = useRef<HexCell | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const latestDataRef = useRef<{
+    boardState: BoardState
+    renderableCells: RenderableCell[]
+    renderableCellSet: Set<string>
+    cellMap: Map<string, string>
+  } | null>(null)
+  const [hudState, setHudState] = useState<HudState>({
+    centerCell: { x: 0, y: 0 },
+    hoveredCell: null,
+    scale: DEFAULT_SCALE
+  })
 
   const cellMap = useMemo(() => {
     return new Map(boardState.cells.map((cell) => [getCellKey(cell.x, cell.y), cell.occupiedBy]))
   }, [boardState])
 
   const renderableCells = useMemo(() => {
-    const cells = new Set<string>()
+    const cells = new Map<string, RenderableCell>()
 
     if (boardState.cells.length === 0) {
-      cells.add(getCellKey(0, 0))
-      return cells
+      const origin = axialToUnitPoint(0, 0)
+      cells.set(getCellKey(0, 0), { key: getCellKey(0, 0), x: 0, y: 0, pointX: origin.x, pointY: origin.y })
+      return [...cells.values()]
     }
 
     for (const cell of boardState.cells) {
       for (let x = cell.x - HEX_RADIUS; x <= cell.x + HEX_RADIUS; x += 1) {
         for (let y = cell.y - HEX_RADIUS; y <= cell.y + HEX_RADIUS; y += 1) {
           if (hexDistance({ x: cell.x, y: cell.y }, { x, y }) <= HEX_RADIUS) {
-            cells.add(getCellKey(x, y))
+            const key = getCellKey(x, y)
+            if (!cells.has(key)) {
+              const point = axialToUnitPoint(x, y)
+              cells.set(key, { key, x, y, pointX: point.x, pointY: point.y })
+            }
           }
         }
       }
     }
 
-    return cells
+    return [...cells.values()]
   }, [boardState.cells])
+
+  const renderableCellSet = useMemo(() => {
+    return new Set(renderableCells.map((cell) => cell.key))
+  }, [renderableCells])
+
+  latestDataRef.current = {
+    boardState,
+    renderableCells,
+    renderableCellSet,
+    cellMap
+  }
+
+  const updateHudState = () => {
+    const nextCenterCell = pixelToAxial(-viewRef.current.offsetX / viewRef.current.scale, -viewRef.current.offsetY / viewRef.current.scale)
+    const nextHoveredCell = hoveredCellRef.current
+
+    setHudState((current) => {
+      if (
+        current.scale === viewRef.current.scale &&
+        sameCell(current.centerCell, nextCenterCell) &&
+        sameCell(current.hoveredCell, nextHoveredCell)
+      ) {
+        return current
+      }
+
+      return {
+        centerCell: nextCenterCell,
+        hoveredCell: nextHoveredCell,
+        scale: viewRef.current.scale
+      }
+    })
+  }
+
+  const drawBoard = () => {
+    const canvas = canvasRef.current
+    const latestData = latestDataRef.current
+    if (!canvas || !latestData) {
+      return
+    }
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      return
+    }
+
+    const rect = canvas.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    const width = Math.max(1, Math.floor(rect.width))
+    const height = Math.max(1, Math.floor(rect.height))
+
+    if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+      canvas.width = Math.floor(width * dpr)
+      canvas.height = Math.floor(height * dpr)
+    }
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0)
+    context.clearRect(0, 0, width, height)
+    context.fillStyle = '#0f172a'
+    context.fillRect(0, 0, width, height)
+
+    const { offsetX, offsetY, scale } = viewRef.current
+    const centerX = width / 2 + offsetX
+    const centerY = height / 2 + offsetY
+    const hexRadius = scale * 0.92
+
+    for (const cell of latestData.renderableCells) {
+      const screenX = centerX + cell.pointX * scale
+      const screenY = centerY + cell.pointY * scale
+
+      if (
+        screenX + hexRadius < 0 ||
+        screenY + hexRadius < 0 ||
+        screenX - hexRadius > width ||
+        screenY - hexRadius > height
+      ) {
+        continue
+      }
+
+      traceHexPath(context, screenX, screenY, hexRadius)
+      context.fillStyle = 'rgba(15, 23, 42, 0.86)'
+      context.fill()
+      context.strokeStyle = cell.x === 0 && cell.y === 0 ? ORIGIN_LINE_COLOR : GRID_LINE_COLOR
+      context.lineWidth = cell.x === 0 && cell.y === 0 ? 1.6 : 1
+      context.stroke()
+    }
+
+    const hoveredCell = hoveredCellRef.current
+    if (hoveredCell) {
+      const hoveredKey = getCellKey(hoveredCell.x, hoveredCell.y)
+      if (latestData.renderableCellSet.has(hoveredKey) && !latestData.cellMap.has(hoveredKey)) {
+        const point = axialToUnitPoint(hoveredCell.x, hoveredCell.y)
+        const screenX = centerX + point.x * scale
+        const screenY = centerY + point.y * scale
+        traceHexPath(context, screenX, screenY, hexRadius)
+        context.fillStyle = 'rgba(125, 211, 252, 0.18)'
+        context.fill()
+        context.strokeStyle = 'rgba(125, 211, 252, 0.55)'
+        context.lineWidth = 1.5
+        context.stroke()
+      }
+    }
+
+    for (const cell of latestData.boardState.cells) {
+      const point = axialToUnitPoint(cell.x, cell.y)
+      const screenX = centerX + point.x * scale
+      const screenY = centerY + point.y * scale
+
+      if (
+        screenX + hexRadius < 0 ||
+        screenY + hexRadius < 0 ||
+        screenX - hexRadius > width ||
+        screenY - hexRadius > height
+      ) {
+        continue
+      }
+
+      traceHexPath(context, screenX, screenY, hexRadius - 2)
+      context.fillStyle = getPlayerColor(cell.occupiedBy)
+      context.fill()
+
+      context.fillStyle = '#e2e8f0'
+      context.font = `${Math.max(11, scale * 0.24)}px ui-sans-serif, system-ui, sans-serif`
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillText(cell.occupiedBy.slice(0, 2).toUpperCase(), screenX, screenY + 1)
+    }
+  }
+
+  const scheduleDraw = () => {
+    if (animationFrameRef.current !== null) {
+      return
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      animationFrameRef.current = null
+      drawBoard()
+      updateHudState()
+    })
+  }
 
   const screenToCell = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return null
 
     const rect = canvas.getBoundingClientRect()
-    const localX = clientX - rect.left - rect.width / 2 - view.offsetX
-    const localY = clientY - rect.top - rect.height / 2 - view.offsetY
+    const localX = clientX - rect.left - rect.width / 2 - viewRef.current.offsetX
+    const localY = clientY - rect.top - rect.height / 2 - viewRef.current.offsetY
 
-    return pixelToAxial(localX / view.scale, localY / view.scale)
+    return pixelToAxial(localX / viewRef.current.scale, localY / viewRef.current.scale)
   }
+
+  useEffect(() => {
+    scheduleDraw()
+  }, [boardState, renderableCells, renderableCellSet, cellMap])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const context = canvas.getContext('2d')
-    if (!context) return
-
     const parent = canvas.parentElement
     if (!parent) return
 
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-      const width = Math.max(1, Math.floor(rect.width))
-      const height = Math.max(1, Math.floor(rect.height))
-
-      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
-        canvas.width = Math.floor(width * dpr)
-        canvas.height = Math.floor(height * dpr)
-      }
-
-      context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      context.clearRect(0, 0, width, height)
-      context.fillStyle = '#0f172a'
-      context.fillRect(0, 0, width, height)
-
-      const centerX = width / 2 + view.offsetX
-      const centerY = height / 2 + view.offsetY
-      const hexRadius = view.scale * 0.92
-
-      for (const cellKey of renderableCells) {
-        const [xText, yText] = cellKey.split(',')
-        const cellX = Number(xText)
-        const cellY = Number(yText)
-        const point = axialToUnitPoint(cellX, cellY)
-        const screenX = centerX + point.x * view.scale
-        const screenY = centerY + point.y * view.scale
-
-        if (
-          screenX + hexRadius < 0 ||
-          screenY + hexRadius < 0 ||
-          screenX - hexRadius > width ||
-          screenY - hexRadius > height
-        ) {
-          continue
-        }
-
-        traceHexPath(context, screenX, screenY, hexRadius)
-        context.fillStyle = 'rgba(15, 23, 42, 0.86)'
-        context.fill()
-        context.strokeStyle = cellX === 0 && cellY === 0 ? ORIGIN_LINE_COLOR : GRID_LINE_COLOR
-        context.lineWidth = cellX === 0 && cellY === 0 ? 1.6 : 1
-        context.stroke()
-      }
-
-      if (hoveredCell) {
-        const hoveredKey = getCellKey(hoveredCell.x, hoveredCell.y)
-        if (renderableCells.has(hoveredKey) && !cellMap.has(hoveredKey)) {
-          const point = axialToUnitPoint(hoveredCell.x, hoveredCell.y)
-          const screenX = centerX + point.x * view.scale
-          const screenY = centerY + point.y * view.scale
-          traceHexPath(context, screenX, screenY, hexRadius)
-          context.fillStyle = 'rgba(125, 211, 252, 0.18)'
-          context.fill()
-          context.strokeStyle = 'rgba(125, 211, 252, 0.55)'
-          context.lineWidth = 1.5
-          context.stroke()
-        }
-      }
-
-      for (const cell of boardState.cells) {
-        const point = axialToUnitPoint(cell.x, cell.y)
-        const screenX = centerX + point.x * view.scale
-        const screenY = centerY + point.y * view.scale
-
-        if (
-          screenX + hexRadius < 0 ||
-          screenY + hexRadius < 0 ||
-          screenX - hexRadius > width ||
-          screenY - hexRadius > height
-        ) {
-          continue
-        }
-
-        traceHexPath(context, screenX, screenY, hexRadius - 2)
-        context.fillStyle = getPlayerColor(cell.occupiedBy)
-        context.fill()
-
-        context.fillStyle = '#e2e8f0'
-        context.font = `${Math.max(11, view.scale * 0.24)}px ui-sans-serif, system-ui, sans-serif`
-        context.textAlign = 'center'
-        context.textBaseline = 'middle'
-        context.fillText(cell.occupiedBy.slice(0, 2).toUpperCase(), screenX, screenY + 1)
-      }
-    }
-
-    const resizeObserver = new ResizeObserver(draw)
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleDraw()
+    })
     resizeObserver.observe(parent)
-    draw()
+    scheduleDraw()
 
     return () => {
       resizeObserver.disconnect()
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
     }
-  }, [boardState.cells, cellMap, hoveredCell, renderableCells, view])
-
-  const centerCell = pixelToAxial(-view.offsetX / view.scale, -view.offsetY / view.scale)
+  }, [])
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-950 text-white">
@@ -279,14 +372,17 @@ function GameScreen({
           dragStateRef.current = {
             startX: event.clientX,
             startY: event.clientY,
-            originOffsetX: view.offsetX,
-            originOffsetY: view.offsetY,
+            originOffsetX: viewRef.current.offsetX,
+            originOffsetY: viewRef.current.offsetY,
             moved: false
           }
         }}
         onMouseMove={(event) => {
           const nextCell = screenToCell(event.clientX, event.clientY)
-          setHoveredCell(nextCell)
+          if (!sameCell(hoveredCellRef.current, nextCell)) {
+            hoveredCellRef.current = nextCell
+            scheduleDraw()
+          }
 
           const dragState = dragStateRef.current
           if (!dragState) {
@@ -299,15 +395,19 @@ function GameScreen({
             dragState.moved = true
           }
 
-          setView((current) => ({
-            ...current,
+          viewRef.current = {
+            ...viewRef.current,
             offsetX: dragState.originOffsetX + deltaX,
             offsetY: dragState.originOffsetY + deltaY
-          }))
+          }
+          scheduleDraw()
         }}
         onMouseLeave={() => {
           dragStateRef.current = null
-          setHoveredCell(null)
+          if (hoveredCellRef.current !== null) {
+            hoveredCellRef.current = null
+            scheduleDraw()
+          }
         }}
         onMouseUp={(event) => {
           const dragState = dragStateRef.current
@@ -323,29 +423,28 @@ function GameScreen({
           }
 
           const cellKey = getCellKey(targetCell.x, targetCell.y)
-          if (renderableCells.has(cellKey) && !cellMap.has(cellKey)) {
+          if (renderableCellSet.has(cellKey) && !cellMap.has(cellKey)) {
             onPlaceCell(targetCell.x, targetCell.y)
           }
         }}
         onWheel={(event) => {
-          event.preventDefault()
-
           const canvas = canvasRef.current
           if (!canvas) return
 
           const rect = canvas.getBoundingClientRect()
           const pointerX = event.clientX - rect.left
           const pointerY = event.clientY - rect.top
-          const anchorUnitX = (pointerX - rect.width / 2 - view.offsetX) / view.scale
-          const anchorUnitY = (pointerY - rect.height / 2 - view.offsetY) / view.scale
+          const anchorUnitX = (pointerX - rect.width / 2 - viewRef.current.offsetX) / viewRef.current.scale
+          const anchorUnitY = (pointerY - rect.height / 2 - viewRef.current.offsetY) / viewRef.current.scale
           const zoomFactor = event.deltaY > 0 ? 0.92 : 1.08
-          const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * zoomFactor))
+          const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewRef.current.scale * zoomFactor))
 
-          setView(() => ({
+          viewRef.current = {
             scale: nextScale,
             offsetX: pointerX - rect.width / 2 - anchorUnitX * nextScale,
             offsetY: pointerY - rect.height / 2 - anchorUnitY * nextScale
-          }))
+          }
+          scheduleDraw()
         }}
       />
 
@@ -363,7 +462,10 @@ function GameScreen({
 
             <div className="pointer-events-auto flex flex-wrap gap-2 self-start">
               <button
-                onClick={() => setView({ offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE })}
+                onClick={() => {
+                  viewRef.current = { offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE }
+                  scheduleDraw()
+                }}
                 className="rounded-full bg-sky-600 px-4 py-2 font-medium shadow-lg hover:bg-sky-500"
               >
                 Reset View
@@ -384,19 +486,19 @@ function GameScreen({
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Pointer</div>
                   <div className="mt-2 text-base text-white">
-                    {hoveredCell ? `(${hoveredCell.x}, ${hoveredCell.y})` : 'Move over the board'}
+                    {hudState.hoveredCell ? `(${hudState.hoveredCell.x}, ${hudState.hoveredCell.y})` : 'Move over the board'}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Zoom</div>
-                  <div className="mt-2 text-base text-white">{view.scale.toFixed(0)} px / hex</div>
-                  <div className="mt-1 text-xs text-slate-400">Center: ({centerCell.x}, {centerCell.y})</div>
+                  <div className="mt-2 text-base text-white">{hudState.scale.toFixed(0)} px / hex</div>
+                  <div className="mt-1 text-xs text-slate-400">Center: ({hudState.centerCell.x}, {hudState.centerCell.y})</div>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Active Cells</div>
-                  <div className="mt-2 text-base text-white">{renderableCells.size}</div>
+                  <div className="mt-2 text-base text-white">{renderableCells.length}</div>
                   <div className="mt-1 text-xs text-slate-400">Occupied hexes and empty hexes within {HEX_RADIUS} steps</div>
                 </div>
 
