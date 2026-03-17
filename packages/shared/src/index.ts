@@ -2,12 +2,12 @@
 export interface GameSession {
     id: string;
     players: string[];
-    maxPlayers: number;
+    maxPlayers: 2; // Fixed to 2 players
     gameState: any;
 }
 
 export interface CreateSessionRequest {
-    maxPlayers?: number;
+    // No maxPlayers needed since it's always 2
 }
 
 export interface CreateSessionResponse {
@@ -17,7 +17,8 @@ export interface CreateSessionResponse {
 export interface SessionInfo {
     id: string;
     playerCount: number;
-    maxPlayers: number;
+    maxPlayers: 2; // Always 2
+    canJoin: boolean; // Whether the session can accept new players
 }
 
 // Socket Event Types

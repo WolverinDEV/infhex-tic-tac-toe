@@ -11,9 +11,11 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@ih3t/shared": "workspace:*",
+        "@types/cors": "^2.8.19",
+        "cors": "^2.8.6",
         "express": "^5.2.1",
-        "socket.io": "^4.8.3",
-        "@ih3t/shared": "workspace:*"
+        "socket.io": "^4.8.3"
     },
     "devDependencies": {
         "@types/express": "^5.0.6",

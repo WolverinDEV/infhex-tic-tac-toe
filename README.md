@@ -4,11 +4,13 @@ A minimal React application with Vite, TypeScript, and a Node.js backend for hos
 
 ## Features
 
-- **Full-page Canvas**: Responsive canvas that fills the entire viewport
+- **2-Player Games Only**: All game sessions support exactly 2 players
+- **Game Lobby**: Choose to host a new game or join an existing one
+- **Available Games List**: See all open games waiting for a second player
 - **Real-time Multiplayer**: Socket.io-based game session management
+- **Full-page Canvas**: Responsive canvas that fills the entire viewport when in a game
 - **TypeScript**: Full type safety across frontend, backend, and shared modules
 - **Monorepo Structure**: Organized workspace with shared types and utilities
-- **Game Sessions**: Create and join game sessions with multiple players
 
 ## Tech Stack
 
@@ -85,15 +87,25 @@ The frontend will run on `http://localhost:5173`
 
 ### Game Session Management
 
-- **Create Session**: Click "Create Session" to start a new game session
-- **Join Session**: Click "Join Session" and enter the session ID
-- **Connection Status**: The canvas background shows connection status (green = connected, red = disconnected)
-- **Player Count**: Displayed on the canvas showing current players in the session
+The app features a complete 2-player game lobby system:
+
+- **Host Game**: Create a new 2-player game session and wait for another player
+- **Join Game**: Browse and join available games that need a second player
+- **Waiting Room**: Shows session details and player count while waiting
+- **Game Canvas**: Only appears when both players have joined and the game starts
+- **Leave Game**: Players can leave at any time, returning to the lobby
+
+### Game Flow
+
+1. **Lobby**: Choose to host or join a game
+2. **Waiting**: Host waits for a player to join, or guest waits for game to start
+3. **Playing**: Full-screen canvas game when both players are connected
+4. **Return**: Leave game to return to lobby
 
 ## API Endpoints
 
-- `GET /api/sessions` - List all active game sessions
-- `POST /api/sessions` - Create a new game session
+- `GET /api/sessions` - List all active 2-player game sessions with join status
+- `POST /api/sessions` - Create a new 2-player game session
 
 ## Socket Events
 

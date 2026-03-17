@@ -1,11 +1,11 @@
 import express from 'express';
+import cors from 'cors';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
     GameSession,
-    CreateSessionRequest,
     CreateSessionResponse,
     SessionInfo,
     ServerToClientEvents,
@@ -17,12 +17,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+const allowedOrigins = new Set([
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+]);
+const corsOptions: cors.CorsOptions = {
+    origin(origin, callback) {
+        // Allow non-browser requests and configured dev origins.
+        if (!origin || allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
+    credentials: true
+};
+
+// CORS middleware for API requests
+app.use(cors(corsOptions));
+
 const server = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
-    cors: {
-        origin: "http://localhost:5173", // Vite dev server
-        methods: ["GET", "POST"]
-    }
+    cors: corsOptions
 });
 
 const gameSessions = new Map<string, GameSession>();
@@ -37,19 +56,19 @@ app.get('/api/sessions', (_req, res) => {
     const sessions: SessionInfo[] = Array.from(gameSessions.values()).map(session => ({
         id: session.id,
         playerCount: session.players.length,
-        maxPlayers: session.maxPlayers
+        maxPlayers: session.maxPlayers,
+        canJoin: session.players.length < session.maxPlayers
     }));
     res.json(sessions);
 });
 
-app.post('/api/sessions', express.json(), (req, res) => {
-    const { maxPlayers = 4 }: CreateSessionRequest = req.body;
+app.post('/api/sessions', express.json(), (_req, res) => {
     const sessionId = Math.random().toString(36).substring(2, 8);
 
     const session: GameSession = {
         id: sessionId,
         players: [],
-        maxPlayers,
+        maxPlayers: 2,
         gameState: {}
     };
 
