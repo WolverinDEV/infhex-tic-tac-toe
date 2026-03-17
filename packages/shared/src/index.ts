@@ -1,5 +1,6 @@
 export type SessionState = 'lobby' | 'ingame' | 'finished';
 export type CellOccupant = string;
+export type SessionFinishReason = 'disconnect' | 'timeout';
 
 export interface BoardCell {
     x: number;
@@ -11,6 +12,7 @@ export interface BoardState {
     cells: BoardCell[];
     currentTurnPlayerId: string | null;
     placementsRemaining: number;
+    currentTurnExpiresAt: number | null;
 }
 
 // Game Session Types
@@ -43,7 +45,7 @@ export interface ServerToClientEvents {
     'sessions-updated': (sessions: SessionInfo[]) => void;
     'player-joined': (data: { playerId: string; players: string[]; state: SessionState }) => void;
     'player-left': (data: { playerId: string; players: string[]; state: SessionState }) => void;
-    'session-finished': (data: { sessionId: string; winnerId: string }) => void;
+    'session-finished': (data: { sessionId: string; winnerId: string; loserId: string; reason: SessionFinishReason }) => void;
     'game-state': (data: { sessionId: string; gameState: BoardState }) => void;
     'game-action': (data: { playerId: string; action: GameAction }) => void;
     error: (error: string) => void;

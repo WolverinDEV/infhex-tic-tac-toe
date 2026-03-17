@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { BoardState, ServerToClientEvents, ClientToServerEvents, SessionInfo, SessionState } from '@ih3t/shared'
+import { BoardState, ServerToClientEvents, ClientToServerEvents, SessionFinishReason, SessionInfo, SessionState } from '@ih3t/shared'
 import GameScreen from './components/GameScreen'
 import LobbyScreen from './components/LobbyScreen'
 import WaitingScreen from './components/WaitingScreen'
+import LoserScreen from './components/LoserScreen'
 import WinnerScreen from './components/WinnerScreen'
 
-type ScreenState = 'lobby' | 'waiting' | 'playing' | 'winner'
+type ScreenState = 'lobby' | 'waiting' | 'playing' | 'winner' | 'loser'
 
 function App() {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
@@ -18,10 +19,12 @@ function App() {
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('')
   const [availableSessions, setAvailableSessions] = useState<SessionInfo[]>([])
   const [isHost, setIsHost] = useState(false)
+  const [finishReason, setFinishReason] = useState<SessionFinishReason | null>(null)
   const [boardState, setBoardState] = useState<BoardState>({
     cells: [],
     currentTurnPlayerId: null,
-    placementsRemaining: 0
+    placementsRemaining: 0,
+    currentTurnExpiresAt: null
   })
 
   const syncAvailableSessions = (sessions: SessionInfo[]) => {
@@ -32,10 +35,12 @@ function App() {
     setSessionId('')
     setPlayers([])
     setIsHost(false)
+    setFinishReason(null)
     setBoardState({
       cells: [],
       currentTurnPlayerId: null,
-      placementsRemaining: 0
+      placementsRemaining: 0,
+      currentTurnExpiresAt: null
     })
     setScreenState('lobby')
     fetchAvailableSessions()
@@ -92,15 +97,22 @@ function App() {
       updateScreenForSessionState(data.state)
     })
 
-    socket.on('session-finished', (data: { sessionId: string; winnerId: string }) => {
+    socket.on('session-finished', (data: { sessionId: string; winnerId: string; loserId: string; reason: SessionFinishReason }) => {
       console.log('Session finished:', data)
 
       if (data.sessionId !== sessionIdRef.current) {
         return
       }
 
+      setFinishReason(data.reason)
+
       if (data.winnerId === socket.id) {
         setScreenState('winner')
+        return
+      }
+
+      if (data.loserId === socket.id) {
+        setScreenState('loser')
         return
       }
 
@@ -151,7 +163,8 @@ function App() {
       setBoardState({
         cells: [],
         currentTurnPlayerId: null,
-        placementsRemaining: 0
+        placementsRemaining: 0,
+        currentTurnExpiresAt: null
       })
       setScreenState('waiting')
       socketRef.current?.emit('join-session', data.sessionId)
@@ -166,7 +179,8 @@ function App() {
     setBoardState({
       cells: [],
       currentTurnPlayerId: null,
-      placementsRemaining: 0
+      placementsRemaining: 0,
+      currentTurnExpiresAt: null
     })
     setScreenState('waiting')
     socketRef.current?.emit('join-session', sessionIdToJoin)
@@ -194,7 +208,11 @@ function App() {
   }
 
   if (screenState === 'winner') {
-    return <WinnerScreen onReturnToLobby={resetToLobby} />
+    return <WinnerScreen reason={finishReason} onReturnToLobby={resetToLobby} />
+  }
+
+  if (screenState === 'loser') {
+    return <LoserScreen reason={finishReason} onReturnToLobby={resetToLobby} />
   }
 
   if (screenState === 'waiting') {

@@ -8,6 +8,7 @@ import {
     BoardCell,
     GameSession,
     CreateSessionResponse,
+    SessionFinishReason,
     SessionInfo,
     SessionState,
     ServerToClientEvents,
@@ -47,6 +48,8 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 });
 
 const gameSessions = new Map<string, GameSession>();
+const turnTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+const TURN_TIMEOUT_MS = 45_000;
 
 function getCellKey(x: number, y: number): string {
     return `${x},${y}`;
@@ -73,9 +76,51 @@ function emitGameState(sessionId: string): void {
         gameState: {
             cells: getBoardCells(session),
             currentTurnPlayerId: session.gameState.currentTurnPlayerId,
-            placementsRemaining: session.gameState.placementsRemaining
+            placementsRemaining: session.gameState.placementsRemaining,
+            currentTurnExpiresAt: session.gameState.currentTurnExpiresAt
         }
     });
+}
+
+function clearTurnTimeout(sessionId: string): void {
+    const timeout = turnTimeouts.get(sessionId);
+    if (timeout) {
+        clearTimeout(timeout);
+        turnTimeouts.delete(sessionId);
+    }
+}
+
+function setTurn(session: GameSession, playerId: string | null, placementsRemaining: number): void {
+    session.gameState.currentTurnPlayerId = playerId;
+    session.gameState.placementsRemaining = playerId ? placementsRemaining : 0;
+    session.gameState.currentTurnExpiresAt = playerId ? Date.now() + TURN_TIMEOUT_MS : null;
+}
+
+function scheduleTurnTimeout(sessionId: string): void {
+    clearTurnTimeout(sessionId);
+
+    const session = gameSessions.get(sessionId);
+    if (!session || session.state !== 'ingame' || !session.gameState.currentTurnPlayerId || !session.gameState.currentTurnExpiresAt) {
+        return;
+    }
+
+    const delay = Math.max(0, session.gameState.currentTurnExpiresAt - Date.now());
+    const timeout = setTimeout(() => {
+        const activeSession = gameSessions.get(sessionId);
+        if (!activeSession || activeSession.state !== 'ingame' || activeSession.players.length < 2) {
+            clearTurnTimeout(sessionId);
+            return;
+        }
+        const timedOutPlayerId = activeSession.gameState.currentTurnPlayerId;
+        if (!timedOutPlayerId) {
+            clearTurnTimeout(sessionId);
+            return;
+        }
+
+        finishSession(sessionId, timedOutPlayerId, 'timeout');
+    }, delay);
+
+    turnTimeouts.set(sessionId, timeout);
 }
 
 function getSessionList(): SessionInfo[] {
@@ -95,32 +140,32 @@ function broadcastSessions(): void {
 function updateSessionState(session: GameSession): SessionState {
     if (session.players.length >= session.maxPlayers) {
         session.state = 'ingame';
-        session.gameState.currentTurnPlayerId = session.players[0] ?? null;
-
-        /* We start with one turn only to omit the first player advantage of placing the first cell in the middle of the board. */
-        session.gameState.placementsRemaining = 1;
+        if (!session.gameState.currentTurnPlayerId) {
+            /* We start with one turn only to omit the first player advantage of placing the first cell in the middle of the board. */
+            setTurn(session, session.players[0] ?? null, 1);
+        }
     } else if (session.state !== 'finished') {
         session.state = 'lobby';
-        session.gameState.currentTurnPlayerId = null;
-        session.gameState.placementsRemaining = 0;
+        setTurn(session, null, 0);
     }
 
     return session.state;
 }
 
-function finishSession(sessionId: string, disconnectingPlayerId: string): void {
+function finishSession(sessionId: string, loserId: string, reason: SessionFinishReason): void {
     const session = gameSessions.get(sessionId);
     if (!session) {
         return;
     }
 
-    const winnerId = session.players.find((playerId) => playerId !== disconnectingPlayerId);
+    const winnerId = session.players.find((playerId) => playerId !== loserId);
     session.state = 'finished';
 
     if (winnerId) {
-        io.to(sessionId).emit('session-finished', { sessionId, winnerId });
+        io.to(sessionId).emit('session-finished', { sessionId, winnerId, loserId, reason });
     }
 
+    clearTurnTimeout(sessionId);
     gameSessions.delete(sessionId);
     broadcastSessions();
 }
@@ -146,7 +191,8 @@ app.post('/api/sessions', express.json(), (_req, res) => {
         gameState: {
             cells: [],
             currentTurnPlayerId: null,
-            placementsRemaining: 0
+            placementsRemaining: 0,
+            currentTurnExpiresAt: null
         }
     };
 
@@ -183,6 +229,9 @@ io.on('connection', (socket) => {
             players: session.players,
             state
         });
+        if (state === 'ingame') {
+            scheduleTurnTimeout(sessionId);
+        }
         emitGameState(sessionId);
         broadcastSessions();
 
@@ -195,7 +244,7 @@ io.on('connection', (socket) => {
             const wasInGame = session.state === 'ingame';
 
             if (wasInGame) {
-                finishSession(sessionId, socket.id);
+                finishSession(sessionId, socket.id, 'disconnect');
                 socket.leave(sessionId);
                 return;
             }
@@ -205,6 +254,7 @@ io.on('connection', (socket) => {
             const state = updateSessionState(session);
 
             if (session.players.length === 0) {
+                clearTurnTimeout(sessionId);
                 gameSessions.delete(sessionId);
                 console.log(`Session ${sessionId} deleted (no players)`);
             } else {
@@ -269,10 +319,12 @@ io.on('connection', (socket) => {
         if (session.gameState.placementsRemaining === 0) {
             const currentPlayerIndex = session.players.indexOf(socket.id);
             const nextPlayerIndex = currentPlayerIndex === 0 ? 1 : 0;
-            session.gameState.currentTurnPlayerId = session.players[nextPlayerIndex] ?? socket.id;
-            session.gameState.placementsRemaining = 2;
+            setTurn(session, session.players[nextPlayerIndex] ?? socket.id, 2);
+        } else {
+            session.gameState.currentTurnExpiresAt = Date.now() + TURN_TIMEOUT_MS;
         }
 
+        scheduleTurnTimeout(data.sessionId);
         emitGameState(data.sessionId);
     });
 
@@ -285,7 +337,7 @@ io.on('connection', (socket) => {
                 const wasInGame = session.state === 'ingame';
 
                 if (wasInGame) {
-                    finishSession(sessionId, socket.id);
+                    finishSession(sessionId, socket.id, 'disconnect');
                     continue;
                 }
 
@@ -293,6 +345,7 @@ io.on('connection', (socket) => {
                 const state = updateSessionState(session);
 
                 if (session.players.length === 0) {
+                    clearTurnTimeout(sessionId);
                     gameSessions.delete(sessionId);
                 } else {
                     io.to(sessionId).emit('player-left', {

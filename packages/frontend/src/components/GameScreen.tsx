@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BoardState } from '@ih3t/shared'
 
 const HEX_RADIUS = 8
+const TURN_TIMEOUT_MS = 45_000
 const MIN_SCALE = 18
 const MAX_SCALE = 96
 const DEFAULT_SCALE = 42
@@ -132,6 +133,17 @@ function sameCell(a: HexCell | null, b: HexCell | null) {
   return a.x === b.x && a.y === b.y
 }
 
+function formatCountdown(milliseconds: number | null): string {
+  if (milliseconds === null) {
+    return '--:--'
+  }
+
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
 function GameScreen({
   sessionId,
   players,
@@ -156,6 +168,7 @@ function GameScreen({
     hoveredCell: null,
     scale: DEFAULT_SCALE
   })
+  const [turnCountdownMs, setTurnCountdownMs] = useState<number | null>(TURN_TIMEOUT_MS)
 
   const cellMap = useMemo(() => {
     return new Map(boardState.cells.map((cell) => [getCellKey(cell.x, cell.y), cell.occupiedBy]))
@@ -350,6 +363,22 @@ function GameScreen({
   }, [boardState, renderableCells, renderableCellSet, cellMap])
 
   useEffect(() => {
+    const expiresAt = boardState.currentTurnExpiresAt
+    if (!expiresAt) {
+      setTurnCountdownMs(null)
+      return
+    }
+
+    const updateCountdown = () => {
+      setTurnCountdownMs(Math.max(0, expiresAt - Date.now()))
+    }
+
+    updateCountdown()
+    const interval = window.setInterval(updateCountdown, 250)
+    return () => window.clearInterval(interval)
+  }, [boardState.currentTurnExpiresAt])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -470,6 +499,9 @@ function GameScreen({
                     {turnHeadline}
                   </div>
                   <div className="text-sm text-slate-200">{turnDetail}</div>
+                  <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+                    {formatCountdown(turnCountdownMs)} remaining
+                  </div>
                 </div>
                 <div className="flex w-14 gap-1.5">
                   {Array.from({ length: 2 }, (_, index) => {
