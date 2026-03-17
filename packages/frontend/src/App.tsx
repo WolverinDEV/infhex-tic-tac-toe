@@ -8,10 +8,12 @@ import LobbyScreen from './components/LobbyScreen'
 import WaitingScreen from './components/WaitingScreen'
 import LoserScreen from './components/LoserScreen'
 import WinnerScreen from './components/WinnerScreen'
+import { getOrCreateDeviceId } from './deviceId'
 
 type ScreenState = 'lobby' | 'waiting' | 'playing' | 'winner' | 'loser'
 
 function App() {
+  const deviceIdRef = useRef<string>(getOrCreateDeviceId())
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   const sessionIdRef = useRef<string>('')
   const inviteSessionIdRef = useRef<string | null>(new URLSearchParams(window.location.search).get('join'))
@@ -79,7 +81,12 @@ function App() {
 
   useEffect(() => {
     // Connect to the server
-    const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io('http://localhost:3001')
+    const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io('http://localhost:3001', {
+      auth: {
+        deviceId: deviceIdRef.current
+      },
+      withCredentials: true
+    })
     socketRef.current = socket
 
     socket.on('connect', () => {
@@ -164,7 +171,12 @@ function App() {
 
   const fetchAvailableSessions = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/sessions')
+      const response = await fetch('http://localhost:3001/api/sessions', {
+        credentials: 'include',
+        headers: {
+          'X-Device-Id': deviceIdRef.current
+        }
+      })
       const sessions: SessionInfo[] = await response.json()
       syncAvailableSessions(sessions)
     } catch (error) {
@@ -177,7 +189,11 @@ function App() {
     try {
       const response = await fetch('http://localhost:3001/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': deviceIdRef.current
+        }
       })
       const data = await response.json()
       setIsHost(true)

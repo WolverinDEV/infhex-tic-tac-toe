@@ -1,9 +1,11 @@
-import express from 'express';
+import './env';
+import express, { type Request } from 'express';
 import cors from 'cors';
 import { createServer } from 'node:http';
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { closeMetricLogger, logMetric } from './metrics';
 import {
     BoardCell,
     GameSession,
@@ -18,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+app.set('trust proxy', true);
 const allowedOrigins = new Set([
     'http://localhost:5173',
     'http://127.0.0.1:5173'
@@ -33,7 +36,7 @@ const corsOptions: cors.CorsOptions = {
         callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'X-Device-Id'],
     credentials: true
 };
 
@@ -45,9 +48,75 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
     cors: corsOptions
 });
 
-const gameSessions = new Map<string, GameSession>();
+interface StoredGameSession extends GameSession {
+    createdAt: number;
+    startedAt: number | null;
+    playerDeviceIds: Record<string, string | null>;
+}
+
+type PlayerLeaveSource = 'leave-session' | 'disconnect';
+
+const gameSessions = new Map<string, StoredGameSession>();
 const turnTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 const TURN_TIMEOUT_MS = 45_0000;
+
+function getHeaderValue(value: string | string[] | undefined): string | null {
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    return value?.[0] ?? null;
+}
+
+function getRequestClientInfo(request: Request) {
+    const deviceId = request.get('x-device-id') ?? getCookieValue(request.get('cookie'), 'ih3t_device_id');
+
+    return {
+        deviceId,
+        ip: request.ip ?? null,
+        userAgent: request.get('user-agent') ?? null,
+        origin: request.get('origin') ?? null,
+        referer: request.get('referer') ?? null
+    };
+}
+
+function getSocketClientInfo(socket: Socket<ClientToServerEvents, ServerToClientEvents>) {
+    const authDeviceId = typeof socket.handshake.auth.deviceId === 'string'
+        ? socket.handshake.auth.deviceId
+        : null;
+    const cookieDeviceId = getCookieValue(getHeaderValue(socket.handshake.headers.cookie), 'ih3t_device_id');
+
+    return {
+        deviceId: authDeviceId ?? cookieDeviceId,
+        socketId: socket.id,
+        ip: socket.handshake.address ?? null,
+        userAgent: getHeaderValue(socket.handshake.headers['user-agent']),
+        origin: getHeaderValue(socket.handshake.headers.origin),
+        referer: getHeaderValue(socket.handshake.headers.referer)
+    };
+}
+
+function getCookieValue(cookieHeader: string | null | undefined, cookieName: string): string | null {
+    if (!cookieHeader) {
+        return null;
+    }
+
+    const cookiePrefix = `${cookieName}=`;
+    const cookie = cookieHeader
+        .split(';')
+        .map((entry) => entry.trim())
+        .find((entry) => entry.startsWith(cookiePrefix));
+
+    if (!cookie) {
+        return null;
+    }
+
+    try {
+        return decodeURIComponent(cookie.slice(cookiePrefix.length));
+    } catch {
+        return cookie.slice(cookiePrefix.length);
+    }
+}
 
 function getCellKey(x: number, y: number): string {
     return `${x},${y}`;
@@ -180,7 +249,7 @@ function broadcastSessions(): void {
     io.emit('sessions-updated', getSessionList());
 }
 
-function updateSessionState(session: GameSession) {
+function updateSessionState(session: StoredGameSession) {
     if (session.players.length === 0) {
         /* No players in session. Deleting session. */
         console.log(`Terminating session ${session.id} (no players)`);
@@ -196,6 +265,7 @@ function updateSessionState(session: GameSession) {
             }
 
             session.state = 'ingame';
+            session.startedAt = Date.now();
 
             /* We start with one turn only to omit the first player advantage of placing the first cell in the middle of the board. */
             setTurn(session, session.players[0] ?? null, 1);
@@ -222,10 +292,33 @@ function finishSession(sessionId: string, reason: SessionFinishReason, winningPl
         return;
     }
 
+    const finishedAt = Date.now();
+    const finalBoardState = {
+        cells: getBoardCells(session),
+        currentTurnPlayerId: session.gameState.currentTurnPlayerId,
+        placementsRemaining: session.gameState.placementsRemaining,
+        currentTurnExpiresAt: session.gameState.currentTurnExpiresAt
+    };
+    const gameDurationMs = session.startedAt === null ? null : finishedAt - session.startedAt;
+
     if (session.state !== "finished") {
         session.state = 'finished';
         io.to(sessionId).emit('session-finished', { sessionId, reason, winningPlayerId });
     }
+
+    logMetric('game-finished', {
+        sessionId,
+        reason,
+        winningPlayerId,
+        players: [...session.players],
+        playerDeviceIds: { ...session.playerDeviceIds },
+        boardState: finalBoardState,
+        createdAt: new Date(session.createdAt).toISOString(),
+        startedAt: session.startedAt === null ? null : new Date(session.startedAt).toISOString(),
+        finishedAt: new Date(finishedAt).toISOString(),
+        gameDurationMs,
+        totalLifetimeMs: finishedAt - session.createdAt
+    });
 
     clearTurnTimeout(sessionId);
     gameSessions.delete(sessionId);
@@ -234,8 +327,20 @@ function finishSession(sessionId: string, reason: SessionFinishReason, winningPl
     console.log(`Session ${sessionId} finished (${reason})`)
 }
 
-function removePlayerFromSession(session: GameSession, playerId: string) {
+function removePlayerFromSession(session: StoredGameSession, playerId: string, source: PlayerLeaveSource) {
+    const playerDeviceId = session.playerDeviceIds[playerId] ?? null;
     session.players = session.players.filter((id: string) => id !== playerId);
+    delete session.playerDeviceIds[playerId];
+
+    logMetric('game-left', {
+        sessionId: session.id,
+        playerId,
+        deviceId: playerDeviceId,
+        source,
+        sessionState: session.state,
+        remainingPlayers: [...session.players]
+    });
+
     if (session.state === 'ingame') {
         const [winningPlayerId] = session.players;
         finishSession(session.id, 'disconnect', winningPlayerId ?? null);
@@ -262,14 +367,18 @@ app.get('/api/sessions', (_req, res) => {
     res.json(getSessionList());
 });
 
-app.post('/api/sessions', express.json(), (_req, res) => {
+app.post('/api/sessions', express.json(), (req, res) => {
     const sessionId = Math.random().toString(36).substring(2, 8);
+    const createdAt = Date.now();
 
-    const session: GameSession = {
+    const session: StoredGameSession = {
         id: sessionId,
         players: [],
         maxPlayers: 2,
         state: 'lobby',
+        createdAt,
+        startedAt: null,
+        playerDeviceIds: {},
         gameState: {
             cells: [],
             currentTurnPlayerId: null,
@@ -280,6 +389,13 @@ app.post('/api/sessions', express.json(), (_req, res) => {
 
     gameSessions.set(sessionId, session);
     broadcastSessions();
+
+    logMetric('game-created', {
+        sessionId,
+        createdAt: new Date(createdAt).toISOString(),
+        client: getRequestClientInfo(req)
+    });
+
     const response: CreateSessionResponse = { sessionId };
     res.json(response);
 });
@@ -287,10 +403,14 @@ app.post('/api/sessions', express.json(), (_req, res) => {
 // Socket.io connection handling
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
+    logMetric('site-visited', {
+        client: getSocketClientInfo(socket)
+    });
     socket.emit('sessions-updated', getSessionList());
 
     socket.on('join-session', (sessionId: string) => {
         const session = gameSessions.get(sessionId);
+        const clientInfo = getSocketClientInfo(socket);
         if (!session) {
             socket.emit('error', 'Session not found');
             return;
@@ -307,6 +427,7 @@ io.on('connection', (socket) => {
         }
 
         session.players.push(socket.id);
+        session.playerDeviceIds[socket.id] = clientInfo.deviceId;
         socket.join(sessionId);
 
         /* confirm join for client */
@@ -326,6 +447,12 @@ io.on('connection', (socket) => {
 
 
         console.log(`Player ${socket.id} joined session ${sessionId}`);
+        logMetric('game-joined', {
+            sessionId,
+            playerId: socket.id,
+            players: [...session.players],
+            client: clientInfo
+        });
 
         updateSessionState(session);
     });
@@ -334,7 +461,7 @@ io.on('connection', (socket) => {
         const session = gameSessions.get(sessionId);
         if (session) {
             socket.leave(sessionId);
-            removePlayerFromSession(session, socket.id);
+            removePlayerFromSession(session, socket.id, 'leave-session');
         }
     });
 
@@ -406,7 +533,7 @@ io.on('connection', (socket) => {
                 continue;
             }
 
-            removePlayerFromSession(session, socket.id);
+            removePlayerFromSession(session, socket.id, 'disconnect');
         }
     });
 });
@@ -415,3 +542,15 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+server.on('close', () => {
+    void closeMetricLogger();
+});
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+        server.close(() => {
+            process.exit(0);
+        });
+    });
+}
