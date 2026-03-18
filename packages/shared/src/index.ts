@@ -70,6 +70,7 @@ export interface FinishedGameRecord extends FinishedGameSummary {
 
 export interface SessionFinishedEvent {
     sessionId: string;
+    finishedGameId: string;
     winningPlayerId: string | null;
     reason: SessionFinishReason;
     canRematch: boolean;

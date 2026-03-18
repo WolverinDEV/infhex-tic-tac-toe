@@ -97,6 +97,7 @@ function App() {
   const [availableSessions, setAvailableSessions] = useState<SessionInfo[]>([])
   const [participantRole, setParticipantRole] = useState<SessionParticipantRole>('player')
   const [finishReason, setFinishReason] = useState<SessionFinishReason | null>(null)
+  const [finishedGameId, setFinishedGameId] = useState<string | null>(null)
   const [showRematchAction, setShowRematchAction] = useState(false)
   const [canRematch, setCanRematch] = useState(false)
   const [requestedRematchPlayerIds, setRequestedRematchPlayerIds] = useState<string[]>([])
@@ -209,25 +210,40 @@ function App() {
     }
   }
 
-  const resetToLobby = () => {
-    const activeSessionId = sessionIdRef.current
-    if (activeSessionId) {
-      socketRef.current?.emit('cancel-rematch', activeSessionId)
-    }
-
+  const clearLiveSessionState = () => {
     sessionIdRef.current = ''
     setSessionId('')
     setPlayers([])
     participantRoleRef.current = 'player'
     setParticipantRole('player')
     setFinishReason(null)
+    setFinishedGameId(null)
     setShowRematchAction(false)
     setCanRematch(false)
     setRequestedRematchPlayerIds([])
     setBoardState(createEmptyBoardState())
     setScreenState('lobby')
+  }
+
+  const resetToLobby = () => {
+    const activeSessionId = sessionIdRef.current
+    if (activeSessionId) {
+      socketRef.current?.emit('cancel-rematch', activeSessionId)
+    }
+
+    clearLiveSessionState()
     navigateTo({ page: 'live' })
     fetchAvailableSessions()
+  }
+
+  const openFinishedGameReview = (gameId: string) => {
+    const activeSessionId = sessionIdRef.current
+    if (activeSessionId) {
+      socketRef.current?.emit('cancel-rematch', activeSessionId)
+    }
+
+    clearLiveSessionState()
+    navigateTo({ page: 'finished-game', gameId })
   }
 
   const updateScreenForSessionState = (state: SessionState) => {
@@ -328,6 +344,7 @@ function App() {
       setParticipantRole(data.role)
       setPlayers(data.players)
       setFinishReason(null)
+      setFinishedGameId(null)
       setShowRematchAction(false)
       setCanRematch(false)
       setRequestedRematchPlayerIds([])
@@ -349,6 +366,7 @@ function App() {
       }
 
       setFinishReason(data.reason)
+      setFinishedGameId(data.finishedGameId)
       setShowRematchAction(data.canRematch)
       setCanRematch(data.canRematch)
       setRequestedRematchPlayerIds([])
@@ -410,6 +428,7 @@ function App() {
       participantRoleRef.current = 'player'
       setParticipantRole('player')
       setFinishReason(null)
+      setFinishedGameId(null)
       setShowRematchAction(false)
       setCanRematch(false)
       setRequestedRematchPlayerIds([])
@@ -426,6 +445,7 @@ function App() {
     participantRoleRef.current = 'player'
     setParticipantRole('player')
     setFinishReason(null)
+    setFinishedGameId(null)
     setShowRematchAction(false)
     setCanRematch(false)
     setRequestedRematchPlayerIds([])
@@ -537,6 +557,7 @@ function App() {
             <WinnerScreen
               reason={finishReason}
               onReturnToLobby={resetToLobby}
+              onReviewGame={finishedGameId ? () => openFinishedGameReview(finishedGameId) : undefined}
               onRequestRematch={showRematchAction ? requestRematch : undefined}
               isRematchAvailable={canRematch}
               isRematchRequestedByCurrentPlayer={isRematchRequestedByCurrentPlayer}
@@ -561,6 +582,7 @@ function App() {
             <LoserScreen
               reason={finishReason}
               onReturnToLobby={resetToLobby}
+              onReviewGame={finishedGameId ? () => openFinishedGameReview(finishedGameId) : undefined}
               onRequestRematch={showRematchAction ? requestRematch : undefined}
               isRematchAvailable={canRematch}
               isRematchRequestedByCurrentPlayer={isRematchRequestedByCurrentPlayer}
@@ -581,7 +603,13 @@ function App() {
           onPlaceCell={() => { }}
           onLeave={leaveGame}
           interactionEnabled={false}
-          overlay={<SpectatorFinishedScreen reason={finishReason} onReturnToLobby={resetToLobby} />}
+          overlay={(
+            <SpectatorFinishedScreen
+              reason={finishReason}
+              onReturnToLobby={resetToLobby}
+              onReviewGame={finishedGameId ? () => openFinishedGameReview(finishedGameId) : undefined}
+            />
+          )}
         />
       )
     }

@@ -463,7 +463,13 @@ function finishSession(sessionId: string, reason: SessionFinishReason, winningPl
             });
         }
 
-        io.to(sessionId).emit('session-finished', { sessionId, reason, winningPlayerId, canRematch });
+        io.to(sessionId).emit('session-finished', {
+            sessionId,
+            finishedGameId: session.historyId,
+            reason,
+            winningPlayerId,
+            canRematch
+        });
     }
 
     if (historyPayload) {
