@@ -82,7 +82,17 @@ interface StoredGameSession extends GameSession {
 
 type PlayerLeaveSource = 'leave-session' | 'disconnect';
 
+interface PendingRematch {
+    finishedSessionId: string;
+    players: string[];
+    playerDeviceIds: Record<string, string | null>;
+    availablePlayerIds: Set<string>;
+    requestedPlayerIds: Set<string>;
+    createdAt: number;
+}
+
 const gameSessions = new Map<string, StoredGameSession>();
+const pendingRematches = new Map<string, PendingRematch>();
 const turnTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 const TURN_TIMEOUT_MS = 45_000;
 
@@ -306,6 +316,78 @@ function getSessionList(): SessionInfo[] {
     }));
 }
 
+function createStoredGameSession(sessionId: string, createdAt = Date.now()): StoredGameSession {
+    return {
+        id: sessionId,
+        historyId: randomUUID(),
+        players: [],
+        spectators: [],
+        maxPlayers: 2,
+        state: 'lobby',
+        createdAt,
+        startedAt: null,
+        moveHistory: [],
+        playerDeviceIds: {},
+        spectatorDeviceIds: {},
+        gameState: {
+            cells: [],
+            currentTurnPlayerId: null,
+            placementsRemaining: 0,
+            currentTurnExpiresAt: null
+        }
+    };
+}
+
+function emitRematchUpdated(rematch: PendingRematch): void {
+    const payload = {
+        sessionId: rematch.finishedSessionId,
+        canRematch: rematch.availablePlayerIds.size === rematch.players.length,
+        requestedPlayerIds: [...rematch.requestedPlayerIds]
+    };
+
+    for (const playerId of rematch.players) {
+        io.to(playerId).emit('rematch-updated', payload);
+    }
+}
+
+function cancelPendingRematch(sessionId: string, playerId?: string): void {
+    const rematch = pendingRematches.get(sessionId);
+    if (!rematch) {
+        return;
+    }
+
+    if (playerId) {
+        const wasAvailable = rematch.availablePlayerIds.delete(playerId);
+        rematch.requestedPlayerIds.delete(playerId);
+        if (!wasAvailable) {
+            return;
+        }
+
+        rematch.requestedPlayerIds.clear();
+        emitRematchUpdated(rematch);
+        pendingRematches.delete(sessionId);
+        return;
+    }
+
+    rematch.availablePlayerIds.clear();
+    rematch.requestedPlayerIds.clear();
+    emitRematchUpdated(rematch);
+    pendingRematches.delete(sessionId);
+}
+
+function removePendingRematchesForPlayer(playerId: string): void {
+    for (const [sessionId, rematch] of pendingRematches.entries()) {
+        if (!rematch.players.includes(playerId)) {
+            continue;
+        }
+
+        rematch.availablePlayerIds.delete(playerId);
+        rematch.requestedPlayerIds.clear();
+        emitRematchUpdated(rematch);
+        pendingRematches.delete(sessionId);
+    }
+}
+
 function broadcastSessions(): void {
     io.emit('sessions-updated', getSessionList());
 }
@@ -366,10 +448,22 @@ function finishSession(sessionId: string, reason: SessionFinishReason, winningPl
     };
     const gameDurationMs = session.startedAt === null ? null : finishedAt - session.startedAt;
     const historyPayload = getStartedGameHistoryPayload(session);
+    const canRematch = winningPlayerId !== null && session.players.length === session.maxPlayers;
 
     if (session.state !== "finished") {
         session.state = 'finished';
-        io.to(sessionId).emit('session-finished', { sessionId, reason, winningPlayerId });
+        if (canRematch) {
+            pendingRematches.set(sessionId, {
+                finishedSessionId: sessionId,
+                players: [...session.players],
+                playerDeviceIds: { ...session.playerDeviceIds },
+                availablePlayerIds: new Set<string>(session.players),
+                requestedPlayerIds: new Set<string>(),
+                createdAt: finishedAt
+            });
+        }
+
+        io.to(sessionId).emit('session-finished', { sessionId, reason, winningPlayerId, canRematch });
     }
 
     if (historyPayload) {
@@ -491,27 +585,7 @@ app.get('/api/finished-games/:id', async (req, res) => {
 
 app.post('/api/sessions', express.json(), (req, res) => {
     const sessionId = Math.random().toString(36).substring(2, 8);
-    const createdAt = Date.now();
-
-    const session: StoredGameSession = {
-        id: sessionId,
-        historyId: randomUUID(),
-        players: [],
-        spectators: [],
-        maxPlayers: 2,
-        state: 'lobby',
-        createdAt,
-        startedAt: null,
-        moveHistory: [],
-        playerDeviceIds: {},
-        spectatorDeviceIds: {},
-        gameState: {
-            cells: [],
-            currentTurnPlayerId: null,
-            placementsRemaining: 0,
-            currentTurnExpiresAt: null
-        }
-    };
+    const session = createStoredGameSession(sessionId);
 
     gameSessions.set(sessionId, session);
     broadcastSessions();
@@ -519,7 +593,7 @@ app.post('/api/sessions', express.json(), (req, res) => {
 
     logMetric('game-created', {
         sessionId,
-        createdAt: new Date(createdAt).toISOString(),
+        createdAt: new Date(session.createdAt).toISOString(),
         client: getRequestClientInfo(req)
     });
 
@@ -645,6 +719,63 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('request-rematch', (finishedSessionId: string) => {
+        const rematch = pendingRematches.get(finishedSessionId);
+        if (!rematch || !rematch.players.includes(socket.id)) {
+            socket.emit('error', 'Rematch is not available for this match.');
+            return;
+        }
+
+        if (rematch.availablePlayerIds.size !== rematch.players.length || !rematch.availablePlayerIds.has(socket.id)) {
+            socket.emit('error', 'Your opponent is no longer available for a rematch.');
+            return;
+        }
+
+        rematch.requestedPlayerIds.add(socket.id);
+        emitRematchUpdated(rematch);
+
+        if (rematch.requestedPlayerIds.size < rematch.players.length) {
+            return;
+        }
+
+        const playerSockets = rematch.players
+            .map(playerId => io.sockets.sockets.get(playerId))
+            .filter((playerSocket): playerSocket is Socket<ClientToServerEvents, ServerToClientEvents> => Boolean(playerSocket));
+
+        if (playerSockets.length !== rematch.players.length) {
+            cancelPendingRematch(finishedSessionId);
+            socket.emit('error', 'Your opponent is no longer available for a rematch.');
+            return;
+        }
+
+        pendingRematches.delete(finishedSessionId);
+
+        const nextSessionId = Math.random().toString(36).substring(2, 8);
+        const nextSession = createStoredGameSession(nextSessionId);
+        nextSession.players = [...rematch.players];
+        nextSession.playerDeviceIds = { ...rematch.playerDeviceIds };
+
+        gameSessions.set(nextSessionId, nextSession);
+        broadcastSessions();
+        void createGameHistory(getCreateGameHistoryPayload(nextSession));
+
+        for (const playerSocket of playerSockets) {
+            playerSocket.join(nextSessionId);
+            playerSocket.emit('session-joined', {
+                sessionId: nextSessionId,
+                state: nextSession.state,
+                role: 'player',
+                players: [...nextSession.players]
+            });
+        }
+
+        updateSessionState(nextSession);
+    });
+
+    socket.on('cancel-rematch', (finishedSessionId: string) => {
+        cancelPendingRematch(finishedSessionId, socket.id);
+    });
+
     socket.on('place-cell', (data: { sessionId: string; x: number; y: number }) => {
         const session = gameSessions.get(data.sessionId);
         if (!session) {
@@ -721,6 +852,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
+        removePendingRematchesForPlayer(socket.id);
 
         // Remove player from all sessions
         for (const session of gameSessions.values()) {

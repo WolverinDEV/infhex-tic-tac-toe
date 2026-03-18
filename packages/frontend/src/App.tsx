@@ -72,6 +72,15 @@ function buildRoutePath(route: AppRoute) {
   return '/'
 }
 
+function createEmptyBoardState(): BoardState {
+  return {
+    cells: [],
+    currentTurnPlayerId: null,
+    placementsRemaining: 0,
+    currentTurnExpiresAt: null
+  }
+}
+
 function App() {
   const deviceIdRef = useRef<string>(getOrCreateDeviceId())
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
@@ -88,12 +97,10 @@ function App() {
   const [availableSessions, setAvailableSessions] = useState<SessionInfo[]>([])
   const [participantRole, setParticipantRole] = useState<SessionParticipantRole>('player')
   const [finishReason, setFinishReason] = useState<SessionFinishReason | null>(null)
-  const [boardState, setBoardState] = useState<BoardState>({
-    cells: [],
-    currentTurnPlayerId: null,
-    placementsRemaining: 0,
-    currentTurnExpiresAt: null
-  })
+  const [showRematchAction, setShowRematchAction] = useState(false)
+  const [canRematch, setCanRematch] = useState(false)
+  const [requestedRematchPlayerIds, setRequestedRematchPlayerIds] = useState<string[]>([])
+  const [boardState, setBoardState] = useState<BoardState>(createEmptyBoardState)
   const [finishedGames, setFinishedGames] = useState<FinishedGameSummary[]>([])
   const [isFinishedGamesLoading, setIsFinishedGamesLoading] = useState(false)
   const [finishedGamesError, setFinishedGamesError] = useState<string | null>(null)
@@ -203,17 +210,21 @@ function App() {
   }
 
   const resetToLobby = () => {
+    const activeSessionId = sessionIdRef.current
+    if (activeSessionId) {
+      socketRef.current?.emit('cancel-rematch', activeSessionId)
+    }
+
+    sessionIdRef.current = ''
     setSessionId('')
     setPlayers([])
     participantRoleRef.current = 'player'
     setParticipantRole('player')
     setFinishReason(null)
-    setBoardState({
-      cells: [],
-      currentTurnPlayerId: null,
-      placementsRemaining: 0,
-      currentTurnExpiresAt: null
-    })
+    setShowRematchAction(false)
+    setCanRematch(false)
+    setRequestedRematchPlayerIds([])
+    setBoardState(createEmptyBoardState())
     setScreenState('lobby')
     navigateTo({ page: 'live' })
     fetchAvailableSessions()
@@ -316,6 +327,11 @@ function App() {
       participantRoleRef.current = data.role
       setParticipantRole(data.role)
       setPlayers(data.players)
+      setFinishReason(null)
+      setShowRematchAction(false)
+      setCanRematch(false)
+      setRequestedRematchPlayerIds([])
+      setBoardState(createEmptyBoardState())
       updateScreenForSessionState(data.state)
     })
 
@@ -333,6 +349,9 @@ function App() {
       }
 
       setFinishReason(data.reason)
+      setShowRematchAction(data.canRematch)
+      setCanRematch(data.canRematch)
+      setRequestedRematchPlayerIds([])
 
       if (participantRoleRef.current === 'spectator') {
         setScreenState('spectator-finished')
@@ -350,6 +369,16 @@ function App() {
 
       updateScreenForSessionState(data.sessionState)
       setBoardState(data.gameState)
+    })
+
+    socket.on('rematch-updated', data => {
+      if (data.sessionId !== sessionIdRef.current) {
+        return
+      }
+
+      setShowRematchAction(true)
+      setCanRematch(data.canRematch)
+      setRequestedRematchPlayerIds(data.requestedPlayerIds)
     })
 
     socket.on('error', (error: string) => {
@@ -380,12 +409,11 @@ function App() {
       const data = await response.json()
       participantRoleRef.current = 'player'
       setParticipantRole('player')
-      setBoardState({
-        cells: [],
-        currentTurnPlayerId: null,
-        placementsRemaining: 0,
-        currentTurnExpiresAt: null
-      })
+      setFinishReason(null)
+      setShowRematchAction(false)
+      setCanRematch(false)
+      setRequestedRematchPlayerIds([])
+      setBoardState(createEmptyBoardState())
       setPlayers([])
       socketRef.current?.emit('join-session', data.sessionId)
     } catch (error) {
@@ -397,12 +425,11 @@ function App() {
   const joinGame = (sessionIdToJoin: string) => {
     participantRoleRef.current = 'player'
     setParticipantRole('player')
-    setBoardState({
-      cells: [],
-      currentTurnPlayerId: null,
-      placementsRemaining: 0,
-      currentTurnExpiresAt: null
-    })
+    setFinishReason(null)
+    setShowRematchAction(false)
+    setCanRematch(false)
+    setRequestedRematchPlayerIds([])
+    setBoardState(createEmptyBoardState())
     setPlayers([])
     socketRef.current?.emit('join-session', sessionIdToJoin)
   }
@@ -437,6 +464,17 @@ function App() {
       resetToLobby()
     }
   }
+
+  const requestRematch = () => {
+    if (!sessionIdRef.current) {
+      return
+    }
+
+    socketRef.current?.emit('request-rematch', sessionIdRef.current)
+  }
+
+  const isRematchRequestedByCurrentPlayer = requestedRematchPlayerIds.includes(currentPlayerId)
+  const isRematchRequestedByOpponent = requestedRematchPlayerIds.some(playerId => playerId !== currentPlayerId)
 
   let screen = null
 
@@ -495,7 +533,16 @@ function App() {
           onPlaceCell={() => { }}
           onLeave={leaveGame}
           interactionEnabled={false}
-          overlay={<WinnerScreen reason={finishReason} onReturnToLobby={resetToLobby} />}
+          overlay={(
+            <WinnerScreen
+              reason={finishReason}
+              onReturnToLobby={resetToLobby}
+              onRequestRematch={showRematchAction ? requestRematch : undefined}
+              isRematchAvailable={canRematch}
+              isRematchRequestedByCurrentPlayer={isRematchRequestedByCurrentPlayer}
+              isRematchRequestedByOpponent={isRematchRequestedByOpponent}
+            />
+          )}
         />
       )
     }
@@ -510,7 +557,16 @@ function App() {
           onPlaceCell={() => { }}
           onLeave={leaveGame}
           interactionEnabled={false}
-          overlay={<LoserScreen reason={finishReason} onReturnToLobby={resetToLobby} />}
+          overlay={(
+            <LoserScreen
+              reason={finishReason}
+              onReturnToLobby={resetToLobby}
+              onRequestRematch={showRematchAction ? requestRematch : undefined}
+              isRematchAvailable={canRematch}
+              isRematchRequestedByCurrentPlayer={isRematchRequestedByCurrentPlayer}
+              isRematchRequestedByOpponent={isRematchRequestedByOpponent}
+            />
+          )}
         />
       )
     }
