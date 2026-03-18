@@ -39,7 +39,6 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('')
   const [availableSessions, setAvailableSessions] = useState<SessionInfo[]>([])
-  const [isHost, setIsHost] = useState(false)
   const [participantRole, setParticipantRole] = useState<SessionParticipantRole>('player')
   const [finishReason, setFinishReason] = useState<SessionFinishReason | null>(null)
   const [boardState, setBoardState] = useState<BoardState>({
@@ -70,7 +69,6 @@ function App() {
   const resetToLobby = () => {
     setSessionId('')
     setPlayers([])
-    setIsHost(false)
     participantRoleRef.current = 'player'
     setParticipantRole('player')
     setFinishReason(null)
@@ -225,7 +223,6 @@ function App() {
         }
       })
       const data = await response.json()
-      setIsHost(true)
       participantRoleRef.current = 'player'
       setParticipantRole('player')
       setBoardState({
@@ -243,7 +240,6 @@ function App() {
   }
 
   const joinGame = (sessionIdToJoin: string) => {
-    setIsHost(false)
     participantRoleRef.current = 'player'
     setParticipantRole('player')
     setBoardState({
@@ -299,9 +295,7 @@ function App() {
   if (screenState === 'playing') {
     screen = (
       <GameScreen
-        sessionId={sessionId}
         players={players}
-        isHost={isHost}
         participantRole={participantRole}
         currentPlayerId={currentPlayerId}
         boardState={boardState}
@@ -314,9 +308,7 @@ function App() {
   if (screenState === 'winner') {
     screen = (
       <GameScreen
-        sessionId={sessionId}
         players={players}
-        isHost={isHost}
         participantRole={participantRole}
         currentPlayerId={currentPlayerId}
         boardState={boardState}
@@ -331,9 +323,7 @@ function App() {
   if (screenState === 'loser') {
     screen = (
       <GameScreen
-        sessionId={sessionId}
         players={players}
-        isHost={isHost}
         participantRole={participantRole}
         currentPlayerId={currentPlayerId}
         boardState={boardState}
@@ -348,9 +338,7 @@ function App() {
   if (screenState === 'spectator-finished') {
     screen = (
       <GameScreen
-        sessionId={sessionId}
         players={players}
-        isHost={isHost}
         participantRole={participantRole}
         currentPlayerId={currentPlayerId}
         boardState={boardState}
