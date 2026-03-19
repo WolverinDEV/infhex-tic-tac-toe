@@ -43,7 +43,7 @@ export class HttpApplication {
 
             res.on('finish', () => {
                 const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-                requestLogger.info({
+                requestLogger.trace({
                     event: 'http.request.completed',
                     statusCode: res.statusCode,
                     durationMs: Number(durationMs.toFixed(3)),
