@@ -1,34 +1,22 @@
 import type {
   ClientToServerEvents,
   CreateSessionResponse,
-  ServerToClientEvents,
-  SessionInfo
+  ServerToClientEvents
 } from '@ih3t/shared'
 import { io, type Socket } from 'socket.io-client'
 import { toast } from 'react-toastify'
-import { getOrCreateDeviceId } from './deviceId'
+import { getApiBaseUrl, getDeviceId, getSocketUrl } from './apiClient'
 import { getActiveSessionId, useLiveGameStore } from './liveGameStore'
+import { queryClient } from './queryClient'
+import { queryKeys } from './queryHooks'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true
-const deviceId = getOrCreateDeviceId()
+const deviceId = getDeviceId()
 const apiBaseUrl = getApiBaseUrl()
 const socketUrl = getSocketUrl()
 const inviteSessionId = new URLSearchParams(window.location.search).get('join')
 let inviteHandled = false
-
-function getApiBaseUrl() {
-  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
-  if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, '')
-  }
-
-  return import.meta.env.DEV ? 'http://localhost:3001' : window.location.origin
-}
-
-function getSocketUrl() {
-  return import.meta.env.VITE_SOCKET_URL ?? getApiBaseUrl()
-}
 
 function showErrorToast(message: string) {
   toast.error(message, {
@@ -60,8 +48,11 @@ export function startLiveGameClient() {
     }
   })
 
-  socket.on('sessions-updated', (sessions: SessionInfo[]) => {
-    useLiveGameStore.getState().syncAvailableSessions(sessions)
+  socket.on('sessions-updated', (sessions) => {
+    queryClient.setQueryData(
+      queryKeys.availableSessions,
+      sessions.filter(session => session.canJoin)
+    )
   })
 
   socket.on('disconnect', () => {
@@ -70,6 +61,7 @@ export function startLiveGameClient() {
     }
 
     useLiveGameStore.getState().setDisconnected()
+    queryClient.setQueryData(queryKeys.availableSessions, [])
     showErrorToast('Disconnected from the server.')
   })
 
@@ -92,6 +84,7 @@ export function startLiveGameClient() {
     }
 
     currentState.finishSession(data)
+    void queryClient.invalidateQueries({ queryKey: queryKeys.finishedGames })
   })
 
   socket.on('game-state', data => {
@@ -132,14 +125,7 @@ export function stopLiveGameClient() {
 
 export async function fetchAvailableSessions() {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/sessions`, {
-      credentials: 'include',
-      headers: {
-        'X-Device-Id': deviceId
-      }
-    })
-    const sessions: SessionInfo[] = await response.json()
-    useLiveGameStore.getState().syncAvailableSessions(sessions)
+    await queryClient.invalidateQueries({ queryKey: queryKeys.availableSessions })
   } catch (error) {
     console.error('Failed to fetch sessions:', error)
     showErrorToast('Failed to fetch available sessions.')

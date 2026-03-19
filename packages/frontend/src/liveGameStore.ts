@@ -3,7 +3,6 @@ import type {
   RematchUpdatedEvent,
   ServerToClientEvents,
   SessionFinishReason,
-  SessionInfo,
   SessionParticipantRole,
   SessionState
 } from '@ih3t/shared'
@@ -61,11 +60,9 @@ interface LiveGameStoreState {
     isConnected: boolean
     currentPlayerId: string
   }
-  availableSessions: SessionInfo[]
   screen: LiveGameScreenState
   setConnected: (currentPlayerId: string) => void
   setDisconnected: () => void
-  syncAvailableSessions: (sessions: SessionInfo[]) => void
   joinSession: (payload: SessionJoinedPayload) => void
   updatePlayers: (payload: PlayerPresencePayload) => void
   updateBoard: (payload: GameStatePayload) => void
@@ -132,7 +129,6 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       isConnected: false,
       currentPlayerId: ''
     },
-    availableSessions: [],
     screen: { kind: 'lobby' },
     setConnected: (currentPlayerId) =>
       set((state) => {
@@ -143,12 +139,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       set((state) => {
         state.connection.isConnected = false
         state.connection.currentPlayerId = ''
-        state.availableSessions = []
         state.screen = { kind: 'lobby' }
-      }),
-    syncAvailableSessions: (sessions) =>
-      set((state) => {
-        state.availableSessions = sessions.filter(session => session.canJoin)
       }),
     joinSession: (payload) =>
       set((state) => {
