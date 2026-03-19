@@ -23,6 +23,8 @@ pnpm dev:backend
 Frontend: `http://localhost:5173`  
 Backend: `http://localhost:3001`
 
+Backend startup requires `MONGODB_URI` to be set. `MONGODB_DB_NAME` remains optional and defaults to `ih3t`.
+
 ## AI Use
 > This project was built mostly with AI-assisted "vibe coding" techniques.
 

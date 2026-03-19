@@ -1,17 +1,14 @@
 import '../env.js';
-import { inject, injectable } from 'tsyringe';
+import { injectable } from 'tsyringe';
 import { MongoClient, type Db } from 'mongodb';
-import { ServerTokens } from '../di/tokens';
+import { ServerConfig } from '../config/serverConfig';
 
 @injectable()
 export class MongoDatabase {
     private mongoClient: MongoClient | null = null;
     private databasePromise: Promise<Db> | null = null;
 
-    constructor(
-        @inject(ServerTokens.MongoUri) private readonly mongoUri: string,
-        @inject(ServerTokens.MongoDbName) private readonly mongoDbName: string
-    ) {}
+    constructor(private readonly serverConfig: ServerConfig) {}
 
     async getDatabase(): Promise<Db> {
         if (this.databasePromise !== null) {
@@ -19,9 +16,9 @@ export class MongoDatabase {
         }
 
         this.databasePromise = (async () => {
-            this.mongoClient = new MongoClient(this.mongoUri);
+            this.mongoClient = new MongoClient(this.serverConfig.mongoUri);
             await this.mongoClient.connect();
-            return this.mongoClient.db(this.mongoDbName);
+            return this.mongoClient.db(this.serverConfig.mongoDbName);
         })().catch((error: unknown) => {
             this.databasePromise = null;
             this.mongoClient = null;
@@ -30,7 +27,7 @@ export class MongoDatabase {
                 type: 'mongo',
                 event: 'connection-error',
                 timestamp: new Date().toISOString(),
-                database: this.mongoDbName,
+                database: this.serverConfig.mongoDbName,
                 message: error instanceof Error ? error.message : String(error)
             }));
 

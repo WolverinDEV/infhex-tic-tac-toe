@@ -1,8 +1,8 @@
 import type { Server as HttpServer } from 'node:http';
 import { createServer } from 'node:http';
-import { inject, injectable } from 'tsyringe';
+import { injectable } from 'tsyringe';
 import { BackgroundWorkerHub } from './background/backgroundWorkers';
-import { ServerTokens } from './di/tokens';
+import { ServerConfig } from './config/serverConfig';
 import { HttpApplication } from './network/createHttpApp';
 import { SocketServerGateway } from './network/createSocketServer';
 import { MongoDatabase } from './persistence/mongoClient';
@@ -20,8 +20,7 @@ export class ApplicationServer {
         private readonly simulation: GameSimulation,
         private readonly mongoDatabase: MongoDatabase,
         private readonly sessionManager: SessionManager,
-        @inject(ServerTokens.Port) private readonly port: string | number,
-        @inject(ServerTokens.RematchTtlMs) private readonly rematchTtlMs: number | null
+        private readonly serverConfig: ServerConfig
     ) {
         this.server = createServer(httpApplication.app);
         socketServerGateway.attach(this.server);
@@ -31,14 +30,14 @@ export class ApplicationServer {
         await this.mongoDatabase.getDatabase();
 
         this.backgroundWorkers.start({
-            rematchTtlMs: this.rematchTtlMs,
+            rematchTtlMs: this.serverConfig.rematchTtlMs,
             onCleanupExpiredRematches: (maxAgeMs) => {
                 this.sessionManager.expireStaleRematches(maxAgeMs);
             }
         });
 
-        this.server.listen(this.port, () => {
-            console.log(`Server running on port ${this.port}`);
+        this.server.listen(this.serverConfig.port, () => {
+            console.log(`Server running on port ${this.serverConfig.port}`);
         });
 
         this.server.on('close', () => {

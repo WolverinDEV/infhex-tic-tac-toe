@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { inject, injectable } from 'tsyringe';
-import { ServerTokens } from '../di/tokens';
+import { injectable } from 'tsyringe';
+import { ServerConfig } from '../config/serverConfig';
 import { CorsConfiguration } from './cors';
 import { ApiRouter } from './rest/createApiRouter';
 
@@ -14,10 +14,11 @@ export class HttpApplication {
     constructor(
         apiRouter: ApiRouter,
         corsConfiguration: CorsConfiguration,
-        @inject(ServerTokens.FrontendDistPath) frontendDistPath: string
+        serverConfig: ServerConfig
     ) {
         const app = express();
         const corsOptions = corsConfiguration.options;
+        const frontendDistPath = serverConfig.frontendDistPath;
 
         app.set('trust proxy', true);
 
