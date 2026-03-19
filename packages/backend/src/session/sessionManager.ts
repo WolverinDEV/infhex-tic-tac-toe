@@ -1,4 +1,4 @@
-import type { CreateSessionResponse, SessionFinishReason, SessionInfo } from '@ih3t/shared';
+import type { CreateSessionResponse, SessionFinishReason, SessionInfo, ShutdownState } from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
@@ -30,10 +30,17 @@ export class SessionError extends Error {
     }
 }
 
+const DEFAULT_SHUTDOWN_DELAY_MS = 10 * 60 * 1000;
+type ShutdownTrigger = 'all-sessions-finished' | 'deadline-reached';
+
 @injectable()
 export class SessionManager {
     private eventHandlers: SessionManagerEventHandlers = {};
     private readonly logger: Logger;
+    private scheduledShutdown: ShutdownState | null = null;
+    private scheduledShutdownTimer: ReturnType<typeof setTimeout> | null = null;
+    private shutdownRequested = false;
+    private shutdownHandler: (() => void) | null = null;
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
@@ -49,11 +56,65 @@ export class SessionManager {
         this.eventHandlers = eventHandlers;
     }
 
+    setShutdownHandler(handler: () => void): void {
+        this.shutdownHandler = handler;
+    }
+
     listSessions(): SessionInfo[] {
         return this.store.listSessionInfos();
     }
 
+    getShutdownState(): ShutdownState | null {
+        if (!this.scheduledShutdown) {
+            return null;
+        }
+
+        return { ...this.scheduledShutdown };
+    }
+
+    scheduleShutdown(delayMs = DEFAULT_SHUTDOWN_DELAY_MS): ShutdownState {
+        if (this.scheduledShutdown) {
+            return { ...this.scheduledShutdown };
+        }
+
+        const scheduledAt = Date.now();
+        this.scheduledShutdown = {
+            scheduledAt,
+            shutdownAt: scheduledAt + delayMs
+        };
+        this.shutdownRequested = false;
+
+        this.clearScheduledShutdownTimer();
+        this.scheduledShutdownTimer = setTimeout(() => {
+            this.handleScheduledShutdownDeadline();
+        }, delayMs);
+
+        for (const rematch of this.store.listPendingRematches()) {
+            this.cancelPendingRematch(rematch.finishedSessionId);
+        }
+
+        this.emitShutdownUpdated();
+        this.logger.info({
+            event: 'shutdown.scheduled',
+            scheduledAt,
+            shutdownAt: this.scheduledShutdown.shutdownAt,
+            activeSessionCount: this.store.listSessions().length
+        }, 'Scheduled server shutdown');
+
+        if (this.store.listSessions().length === 0) {
+            setTimeout(() => {
+                this.requestApplicationShutdown('all-sessions-finished');
+            }, 0);
+        }
+
+        return { ...this.scheduledShutdown };
+    }
+
     createSession(params: CreateSessionParams): CreateSessionResponse {
+        if (this.scheduledShutdown) {
+            throw new SessionError('Server shutdown is scheduled. New games cannot be created.');
+        }
+
         const sessionId = this.createSessionId();
         const session = createStoredGameSession(sessionId);
 
@@ -213,6 +274,10 @@ export class SessionManager {
     }
 
     requestRematch(finishedSessionId: string, participantId: string): RematchRequestResult {
+        if (this.scheduledShutdown) {
+            throw new SessionError('Server shutdown is scheduled. Rematches are unavailable.');
+        }
+
         const rematch = this.store.getPendingRematch(finishedSessionId);
         if (!rematch || !rematch.players.includes(participantId)) {
             throw new SessionError('Rematch is not available for this match.');
@@ -232,6 +297,10 @@ export class SessionManager {
     }
 
     createRematchSession(finishedSessionId: string): RematchSessionResult {
+        if (this.scheduledShutdown) {
+            throw new SessionError('Server shutdown is scheduled. Rematches are unavailable.');
+        }
+
         const rematch = this.store.getPendingRematch(finishedSessionId);
         if (!rematch) {
             throw new SessionError('Rematch is not available for this match.');
@@ -294,6 +363,26 @@ export class SessionManager {
         this.finishSession(session, 'timeout', winningPlayerId);
     };
 
+    private handleScheduledShutdownDeadline(): void {
+        const shutdown = this.scheduledShutdown;
+        if (!shutdown) {
+            return;
+        }
+
+        this.clearScheduledShutdownTimer();
+        this.logger.info({
+            event: 'shutdown.deadline-reached',
+            shutdownAt: shutdown.shutdownAt,
+            activeSessionCount: this.store.listSessions().length
+        }, 'Shutdown deadline reached; closing remaining sessions');
+
+        for (const session of [...this.store.listSessions()]) {
+            this.finishSession(session, 'terminated', null);
+        }
+
+        this.requestApplicationShutdown('deadline-reached');
+    }
+
     private reconcileLobbyState(session: StoredGameSession): void {
         if (session.players.length === 0) {
             this.logger.info({
@@ -328,7 +417,7 @@ export class SessionManager {
         const finalBoardState = this.simulation.getPublicGameState(session).gameState;
         const gameDurationMs = session.startedAt === null ? null : finishedAt - session.startedAt;
         const historyPayload = this.getStartedHistoryPayload(session);
-        const canRematch = winningPlayerId !== null && session.players.length === session.maxPlayers;
+        const canRematch = winningPlayerId !== null && session.players.length === session.maxPlayers && !this.scheduledShutdown;
 
         if (session.state !== 'finished') {
             session.state = 'finished';
@@ -379,6 +468,7 @@ export class SessionManager {
         this.simulation.clearSession(session.id);
         this.store.deleteSession(session.id);
         this.emitSessionsUpdated();
+        this.maybeShutdownAfterSessionFinished();
         this.logger.info({
             event: 'session.finished',
             sessionId: session.id,
@@ -470,6 +560,10 @@ export class SessionManager {
         this.eventHandlers.sessionsUpdated?.(this.listSessions());
     }
 
+    private emitShutdownUpdated(): void {
+        this.eventHandlers.shutdownUpdated?.(this.getShutdownState());
+    }
+
     private emitGameState(session: StoredGameSession): void {
         this.eventHandlers.gameStateUpdated?.(this.simulation.getPublicGameState(session));
     }
@@ -533,5 +627,38 @@ export class SessionManager {
             startedAt: session.startedAt,
             players: [...session.players]
         };
+    }
+
+    private maybeShutdownAfterSessionFinished(): void {
+        if (!this.scheduledShutdown || this.shutdownRequested || this.store.listSessions().length > 0) {
+            return;
+        }
+
+        this.requestApplicationShutdown('all-sessions-finished');
+    }
+
+    private requestApplicationShutdown(trigger: ShutdownTrigger): void {
+        if (this.shutdownRequested) {
+            return;
+        }
+
+        this.shutdownRequested = true;
+        this.clearScheduledShutdownTimer();
+        this.logger.info({
+            event: 'shutdown.requested',
+            trigger,
+            shutdownAt: this.scheduledShutdown?.shutdownAt ?? null
+        }, 'Requesting application shutdown');
+
+        this.shutdownHandler?.();
+    }
+
+    private clearScheduledShutdownTimer(): void {
+        if (!this.scheduledShutdownTimer) {
+            return;
+        }
+
+        clearTimeout(this.scheduledShutdownTimer);
+        this.scheduledShutdownTimer = null;
     }
 }

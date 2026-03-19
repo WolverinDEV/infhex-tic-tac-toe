@@ -1,12 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { ShutdownState } from '@ih3t/shared'
 
 interface GameScreenHudProps {
   isSpectator: boolean
   occupiedCellCount: number
   ownColor: string
   renderableCellCount: number
+  shutdown: ShutdownState | null
   onLeave: () => void
   onResetView: () => void
+}
+
+function formatRemainingTime(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function GameScreenHud({
@@ -14,15 +24,39 @@ function GameScreenHud({
   occupiedCellCount,
   ownColor,
   renderableCellCount,
+  shutdown,
   onLeave,
   onResetView
 }: Readonly<GameScreenHudProps>) {
   const [isMobileHudOpen, setIsMobileHudOpen] = useState(true)
+  const [shutdownCountdownMs, setShutdownCountdownMs] = useState<number | null>(
+    shutdown ? Math.max(0, shutdown.shutdownAt - Date.now()) : null
+  )
+
+  useEffect(() => {
+    if (!shutdown) {
+      setShutdownCountdownMs(null)
+      return
+    }
+
+    const updateCountdown = () => {
+      setShutdownCountdownMs(Math.max(0, shutdown.shutdownAt - Date.now()))
+    }
+
+    updateCountdown()
+    const interval = window.setInterval(updateCountdown, 250)
+    return () => window.clearInterval(interval)
+  }, [shutdown])
 
   return (
     <>
       {!isMobileHudOpen && (
-        <div className="pointer-events-auto absolute bottom-3 right-3 z-10 md:hidden">
+        <div className="pointer-events-auto absolute bottom-3 right-3 z-10 flex flex-col items-end gap-2 md:hidden">
+          {shutdown && shutdownCountdownMs !== null && (
+            <div className="rounded-full border border-amber-200/30 bg-slate-950/92 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg">
+              Shutdown {formatRemainingTime(shutdownCountdownMs)}
+            </div>
+          )}
           <button
             onClick={() => setIsMobileHudOpen(true)}
             aria-label="Open HUD"
@@ -67,6 +101,13 @@ function GameScreenHud({
           Connect 6 hexagons in a row.<br />
           {isSpectator ? 'Drag to pan and pinch to zoom while the players battle it out.' : 'Tap to place, drag to pan, pinch to zoom.'}
         </div>
+
+        {shutdown && shutdownCountdownMs !== null && (
+          <div className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200">Shutdown Scheduled</div>
+            <div className="mt-1">New games are disabled. This server closes in {formatRemainingTime(shutdownCountdownMs)}.</div>
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-1">
           <div className="border-l border-white/18 pl-3">

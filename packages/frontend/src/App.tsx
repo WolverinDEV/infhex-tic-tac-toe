@@ -62,6 +62,7 @@ function buildRoutePath(route: AppRoute) {
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseRoute(window.location.pathname))
   const connection = useLiveGameStore(state => state.connection)
+  const shutdown = useLiveGameStore(state => state.shutdown)
   const liveScreen = useLiveGameStore(state => state.screen)
   const availableSessionsQuery = useQueryAvailableSessions({ enabled: route.page === 'live' })
   const finishedGamesQuery = useQueryFinishedGames({ enabled: route.page === 'finished-games' })
@@ -159,6 +160,7 @@ function App() {
     screen = (
       <LobbyScreen
         isConnected={connection.isConnected}
+        shutdown={shutdown}
         availableSessions={availableSessionsQuery.data ?? []}
         onHostGame={hostGame}
         onJoinGame={joinGame}
@@ -181,6 +183,7 @@ function App() {
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}
+        shutdown={shutdown}
         onPlaceCell={placeCell}
         onLeave={leaveGame}
       />
@@ -198,6 +201,7 @@ function App() {
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}
+        shutdown={shutdown}
         onPlaceCell={() => { }}
         onLeave={leaveGame}
         interactionEnabled={false}
@@ -234,6 +238,7 @@ function App() {
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}
+        shutdown={shutdown}
         onPlaceCell={() => { }}
         onLeave={leaveGame}
         interactionEnabled={false}

@@ -24,7 +24,9 @@ function WinnerScreen({
     ? 'The other player failed to place a cell before the timer ran out.'
     : reason === 'six-in-a-row'
       ? 'You completed a six-tile row.'
-      : 'The other player disconnected.'
+      : reason === 'terminated'
+        ? 'The match was closed because the server shutdown reached its deadline.'
+        : 'The other player disconnected.'
 
   return (
     <FinishedPlayerScreen

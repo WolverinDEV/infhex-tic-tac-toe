@@ -24,7 +24,9 @@ function LoserScreen({
     ? 'You failed to place a cell before the timer ran out.'
     : reason === 'six-in-a-row'
       ? 'The other player completed a six-tile row.'
-      : 'You left the match before it finished.'
+      : reason === 'terminated'
+        ? 'The match was closed because the server shutdown reached its deadline.'
+        : 'You left the match before it finished.'
   return (
     <FinishedPlayerScreen
       variant="lose"

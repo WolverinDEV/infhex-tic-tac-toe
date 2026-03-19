@@ -14,7 +14,7 @@
     "docker:run:env": "docker run --rm -p 3001:3001 --env-file packages/backend/.env --name ih3t ih3t:latest",
     "lint": "pnpm -r lint",
     "clean": "pnpm -r clean",
-    "type-check": "pnpm --filter @ih3t/backend run type-check && pnpm --filter @ih3t/frontend run type-check"
+    "type-check": "pnpm --filter @ih3t/shared exec tsc -b && pnpm --filter @ih3t/backend run type-check && pnpm --filter @ih3t/frontend run type-check"
   },
   "devDependencies": {
     "tsx": "^4.21.0",

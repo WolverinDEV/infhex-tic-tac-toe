@@ -5,7 +5,7 @@ import type {
 } from '@ih3t/shared'
 import { io, type Socket } from 'socket.io-client'
 import { toast } from 'react-toastify'
-import { getApiBaseUrl, getDeviceId, getSocketUrl } from './apiClient'
+import { fetchJson, getDeviceId, getSocketUrl } from './apiClient'
 import { getActiveSessionId, useLiveGameStore } from './liveGameStore'
 import { queryClient } from './queryClient'
 import { queryKeys } from './queryHooks'
@@ -13,7 +13,6 @@ import { queryKeys } from './queryHooks'
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true
 const deviceId = getDeviceId()
-const apiBaseUrl = getApiBaseUrl()
 const socketUrl = getSocketUrl()
 const inviteSessionId = new URLSearchParams(window.location.search).get('join')
 let inviteHandled = false
@@ -53,6 +52,10 @@ export function startLiveGameClient() {
       queryKeys.availableSessions,
       sessions.filter(session => session.canJoin)
     )
+  })
+
+  socket.on('shutdown-updated', (shutdown) => {
+    useLiveGameStore.getState().setShutdownState(shutdown)
   })
 
   socket.on('disconnect', () => {
@@ -134,19 +137,16 @@ export async function fetchAvailableSessions() {
 
 export async function hostGame() {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/sessions`, {
+    const data = await fetchJson<CreateSessionResponse>('/api/sessions', {
       method: 'POST',
-      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Id': deviceId
+        'Content-Type': 'application/json'
       }
     })
-    const data = await response.json() as CreateSessionResponse
     socket?.emit('join-session', data.sessionId)
   } catch (error) {
     console.error('Failed to create session:', error)
-    showErrorToast('Failed to create a session.')
+    showErrorToast(error instanceof Error ? error.message : 'Failed to create a session.')
   }
 }
 

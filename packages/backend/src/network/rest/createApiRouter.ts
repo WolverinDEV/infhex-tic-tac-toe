@@ -3,7 +3,7 @@ import { inject, injectable } from 'tsyringe';
 import type { CreateSessionResponse } from '@ih3t/shared';
 import { getRequestClientInfo } from '../clientInfo';
 import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
-import { SessionManager } from '../../session/sessionManager';
+import { SessionError, SessionManager } from '../../session/sessionManager';
 
 @injectable()
 export class ApiRouter {
@@ -35,11 +35,20 @@ export class ApiRouter {
         });
 
         router.post('/sessions', express.json(), (req, res) => {
-            const response: CreateSessionResponse = this.sessionManager.createSession({
-                client: getRequestClientInfo(req)
-            });
+            try {
+                const response: CreateSessionResponse = this.sessionManager.createSession({
+                    client: getRequestClientInfo(req)
+                });
 
-            res.json(response);
+                res.json(response);
+            } catch (error: unknown) {
+                if (error instanceof SessionError) {
+                    res.status(409).json({ error: error.message });
+                    return;
+                }
+
+                throw error;
+            }
         });
 
         this.router = router;

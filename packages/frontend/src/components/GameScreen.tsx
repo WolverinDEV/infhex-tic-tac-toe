@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import type { BoardState, SessionParticipantRole } from '@ih3t/shared'
+import type { BoardState, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import GameScreenHud from './game-screen/GameScreenHud'
 import GameScreenStatus from './game-screen/GameScreenStatus'
@@ -12,6 +12,7 @@ interface GameScreenProps {
   participantRole: SessionParticipantRole
   currentPlayerId: string
   boardState: BoardState
+  shutdown: ShutdownState | null
   onPlaceCell: (x: number, y: number) => void
   onLeave: () => void
   overlay?: ReactNode
@@ -23,6 +24,7 @@ function GameScreen({
   participantRole,
   currentPlayerId,
   boardState,
+  shutdown,
   onPlaceCell,
   onLeave,
   overlay,
@@ -107,6 +109,7 @@ function GameScreen({
               occupiedCellCount={boardState.cells.length}
               ownColor={ownColor}
               renderableCellCount={renderableCellCount}
+              shutdown={shutdown}
               onLeave={onLeave}
               onResetView={resetView}
             />

@@ -4,6 +4,11 @@ export type SessionParticipantRole = 'player' | 'spectator';
 export type CellOccupant = string & { _type?: "CellOccupant" };
 export type SessionFinishReason = 'disconnect' | 'timeout' | 'terminated' | 'six-in-a-row';
 
+export interface ShutdownState {
+    scheduledAt: number;
+    shutdownAt: number;
+}
+
 export interface BoardCell {
     x: number;
     y: number;
@@ -85,6 +90,7 @@ export interface RematchUpdatedEvent {
 // Socket Event Types
 export interface ServerToClientEvents {
     'sessions-updated': (sessions: SessionInfo[]) => void;
+    'shutdown-updated': (shutdown: ShutdownState | null) => void;
     'session-joined': (data: {
         sessionId: string;
         state: SessionState;

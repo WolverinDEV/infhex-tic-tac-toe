@@ -50,6 +50,9 @@ export class SocketServerGateway {
             sessionsUpdated(sessions) {
                 io.emit('sessions-updated', sessions);
             },
+            shutdownUpdated(shutdown) {
+                io.emit('shutdown-updated', shutdown);
+            },
             gameStateUpdated(payload: PublicGameStatePayload) {
                 io.to(payload.sessionId).emit('game-state', payload);
             },
@@ -118,6 +121,7 @@ export class SocketServerGateway {
 
             this.backgroundWorkers.track('site-visited', { client: clientInfo });
             socket.emit('sessions-updated', this.sessionManager.listSessions());
+            socket.emit('shutdown-updated', this.sessionManager.getShutdownState());
 
             socket.on('join-session', (sessionId: string) => {
                 try {

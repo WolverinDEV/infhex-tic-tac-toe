@@ -1,8 +1,9 @@
-import type { SessionInfo } from '@ih3t/shared'
+import type { SessionInfo, ShutdownState } from '@ih3t/shared'
 import ScreenFooter from './ScreenFooter'
 
 interface LobbyScreenProps {
   isConnected: boolean
+  shutdown: ShutdownState | null
   availableSessions: SessionInfo[]
   onHostGame: () => void
   onJoinGame: (sessionId: string) => void
@@ -11,11 +12,14 @@ interface LobbyScreenProps {
 
 function LobbyScreen({
   isConnected,
+  shutdown,
   availableSessions,
   onHostGame,
   onJoinGame,
   onViewFinishedGames
 }: LobbyScreenProps) {
+  const isHostingDisabled = !isConnected || Boolean(shutdown)
+
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.22),_transparent_30%),linear-gradient(135deg,_#111827,_#0f172a_45%,_#1e293b)] text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-between px-6 py-10">
@@ -42,13 +46,13 @@ function LobbyScreen({
               <div className="mt-8 flex flex-wrap gap-4">
                 <button
                   onClick={onHostGame}
-                  disabled={!isConnected}
-                  className={`rounded-full px-7 py-3 text-base font-semibold uppercase tracking-[0.18em] transition ${isConnected
+                  disabled={isHostingDisabled}
+                  className={`rounded-full px-7 py-3 text-base font-semibold uppercase tracking-[0.18em] transition ${!isHostingDisabled
                     ? 'bg-amber-300 text-slate-900 shadow-[0_10px_35px_rgba(251,191,36,0.35)] hover:-translate-y-0.5 hover:bg-amber-200'
                     : 'cursor-not-allowed bg-slate-500/60 text-slate-200'
                     }`}
                 >
-                  Host Match
+                  {shutdown ? 'Shutdown Pending' : 'Host Match'}
                 </button>
                 <button
                   onClick={onViewFinishedGames}
@@ -59,6 +63,11 @@ function LobbyScreen({
                 {!isConnected && (
                   <div className="inline-flex items-center rounded-full border border-rose-300/40 bg-rose-300/10 px-4 py-3 text-sm font-medium text-rose-100">
                     Not connected to server
+                  </div>
+                )}
+                {shutdown && (
+                  <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-3 text-sm font-medium text-amber-100">
+                    New matches are disabled until the shutdown completes.
                   </div>
                 )}
               </div>

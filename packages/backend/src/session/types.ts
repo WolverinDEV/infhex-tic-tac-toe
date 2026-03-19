@@ -2,6 +2,7 @@ import type {
     BoardState,
     GameMove,
     GameSession,
+    ShutdownState,
     SessionFinishReason,
     SessionInfo,
     SessionParticipantRole,
@@ -82,6 +83,7 @@ export interface SessionFinishedDomainEvent {
 
 export interface SessionManagerEventHandlers {
     sessionsUpdated?: (sessions: SessionInfo[]) => void;
+    shutdownUpdated?: (shutdown: ShutdownState | null) => void;
     gameStateUpdated?: (payload: PublicGameStatePayload) => void;
     playerJoined?: (event: PlayerJoinedEvent) => void;
     playerLeft?: (event: PlayerLeftEvent) => void;

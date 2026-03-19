@@ -2,6 +2,7 @@ import type {
   BoardState,
   RematchUpdatedEvent,
   ServerToClientEvents,
+  ShutdownState,
   SessionFinishReason,
   SessionParticipantRole,
   SessionState
@@ -60,9 +61,11 @@ interface LiveGameStoreState {
     isConnected: boolean
     currentPlayerId: string
   }
+  shutdown: ShutdownState | null
   screen: LiveGameScreenState
   setConnected: () => void
   setDisconnected: () => void
+  setShutdownState: (shutdown: ShutdownState | null) => void
   joinSession: (payload: SessionJoinedPayload) => void
   updatePlayers: (payload: PlayerPresencePayload) => void
   updateBoard: (payload: GameStatePayload) => void
@@ -129,6 +132,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       isConnected: false,
       currentPlayerId: ''
     },
+    shutdown: null,
     screen: { kind: 'lobby' },
     setConnected: () =>
       set((state) => {
@@ -138,7 +142,12 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       set((state) => {
         state.connection.isConnected = false
         state.connection.currentPlayerId = ''
+        state.shutdown = null
         state.screen = { kind: 'lobby' }
+      }),
+    setShutdownState: (shutdown) =>
+      set((state) => {
+        state.shutdown = shutdown ? { ...shutdown } : null
       }),
     joinSession: (payload) =>
       set((state) => {

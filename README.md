@@ -27,6 +27,9 @@ Backend startup requires `MONGODB_URI` to be set. `MONGODB_DB_NAME` remains opti
 Optional logging env vars: `LOG_LEVEL` and `LOG_PRETTY`.
 Server logs are printed to the console and also written to `logs/server.log`, rotating in 50 MB segments with a 500 MB total cap.
 
+While the backend is running, type `shutdown` into the backend terminal and press Enter to schedule a graceful shutdown.
+This immediately blocks new games, gives existing sessions up to 10 minutes to finish, and then closes any remaining sessions before the server exits.
+
 ## AI Use
 > This project was built mostly with AI-assisted "vibe coding" techniques.
 
