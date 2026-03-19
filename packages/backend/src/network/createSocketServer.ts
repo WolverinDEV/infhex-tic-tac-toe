@@ -10,6 +10,7 @@ import { getSocketClientInfo } from './clientInfo';
 import { CorsConfiguration } from './cors';
 import { SessionError, SessionManager } from '../session/sessionManager';
 import type {
+    PlayerJoinedEvent,
     PlayerLeftEvent,
     PublicGameStatePayload,
     RematchUpdatedEvent,
@@ -42,6 +43,13 @@ export class SocketServerGateway {
             },
             gameStateUpdated(payload: PublicGameStatePayload) {
                 io.to(payload.sessionId).emit('game-state', payload);
+            },
+            playerJoined(event: PlayerJoinedEvent) {
+                io.to(event.sessionId).emit('player-joined', {
+                    playerId: event.playerId,
+                    players: event.players,
+                    state: event.state
+                });
             },
             playerLeft(event: PlayerLeftEvent) {
                 io.to(event.sessionId).emit('player-left', {
@@ -101,11 +109,6 @@ export class SocketServerGateway {
                     });
 
                     if (joinResult.role === 'player' && joinResult.isNewParticipant) {
-                        io.to(sessionId).emit('player-joined', {
-                            playerId: participantId,
-                            players: joinResult.players,
-                            state: joinResult.state
-                        });
                         this.sessionManager.activateSession(sessionId);
                     } else if (joinResult.gameState) {
                         socket.emit('game-state', joinResult.gameState);

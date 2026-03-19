@@ -110,6 +110,15 @@ export class SessionManager {
             client: params.client
         });
 
+        if (role === 'player') {
+            this.eventHandlers.playerJoined?.({
+                sessionId: session.id,
+                playerId: params.participantId,
+                players: [...session.players],
+                state: session.state
+            });
+        }
+
         return {
             sessionId: session.id,
             state: session.state,

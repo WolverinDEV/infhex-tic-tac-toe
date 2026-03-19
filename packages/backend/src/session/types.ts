@@ -62,6 +62,13 @@ export interface PlayerLeftEvent {
     state: SessionState;
 }
 
+export interface PlayerJoinedEvent {
+    sessionId: string;
+    playerId: string;
+    players: string[];
+    state: SessionState;
+}
+
 export interface RematchUpdatedEvent {
     sessionId: string;
     playerIds: string[];
@@ -80,6 +87,7 @@ export interface SessionFinishedDomainEvent {
 export interface SessionManagerEventHandlers {
     sessionsUpdated?: (sessions: SessionInfo[]) => void;
     gameStateUpdated?: (payload: PublicGameStatePayload) => void;
+    playerJoined?: (event: PlayerJoinedEvent) => void;
     playerLeft?: (event: PlayerLeftEvent) => void;
     rematchUpdated?: (event: RematchUpdatedEvent) => void;
     sessionFinished?: (event: SessionFinishedDomainEvent) => void;
