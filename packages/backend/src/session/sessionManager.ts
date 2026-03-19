@@ -1,6 +1,8 @@
 import type { CreateSessionResponse, SessionFinishReason, SessionInfo } from '@ih3t/shared';
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
+import { ROOT_LOGGER } from '../logger';
 import {
     GameHistoryRepository,
     type CreateGameHistoryPayload,
@@ -31,13 +33,17 @@ export class SessionError extends Error {
 @injectable()
 export class SessionManager {
     private eventHandlers: SessionManagerEventHandlers = {};
+    private readonly logger: Logger;
 
     constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
         private readonly store: SessionStore,
         private readonly simulation: GameSimulation,
         private readonly gameHistoryRepository: GameHistoryRepository,
         private readonly backgroundWorkers: BackgroundWorkerHub
-    ) {}
+    ) {
+        this.logger = rootLogger.child({ component: 'session-manager' });
+    }
 
     setEventHandlers(eventHandlers: SessionManagerEventHandlers): void {
         this.eventHandlers = eventHandlers;
@@ -279,7 +285,10 @@ export class SessionManager {
 
     private reconcileLobbyState(session: StoredGameSession): void {
         if (session.players.length === 0) {
-            console.log(`Terminating session ${session.id} (no players)`);
+            this.logger.info({
+                event: 'session.terminated-empty',
+                sessionId: session.id
+            }, 'Terminating empty session');
             this.finishSession(session, 'terminated', null);
             return;
         }
@@ -295,7 +304,12 @@ export class SessionManager {
 
         this.emitGameState(session);
         this.emitSessionsUpdated();
-        console.log(`Session ${session.id} started.`);
+        this.logger.info({
+            event: 'session.started',
+            sessionId: session.id,
+            players: [...session.players],
+            startedAt: session.startedAt
+        }, 'Session started');
     }
 
     private finishSession(session: StoredGameSession, reason: SessionFinishReason, winningPlayerId: string | null): void {
@@ -357,7 +371,14 @@ export class SessionManager {
         this.simulation.clearSession(session.id);
         this.store.deleteSession(session.id);
         this.emitSessionsUpdated();
-        console.log(`Session ${session.id} finished (${reason})`);
+        this.logger.info({
+            event: 'session.finished',
+            sessionId: session.id,
+            reason,
+            winningPlayerId,
+            players: [...session.players],
+            finishedAt
+        }, 'Session finished');
     }
 
     private removePlayerFromSession(session: StoredGameSession, participantId: string, source: PlayerLeaveSource): void {

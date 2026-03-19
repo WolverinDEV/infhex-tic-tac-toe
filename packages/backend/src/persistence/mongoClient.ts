@@ -1,14 +1,22 @@
 import '../env.js';
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import { MongoClient, type Db } from 'mongodb';
 import { ServerConfig } from '../config/serverConfig';
+import { ROOT_LOGGER } from '../logger';
 
 @injectable()
 export class MongoDatabase {
     private mongoClient: MongoClient | null = null;
     private databasePromise: Promise<Db> | null = null;
+    private readonly logger: Logger;
 
-    constructor(private readonly serverConfig: ServerConfig) {}
+    constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
+        private readonly serverConfig: ServerConfig
+    ) {
+        this.logger = rootLogger.child({ component: 'mongo-database' });
+    }
 
     async getDatabase(): Promise<Db> {
         if (this.databasePromise !== null) {
@@ -18,18 +26,21 @@ export class MongoDatabase {
         this.databasePromise = (async () => {
             this.mongoClient = new MongoClient(this.serverConfig.mongoUri);
             await this.mongoClient.connect();
+            this.logger.info({
+                event: 'mongo.connected',
+                database: this.serverConfig.mongoDbName
+            }, 'Connected to MongoDB');
             return this.mongoClient.db(this.serverConfig.mongoDbName);
         })().catch((error: unknown) => {
             this.databasePromise = null;
             this.mongoClient = null;
 
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'mongo',
                 event: 'connection-error',
-                timestamp: new Date().toISOString(),
                 database: this.serverConfig.mongoDbName,
-                message: error instanceof Error ? error.message : String(error)
-            }));
+            }, 'Failed to connect to MongoDB');
 
             throw error;
         });
@@ -47,5 +58,9 @@ export class MongoDatabase {
         }
 
         await client.close();
+        this.logger.info({
+            event: 'mongo.closed',
+            database: this.serverConfig.mongoDbName
+        }, 'Closed MongoDB connection');
     }
 }

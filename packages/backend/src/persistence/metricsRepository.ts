@@ -1,5 +1,7 @@
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import type { Collection, Document } from 'mongodb';
+import { ROOT_LOGGER } from '../logger';
 import { MongoDatabase } from './mongoClient';
 
 export type MetricDetails = Record<string, unknown>;
@@ -16,8 +18,14 @@ const mongoCollectionName = process.env.MONGODB_METRICS_COLLECTION ?? 'metrics';
 @injectable()
 export class MetricsRepository {
     private collectionPromise: Promise<Collection<MetricDocument>> | null = null;
+    private readonly logger: Logger;
 
-    constructor(private readonly mongoDatabase: MongoDatabase) {}
+    constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
+        private readonly mongoDatabase: MongoDatabase
+    ) {
+        this.logger = rootLogger.child({ component: 'metrics-repository' });
+    }
 
     async persist(document: MetricDocument): Promise<void> {
         const collection = await this.getCollection();
@@ -25,14 +33,13 @@ export class MetricsRepository {
         try {
             await collection.insertOne(document);
         } catch (error: unknown) {
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'metric',
                 event: 'metrics-write-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                message: error instanceof Error ? error.message : String(error),
                 metricEvent: document.event
-            }));
+            }, 'Failed to write metric');
         }
     }
 
@@ -47,26 +54,24 @@ export class MetricsRepository {
             await collection.createIndex({ timestamp: -1 });
             await collection.createIndex({ event: 1, timestamp: -1 });
 
-            console.log(JSON.stringify({
+            this.logger.info({
                 type: 'metric',
                 event: 'metrics-storage-ready',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
                 database: mongoDbName,
                 collection: mongoCollectionName
-            }));
+            }, 'Metrics storage ready');
 
             return collection;
         })().catch((error: unknown) => {
             this.collectionPromise = null;
 
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'metric',
                 event: 'metrics-storage-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                message: error instanceof Error ? error.message : String(error)
-            }));
+            }, 'Failed to initialize metrics storage');
 
             throw error;
         });

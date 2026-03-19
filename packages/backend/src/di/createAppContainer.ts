@@ -1,6 +1,7 @@
 import { container, type DependencyContainer } from 'tsyringe';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
 import { ServerConfig } from '../config/serverConfig';
+import { createRootLogger, ROOT_LOGGER } from '../logger';
 import { CorsConfiguration } from '../network/cors';
 import { HttpApplication } from '../network/createHttpApp';
 import { SocketServerGateway } from '../network/createSocketServer';
@@ -17,6 +18,11 @@ export function createAppContainer(): DependencyContainer {
     const appContainer = container.createChildContainer();
 
     appContainer.registerSingleton(ServerConfig);
+    const serverConfig = appContainer.resolve(ServerConfig);
+    appContainer.registerInstance(ROOT_LOGGER, createRootLogger({
+        level: serverConfig.logLevel,
+        pretty: serverConfig.prettyLogs
+    }));
     appContainer.registerSingleton(SessionStore);
     appContainer.registerSingleton(GameSimulation);
     appContainer.registerSingleton(MongoDatabase);
