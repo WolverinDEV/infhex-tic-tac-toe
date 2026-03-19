@@ -85,7 +85,13 @@ export interface RematchUpdatedEvent {
 // Socket Event Types
 export interface ServerToClientEvents {
     'sessions-updated': (sessions: SessionInfo[]) => void;
-    'session-joined': (data: { sessionId: string; state: SessionState; role: SessionParticipantRole; players: string[] }) => void;
+    'session-joined': (data: {
+        sessionId: string;
+        state: SessionState;
+        role: SessionParticipantRole;
+        players: string[];
+        participantId: string;
+    }) => void;
     'session-finished': (data: SessionFinishedEvent) => void;
     'player-joined': (data: { playerId: string; players: string[]; state: SessionState }) => void;
     'player-left': (data: { playerId: string; players: string[]; state: SessionState }) => void;

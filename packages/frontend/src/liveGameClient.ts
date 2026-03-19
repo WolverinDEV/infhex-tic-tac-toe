@@ -38,7 +38,7 @@ export function startLiveGameClient() {
   })
 
   socket.on('connect', () => {
-    useLiveGameStore.getState().setConnected(socket?.id ?? '')
+    useLiveGameStore.getState().setConnected()
     void fetchAvailableSessions()
 
     if (inviteSessionId && !inviteHandled) {

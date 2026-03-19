@@ -61,7 +61,7 @@ interface LiveGameStoreState {
     currentPlayerId: string
   }
   screen: LiveGameScreenState
-  setConnected: (currentPlayerId: string) => void
+  setConnected: () => void
   setDisconnected: () => void
   joinSession: (payload: SessionJoinedPayload) => void
   updatePlayers: (payload: PlayerPresencePayload) => void
@@ -130,10 +130,9 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       currentPlayerId: ''
     },
     screen: { kind: 'lobby' },
-    setConnected: (currentPlayerId) =>
+    setConnected: () =>
       set((state) => {
         state.connection.isConnected = true
-        state.connection.currentPlayerId = currentPlayerId
       }),
     setDisconnected: () =>
       set((state) => {
@@ -143,6 +142,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
       }),
     joinSession: (payload) =>
       set((state) => {
+        state.connection.currentPlayerId = payload.participantId
         state.screen = createLiveSessionScreenState({
           sessionId: payload.sessionId,
           sessionState: payload.state,

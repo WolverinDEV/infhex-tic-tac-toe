@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { Logger } from 'pino';
@@ -18,6 +19,8 @@ import type {
 @injectable()
 export class SocketServerGateway {
     private readonly logger: Logger;
+    private readonly sessionParticipantsBySocketId = new Map<string, Map<string, string>>();
+    private readonly socketIdsBySessionParticipantId = new Map<string, Map<string, string>>();
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
@@ -47,7 +50,7 @@ export class SocketServerGateway {
                     state: event.state
                 });
             },
-            rematchUpdated(event: RematchUpdatedEvent) {
+            rematchUpdated: (event: RematchUpdatedEvent) => {
                 const payload = {
                     sessionId: event.sessionId,
                     canRematch: event.canRematch,
@@ -55,7 +58,8 @@ export class SocketServerGateway {
                 };
 
                 for (const playerId of event.playerIds) {
-                    io.to(playerId).emit('rematch-updated', payload);
+                    const playerSocket = this.getSocketForSessionParticipant(io, event.sessionId, playerId);
+                    playerSocket?.emit('rematch-updated', payload);
                 }
             },
             sessionFinished(event: SessionFinishedDomainEvent) {
@@ -76,26 +80,29 @@ export class SocketServerGateway {
 
             socket.on('join-session', (sessionId: string) => {
                 const clientInfo = getSocketClientInfo(socket);
+                const participantId = this.getSessionParticipantId(socket.id, sessionId) ?? randomUUID();
 
                 try {
                     const joinResult = this.sessionManager.joinSession({
                         sessionId,
-                        participantId: socket.id,
+                        participantId,
                         deviceId: clientInfo.deviceId,
                         client: clientInfo
                     });
 
+                    this.bindSessionParticipant(socket.id, sessionId, participantId);
                     socket.join(sessionId);
                     socket.emit('session-joined', {
                         sessionId,
                         state: joinResult.state,
                         role: joinResult.role,
-                        players: joinResult.players
+                        players: joinResult.players,
+                        participantId
                     });
 
                     if (joinResult.role === 'player' && joinResult.isNewParticipant) {
                         io.to(sessionId).emit('player-joined', {
-                            playerId: socket.id,
+                            playerId: participantId,
                             players: joinResult.players,
                             state: joinResult.state
                         });
@@ -119,35 +126,51 @@ export class SocketServerGateway {
             });
 
             socket.on('leave-session', (sessionId: string) => {
+                const participantId = this.releaseSessionParticipant(socket.id, sessionId);
                 socket.leave(sessionId);
-                this.sessionManager.leaveSession(sessionId, socket.id, 'leave-session');
+                if (!participantId) {
+                    return;
+                }
+
+                this.sessionManager.leaveSession(sessionId, participantId, 'leave-session');
             });
 
             socket.on('request-rematch', (finishedSessionId: string) => {
                 try {
-                    const rematch = this.sessionManager.requestRematch(finishedSessionId, socket.id);
+                    const participantId = this.requireSessionParticipantId(socket.id, finishedSessionId);
+                    const rematch = this.sessionManager.requestRematch(finishedSessionId, participantId);
                     if (rematch.status !== 'ready') {
                         return;
                     }
 
-                    const playerSockets = rematch.players
-                        .map((playerId) => io.sockets.sockets.get(playerId))
-                        .filter((playerSocket): playerSocket is Socket<ClientToServerEvents, ServerToClientEvents> => Boolean(playerSocket));
+                    const playerConnections: Array<{
+                        playerId: string;
+                        socket: Socket<ClientToServerEvents, ServerToClientEvents>;
+                    }> = [];
+                    for (const playerId of rematch.players) {
+                        const playerSocket = this.getSocketForSessionParticipant(io, finishedSessionId, playerId);
+                        if (!playerSocket) {
+                            this.sessionManager.cancelRematch(finishedSessionId);
+                            socket.emit('error', 'Your opponent is no longer available for a rematch.');
+                            return;
+                        }
 
-                    if (playerSockets.length !== rematch.players.length) {
-                        this.sessionManager.cancelRematch(finishedSessionId);
-                        socket.emit('error', 'Your opponent is no longer available for a rematch.');
-                        return;
+                        playerConnections.push({
+                            playerId,
+                            socket: playerSocket
+                        });
                     }
 
                     const nextSession = this.sessionManager.createRematchSession(finishedSessionId);
-                    for (const playerSocket of playerSockets) {
-                        playerSocket.join(nextSession.sessionId);
-                        playerSocket.emit('session-joined', {
+                    for (const playerConnection of playerConnections) {
+                        this.bindSessionParticipant(playerConnection.socket.id, nextSession.sessionId, playerConnection.playerId);
+                        playerConnection.socket.join(nextSession.sessionId);
+                        playerConnection.socket.emit('session-joined', {
                             sessionId: nextSession.sessionId,
                             state: nextSession.state,
                             role: 'player',
-                            players: nextSession.players
+                            players: nextSession.players,
+                            participantId: playerConnection.playerId
                         });
                     }
 
@@ -159,12 +182,19 @@ export class SocketServerGateway {
             });
 
             socket.on('cancel-rematch', (finishedSessionId: string) => {
-                this.sessionManager.cancelRematch(finishedSessionId, socket.id);
+                try {
+                    const participantId = this.requireSessionParticipantId(socket.id, finishedSessionId);
+                    this.sessionManager.cancelRematch(finishedSessionId, participantId);
+                } catch (error: unknown) {
+                    logSocketActionFailure(this.logger, 'cancel-rematch', socket, error, { finishedSessionId });
+                    socket.emit('error', getSocketErrorMessage(error));
+                }
             });
 
             socket.on('place-cell', (data: { sessionId: string; x: number; y: number }) => {
                 try {
-                    this.sessionManager.placeCell(data.sessionId, socket.id, data.x, data.y);
+                    const participantId = this.requireSessionParticipantId(socket.id, data.sessionId);
+                    this.sessionManager.placeCell(data.sessionId, participantId, data.x, data.y);
                 } catch (error: unknown) {
                     logSocketActionFailure(this.logger, 'place-cell', socket, error, {
                         sessionId: data.sessionId,
@@ -180,11 +210,106 @@ export class SocketServerGateway {
                     event: 'socket.disconnected',
                     socketId: socket.id
                 }, 'Socket disconnected');
-                this.sessionManager.handleDisconnect(socket.id);
+                const participantIds = new Set(
+                    this.releaseSocketParticipants(socket.id).map(({ participantId }) => participantId)
+                );
+                for (const participantId of participantIds) {
+                    this.sessionManager.handleDisconnect(participantId);
+                }
             });
         });
 
         return io;
+    }
+
+    private getSessionParticipantId(socketId: string, sessionId: string): string | undefined {
+        return this.sessionParticipantsBySocketId.get(socketId)?.get(sessionId);
+    }
+
+    private requireSessionParticipantId(socketId: string, sessionId: string): string {
+        const participantId = this.getSessionParticipantId(socketId, sessionId);
+        if (!participantId) {
+            throw new SessionError('You are not part of this session');
+        }
+
+        return participantId;
+    }
+
+    private bindSessionParticipant(socketId: string, sessionId: string, participantId: string): void {
+        let sessionParticipants = this.sessionParticipantsBySocketId.get(socketId);
+        if (!sessionParticipants) {
+            sessionParticipants = new Map<string, string>();
+            this.sessionParticipantsBySocketId.set(socketId, sessionParticipants);
+        }
+        sessionParticipants.set(sessionId, participantId);
+
+        let participantSockets = this.socketIdsBySessionParticipantId.get(sessionId);
+        if (!participantSockets) {
+            participantSockets = new Map<string, string>();
+            this.socketIdsBySessionParticipantId.set(sessionId, participantSockets);
+        }
+        participantSockets.set(participantId, socketId);
+    }
+
+    private releaseSessionParticipant(socketId: string, sessionId: string): string | undefined {
+        const sessionParticipants = this.sessionParticipantsBySocketId.get(socketId);
+        const participantId = sessionParticipants?.get(sessionId);
+        if (!participantId) {
+            return undefined;
+        }
+
+        sessionParticipants?.delete(sessionId);
+        if (sessionParticipants && sessionParticipants.size === 0) {
+            this.sessionParticipantsBySocketId.delete(socketId);
+        }
+
+        const participantSockets = this.socketIdsBySessionParticipantId.get(sessionId);
+        if (participantSockets?.get(participantId) === socketId) {
+            participantSockets.delete(participantId);
+            if (participantSockets.size === 0) {
+                this.socketIdsBySessionParticipantId.delete(sessionId);
+            }
+        }
+
+        return participantId;
+    }
+
+    private releaseSocketParticipants(socketId: string): Array<{ sessionId: string; participantId: string }> {
+        const sessionParticipants = this.sessionParticipantsBySocketId.get(socketId);
+        if (!sessionParticipants) {
+            return [];
+        }
+
+        const releasedParticipants = Array.from(sessionParticipants.entries()).map(([sessionId, participantId]) => ({
+            sessionId,
+            participantId
+        }));
+
+        this.sessionParticipantsBySocketId.delete(socketId);
+        for (const releasedParticipant of releasedParticipants) {
+            const participantSockets = this.socketIdsBySessionParticipantId.get(releasedParticipant.sessionId);
+            if (participantSockets?.get(releasedParticipant.participantId) === socketId) {
+                participantSockets.delete(releasedParticipant.participantId);
+                if (participantSockets.size === 0) {
+                    this.socketIdsBySessionParticipantId.delete(releasedParticipant.sessionId);
+                }
+            }
+        }
+
+        return releasedParticipants;
+    }
+
+    private getSocketForSessionParticipant(
+        io: Server<ClientToServerEvents, ServerToClientEvents>,
+        sessionId: string,
+        participantId: string
+    ): Socket<ClientToServerEvents, ServerToClientEvents> | null {
+        const socketId = this.socketIdsBySessionParticipantId.get(sessionId)?.get(participantId);
+        if (!socketId) {
+            return null;
+        }
+
+        return io.sockets.sockets.get(socketId) ?? null;
     }
 }
 
