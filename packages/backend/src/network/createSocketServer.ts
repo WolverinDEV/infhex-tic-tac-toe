@@ -29,6 +29,7 @@ export class SocketServerGateway {
     private readonly logger: Logger;
     private readonly socketParticipationId = new Map<string, string>();
     private readonly orphanedParticipationIds = new Map<string, OrphanedParticipationId>();
+    private io?: Server<ClientToServerEvents, ServerToClientEvents>;
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
@@ -40,7 +41,7 @@ export class SocketServerGateway {
         this.logger = rootLogger.child({ component: 'socket-server' });
     }
 
-    attach(server: HttpServer): Server<ClientToServerEvents, ServerToClientEvents> {
+    attach(server: HttpServer) {
         const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, this.corsConfiguration.options ? {
             cors: this.corsConfiguration.options
         } : undefined);
@@ -236,7 +237,7 @@ export class SocketServerGateway {
             });
         });
 
-        return io;
+        this.io = io;
     }
 
     private getParticipantId(socketId: string): string | undefined {
@@ -290,6 +291,11 @@ export class SocketServerGateway {
         }
 
         return joinResult;
+    }
+
+    public async shutdownConnections() {
+        this.io?.emit('error', "Server shutdown");
+        await this.io?.close();
     }
 }
 
