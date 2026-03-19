@@ -258,10 +258,7 @@ export class SessionManager {
             throw error;
         }
 
-        const historyPayload = this.getStartedHistoryPayload(session);
-        if (historyPayload) {
-            void this.gameHistoryRepository.appendMove(historyPayload, moveResult.move);
-        }
+        void this.gameHistoryRepository.appendMove(session.historyId, moveResult.move);
 
         if (moveResult.winningPlayerId) {
             this.emitGameState(session);
@@ -400,7 +397,7 @@ export class SessionManager {
         session.state = 'ingame';
         session.startedAt = Date.now();
         this.simulation.startSession(session, this.handleTurnExpired, session.startedAt);
-        void this.gameHistoryRepository.markStarted(this.getStartedHistoryPayload(session)!);
+        void this.gameHistoryRepository.markStarted(session.historyId, session.players);
 
         this.emitGameState(session);
         this.emitSessionsUpdated();
@@ -416,7 +413,6 @@ export class SessionManager {
         const finishedAt = Date.now();
         const finalBoardState = this.simulation.getPublicGameState(session).gameState;
         const gameDurationMs = session.startedAt === null ? null : finishedAt - session.startedAt;
-        const historyPayload = this.getStartedHistoryPayload(session);
         const canRematch = winningPlayerId !== null && session.players.length === session.maxPlayers && !this.scheduledShutdown;
 
         if (session.state !== 'finished') {
@@ -441,15 +437,12 @@ export class SessionManager {
             this.eventHandlers.sessionFinished?.(event);
         }
 
-        if (historyPayload) {
-            void this.gameHistoryRepository.finalizeHistory({
-                ...historyPayload,
-                finishedAt,
-                winningPlayerId,
-                reason,
-                moves: [...session.moveHistory]
-            });
-        }
+        void this.gameHistoryRepository.finalizeHistory({
+            id: session.historyId,
+            startedAt: session.startedAt!,
+            winningPlayerId,
+            reason,
+        });
 
         this.backgroundWorkers.track('game-finished', {
             sessionId: session.id,
@@ -612,20 +605,6 @@ export class SessionManager {
             id: session.historyId,
             sessionId: session.id,
             createdAt: session.createdAt
-        };
-    }
-
-    private getStartedHistoryPayload(session: StoredGameSession): StartedGameHistoryPayload | null {
-        if (session.startedAt === null) {
-            return null;
-        }
-
-        return {
-            id: session.historyId,
-            sessionId: session.id,
-            createdAt: session.createdAt,
-            startedAt: session.startedAt,
-            players: [...session.players]
         };
     }
 

@@ -78,24 +78,24 @@ export class GameHistoryRepository {
         }
     }
 
-    async markStarted(payload: StartedGameHistoryPayload): Promise<boolean> {
+    async markStarted(id: string, players: string[]): Promise<boolean> {
         const collection = await this.getCollection();
 
         try {
             const result = await collection.updateOne(
-                { id: payload.id },
+                { id: id },
                 {
                     $set: {
                         state: 'ingame',
-                        players: [...payload.players],
-                        startedAt: payload.startedAt,
-                        updatedAt: payload.startedAt
+                        players: players,
+                        startedAt: Date.now(),
+                        updatedAt: Date.now()
                     }
                 }
             );
 
             if (result.matchedCount === 0) {
-                this.logMissingHistory('game-history-start-error', payload.id);
+                this.logMissingHistory('game-history-start-error', id);
                 return false;
             }
 
@@ -106,19 +106,19 @@ export class GameHistoryRepository {
                 type: 'game-history',
                 event: 'game-history-start-error',
                 storage: 'mongodb',
-                gameId: payload.id
+                gameId: id
             }, 'Failed to mark game history as started');
 
             return false;
         }
     }
 
-    async appendMove(payload: StartedGameHistoryPayload, move: GameMove): Promise<boolean> {
+    async appendMove(id: string, move: GameMove): Promise<boolean> {
         const collection = await this.getCollection();
 
         try {
             const result = await collection.updateOne(
-                { id: payload.id },
+                { id: id },
                 {
                     $set: {
                         updatedAt: move.timestamp
@@ -133,7 +133,7 @@ export class GameHistoryRepository {
             );
 
             if (result.matchedCount === 0) {
-                this.logMissingHistory('game-history-move-error', payload.id, {
+                this.logMissingHistory('game-history-move-error', id, {
                     moveNumber: move.moveNumber
                 });
                 return false;
@@ -146,7 +146,7 @@ export class GameHistoryRepository {
                 type: 'game-history',
                 event: 'game-history-move-error',
                 storage: 'mongodb',
-                gameId: payload.id,
+                gameId: id,
                 moveNumber: move.moveNumber
             }, 'Failed to append game move');
 
@@ -154,7 +154,7 @@ export class GameHistoryRepository {
         }
     }
 
-    async finalizeHistory(payload: FinishedGameHistoryPayload): Promise<boolean> {
+    async finalizeHistory(payload: Pick<FinishedGameHistoryPayload, "id" | "winningPlayerId" | "reason" | "startedAt">): Promise<boolean> {
         const collection = await this.getCollection();
 
         try {
@@ -163,15 +163,11 @@ export class GameHistoryRepository {
                 {
                     $set: {
                         state: 'finished',
-                        players: [...payload.players],
                         winningPlayerId: payload.winningPlayerId,
                         reason: payload.reason,
-                        moveCount: payload.moves.length,
-                        moves: [...payload.moves],
-                        startedAt: payload.startedAt,
-                        finishedAt: payload.finishedAt,
-                        gameDurationMs: Math.max(0, payload.finishedAt - payload.startedAt),
-                        updatedAt: payload.finishedAt
+                        finishedAt: Date.now(),
+                        gameDurationMs: Math.max(0, Date.now() - payload.startedAt),
+                        updatedAt: Date.now()
                     }
                 }
             );
