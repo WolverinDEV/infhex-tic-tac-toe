@@ -14,9 +14,7 @@ export function createRootLogger(options: CreateRootLoggerOptions = {}): Logger 
     return pino(
         {
             level,
-            base: {
-                service: 'ih3t-backend'
-            },
+            base: {},
             timestamp: pino.stdTimeFunctions.isoTime,
             formatters: {
                 level: (label) => ({ level: label })
