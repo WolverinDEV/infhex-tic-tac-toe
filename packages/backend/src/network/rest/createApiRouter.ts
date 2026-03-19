@@ -1,5 +1,5 @@
 import express from 'express';
-import { injectable } from 'tsyringe';
+import { inject, injectable } from 'tsyringe';
 import type { CreateSessionResponse } from '@ih3t/shared';
 import { getRequestClientInfo } from '../clientInfo';
 import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
@@ -10,8 +10,8 @@ export class ApiRouter {
     readonly router: express.Router;
 
     constructor(
-        private readonly sessionManager: SessionManager,
-        private readonly gameHistoryRepository: GameHistoryRepository
+        @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository
     ) {
         const router = express.Router();
 

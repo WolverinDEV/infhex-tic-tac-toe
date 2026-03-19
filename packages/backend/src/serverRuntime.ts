@@ -18,13 +18,13 @@ export class ApplicationServer {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        httpApplication: HttpApplication,
-        socketServerGateway: SocketServerGateway,
-        private readonly backgroundWorkers: BackgroundWorkerHub,
-        private readonly simulation: GameSimulation,
-        private readonly mongoDatabase: MongoDatabase,
-        private readonly sessionManager: SessionManager,
-        private readonly serverConfig: ServerConfig
+        @inject(HttpApplication) httpApplication: HttpApplication,
+        @inject(SocketServerGateway) socketServerGateway: SocketServerGateway,
+        @inject(BackgroundWorkerHub) private readonly backgroundWorkers: BackgroundWorkerHub,
+        @inject(GameSimulation) private readonly simulation: GameSimulation,
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
+        @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(ServerConfig) private readonly serverConfig: ServerConfig
     ) {
         this.logger = rootLogger.child({ component: 'application-server' });
         this.server = createServer(httpApplication.app);

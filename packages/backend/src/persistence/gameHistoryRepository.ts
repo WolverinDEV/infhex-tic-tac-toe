@@ -54,7 +54,7 @@ export class GameHistoryRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
     ) {
         this.logger = rootLogger.child({ component: 'game-history-repository' });
     }

@@ -16,9 +16,9 @@ export class HttpApplication {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        apiRouter: ApiRouter,
-        corsConfiguration: CorsConfiguration,
-        serverConfig: ServerConfig
+        @inject(ApiRouter) apiRouter: ApiRouter,
+        @inject(CorsConfiguration) corsConfiguration: CorsConfiguration,
+        @inject(ServerConfig) serverConfig: ServerConfig
     ) {
         const app = express();
         const logger = rootLogger.child({ component: 'http-application' });

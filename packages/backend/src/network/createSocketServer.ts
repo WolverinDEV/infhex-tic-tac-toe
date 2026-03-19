@@ -21,9 +21,9 @@ export class SocketServerGateway {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        private readonly sessionManager: SessionManager,
-        private readonly backgroundWorkers: BackgroundWorkerHub,
-        private readonly corsConfiguration: CorsConfiguration
+        @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(BackgroundWorkerHub) private readonly backgroundWorkers: BackgroundWorkerHub,
+        @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration
     ) {
         this.logger = rootLogger.child({ component: 'socket-server' });
     }

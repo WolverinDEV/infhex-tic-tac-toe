@@ -17,7 +17,7 @@ export class BackgroundWorkerHub {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        private readonly metricsRepository: MetricsRepository
+        @inject(MetricsRepository) private readonly metricsRepository: MetricsRepository
     ) {
         this.logger = rootLogger.child({ component: 'background-worker-hub' });
     }
