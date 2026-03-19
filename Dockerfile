@@ -23,6 +23,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV FRONTEND_DIST_PATH="/app/packages/frontend/dist/"
 
 RUN corepack enable
 
