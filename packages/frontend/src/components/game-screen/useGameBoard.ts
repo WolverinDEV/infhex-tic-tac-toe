@@ -48,6 +48,7 @@ interface UseGameBoardOptions {
   canPlaceCell: boolean
   isOwnTurn: boolean
   isSpectator: boolean
+  highlightedCellKeys?: Iterable<string>
   onPlaceCell: (x: number, y: number) => void
 }
 
@@ -77,6 +78,7 @@ function useGameBoard({
   canPlaceCell,
   isOwnTurn,
   isSpectator,
+  highlightedCellKeys,
   onPlaceCell
 }: Readonly<UseGameBoardOptions>): UseGameBoardResult {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -92,6 +94,7 @@ function useGameBoard({
     renderableCells: ReturnType<typeof buildRenderableCells>
     renderableCellSet: Set<string>
     cellMap: Map<string, string>
+    highlightedCellKeys: Set<string>
     players: string[]
     interactionEnabled: boolean
     canPlaceCell: boolean
@@ -108,11 +111,16 @@ function useGameBoard({
     return new Set(renderableCells.map((cell) => cell.key))
   }, [renderableCells])
 
+  const highlightedCellKeySet = useMemo(() => {
+    return new Set(highlightedCellKeys ?? [])
+  }, [highlightedCellKeys])
+
   latestDataRef.current = {
     boardState,
     renderableCells,
     renderableCellSet,
     cellMap,
+    highlightedCellKeys: highlightedCellKeySet,
     players,
     interactionEnabled,
     canPlaceCell,
@@ -196,6 +204,8 @@ function useGameBoard({
       const point = axialToUnitPoint(cell.x, cell.y)
       const screenX = centerX + point.x * scale
       const screenY = centerY + point.y * scale
+      const cellKey = getCellKey(cell.x, cell.y)
+      const isHighlighted = latestData.highlightedCellKeys.has(cellKey)
 
       if (
         screenX + hexRadius < 0 ||
@@ -209,6 +219,21 @@ function useGameBoard({
       traceHexPath(context, screenX, screenY, hexRadius - 2)
       context.fillStyle = getPlayerColor(latestData.players, cell.occupiedBy)
       context.fill()
+
+      if (isHighlighted) {
+        traceHexPath(context, screenX, screenY, hexRadius - 1)
+        context.save()
+        context.shadowBlur = Math.max(14, scale * 0.45)
+        context.shadowColor = 'rgba(248, 250, 252, 0.52)'
+        context.strokeStyle = 'rgba(248, 250, 252, 0.96)'
+        context.lineWidth = Math.max(2, scale * 0.08)
+        context.stroke()
+        context.restore()
+
+        traceHexPath(context, screenX, screenY, Math.max(4, hexRadius - 6))
+        context.fillStyle = 'rgba(255, 255, 255, 0.12)'
+        context.fill()
+      }
     }
   }
 
@@ -286,7 +311,7 @@ function useGameBoard({
 
   useEffect(() => {
     scheduleDraw()
-  }, [boardState, renderableCells, renderableCellSet, cellMap, players, interactionEnabled, canPlaceCell, isOwnTurn])
+  }, [boardState, renderableCells, renderableCellSet, cellMap, highlightedCellKeySet, players, interactionEnabled, canPlaceCell, isOwnTurn])
 
   useEffect(() => {
     const canvas = canvasRef.current

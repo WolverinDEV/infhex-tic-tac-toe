@@ -2,7 +2,7 @@ import type { BoardState, FinishedGameRecord } from '@ih3t/shared'
 import { useEffect, useMemo, useState } from 'react'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import useGameBoard from './game-screen/useGameBoard'
-import { getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
+import { getCellKey, getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
 
 interface FinishedGameReviewScreenProps {
   game: FinishedGameRecord | null
@@ -64,6 +64,29 @@ function buildReplayBoardState(game: FinishedGameRecord | null, visibleMoveCount
   }
 }
 
+function getLastVisibleTurnCellKeys(game: FinishedGameRecord | null, visibleMoveCount: number): string[] {
+  if (!game || visibleMoveCount <= 0) {
+    return []
+  }
+
+  const lastVisibleMove = game.moves[visibleMoveCount - 1]
+  if (!lastVisibleMove) {
+    return []
+  }
+
+  const highlightedMoveKeys: string[] = []
+  for (let moveIndex = visibleMoveCount - 1; moveIndex >= 0; moveIndex -= 1) {
+    const move = game.moves[moveIndex]
+    if (!move || move.playerId !== lastVisibleMove.playerId) {
+      break
+    }
+
+    highlightedMoveKeys.push(getCellKey(move.x, move.y))
+  }
+
+  return highlightedMoveKeys
+}
+
 function FinishedGameReviewScreen({
   game,
   isLoading,
@@ -110,6 +133,10 @@ function FinishedGameReviewScreen({
   const activeMove = game && visibleMoveCount > 0
     ? game.moves[visibleMoveCount - 1]
     : null
+  const highlightedCellKeys = useMemo(
+    () => getLastVisibleTurnCellKeys(game, visibleMoveCount),
+    [game, visibleMoveCount]
+  )
 
   const {
     canvasRef,
@@ -124,6 +151,7 @@ function FinishedGameReviewScreen({
     canPlaceCell: false,
     isOwnTurn: true,
     isSpectator: true,
+    highlightedCellKeys,
     onPlaceCell: () => { }
   })
 

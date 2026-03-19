@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BoardState, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import GameScreenHud from './game-screen/GameScreenHud'
 import GameScreenStatus from './game-screen/GameScreenStatus'
-import { TURN_TIMEOUT_MS, getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
+import { TURN_TIMEOUT_MS, getCellKey, getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
 import useGameBoard from './game-screen/useGameBoard'
 
 interface GameScreenProps {
@@ -19,6 +19,10 @@ interface GameScreenProps {
   interactionEnabled?: boolean
 }
 
+function mergeCellKeys(existingKeys: string[], addedKeys: string[]) {
+  return [...new Set([...existingKeys, ...addedKeys])]
+}
+
 function GameScreen({
   players,
   participantRole,
@@ -31,6 +35,10 @@ function GameScreen({
   interactionEnabled = true
 }: Readonly<GameScreenProps>) {
   const [turnCountdownMs, setTurnCountdownMs] = useState<number | null>(TURN_TIMEOUT_MS)
+  const [highlightedCellKeys, setHighlightedCellKeys] = useState<string[]>([])
+  const previousBoardStateRef = useRef<BoardState | null>(null)
+  const ongoingOpponentTurnKeysRef = useRef<string[]>([])
+  const lastOpponentTurnKeysRef = useRef<string[]>([])
 
   const isSpectator = participantRole === 'spectator'
   const ownColor = getPlayerColor(players, currentPlayerId)
@@ -50,6 +58,71 @@ function GameScreen({
       ? `Place ${boardState.placementsRemaining} more ${boardState.placementsRemaining === 1 ? 'cell' : 'cells'}.`
       : `Waiting for the other player to finish ${boardState.placementsRemaining} ${boardState.placementsRemaining === 1 ? 'move' : 'moves'}.`
 
+  useEffect(() => {
+    previousBoardStateRef.current = null
+    ongoingOpponentTurnKeysRef.current = []
+    lastOpponentTurnKeysRef.current = []
+    setHighlightedCellKeys([])
+  }, [currentPlayerId, participantRole])
+
+  useEffect(() => {
+    if (!interactionEnabled || isSpectator || !currentPlayerId) {
+      previousBoardStateRef.current = boardState
+      ongoingOpponentTurnKeysRef.current = []
+      lastOpponentTurnKeysRef.current = []
+      setHighlightedCellKeys([])
+      return
+    }
+
+    const previousBoardState = previousBoardStateRef.current
+    if (!previousBoardState || boardState.cells.length < previousBoardState.cells.length) {
+      previousBoardStateRef.current = boardState
+      ongoingOpponentTurnKeysRef.current = []
+      lastOpponentTurnKeysRef.current = []
+      setHighlightedCellKeys([])
+      return
+    }
+
+    const previousCellKeys = new Set(previousBoardState.cells.map(cell => getCellKey(cell.x, cell.y)))
+    const addedOpponentCellKeys = boardState.cells.reduce<string[]>((addedKeys, cell) => {
+      const cellKey = getCellKey(cell.x, cell.y)
+      if (!previousCellKeys.has(cellKey) && cell.occupiedBy !== currentPlayerId) {
+        addedKeys.push(cellKey)
+      }
+      return addedKeys
+    }, [])
+    const wasOpponentTurn = Boolean(previousBoardState.currentTurnPlayerId) && previousBoardState.currentTurnPlayerId !== currentPlayerId
+    const isOpponentTurn = Boolean(boardState.currentTurnPlayerId) && boardState.currentTurnPlayerId !== currentPlayerId
+
+    if (addedOpponentCellKeys.length > 0) {
+      if (isOpponentTurn) {
+        ongoingOpponentTurnKeysRef.current = mergeCellKeys(
+          wasOpponentTurn ? ongoingOpponentTurnKeysRef.current : [],
+          addedOpponentCellKeys
+        )
+        setHighlightedCellKeys(ongoingOpponentTurnKeysRef.current)
+      } else {
+        const completedOpponentTurnKeys = mergeCellKeys(
+          wasOpponentTurn ? ongoingOpponentTurnKeysRef.current : [],
+          addedOpponentCellKeys
+        )
+        ongoingOpponentTurnKeysRef.current = []
+        lastOpponentTurnKeysRef.current = completedOpponentTurnKeys
+        setHighlightedCellKeys(completedOpponentTurnKeys)
+      }
+    } else if (!isOpponentTurn && wasOpponentTurn && ongoingOpponentTurnKeysRef.current.length > 0) {
+      lastOpponentTurnKeysRef.current = ongoingOpponentTurnKeysRef.current
+      ongoingOpponentTurnKeysRef.current = []
+      setHighlightedCellKeys(lastOpponentTurnKeysRef.current)
+    } else if (isOpponentTurn && ongoingOpponentTurnKeysRef.current.length > 0) {
+      setHighlightedCellKeys(ongoingOpponentTurnKeysRef.current)
+    } else {
+      setHighlightedCellKeys(lastOpponentTurnKeysRef.current)
+    }
+
+    previousBoardStateRef.current = boardState
+  }, [boardState, currentPlayerId, interactionEnabled, isSpectator])
+
   const {
     canvasRef,
     canvasClassName,
@@ -63,6 +136,7 @@ function GameScreen({
     canPlaceCell,
     isOwnTurn,
     isSpectator,
+    highlightedCellKeys,
     onPlaceCell
   })
 
