@@ -25,6 +25,7 @@ Backend: `http://localhost:3001`
 
 Backend startup requires `MONGODB_URI` to be set. `MONGODB_DB_NAME` remains optional and defaults to `ih3t`.
 Optional logging env vars: `LOG_LEVEL` and `LOG_PRETTY`.
+Server logs are printed to the console and also written to `logs/server.log`, rotating in 50 MB segments with a 500 MB total cap.
 
 ## AI Use
 > This project was built mostly with AI-assisted "vibe coding" techniques.
