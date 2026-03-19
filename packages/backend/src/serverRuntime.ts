@@ -1,3 +1,4 @@
+import net from "node:net";
 import type { Server as HttpServer } from 'node:http';
 import { createServer } from 'node:http';
 import type { Logger } from 'pino';
@@ -10,16 +11,21 @@ import { SocketServerGateway } from './network/createSocketServer';
 import { MongoDatabase } from './persistence/mongoClient';
 import { SessionManager } from './session/sessionManager';
 import { GameSimulation } from './simulation/gameSimulation';
+import { randomUUID } from "node:crypto";
 
 @injectable()
 export class ApplicationServer {
-    private readonly server: HttpServer;
     private readonly logger: Logger;
+
+    private readonly server: HttpServer;
+    private readonly serverConnections = new Map<string, net.Socket>();
+
+    private shutdownPromise: Promise<void> | null = null;
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
         @inject(HttpApplication) httpApplication: HttpApplication,
-        @inject(SocketServerGateway) socketServerGateway: SocketServerGateway,
+        @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
         @inject(BackgroundWorkerHub) private readonly backgroundWorkers: BackgroundWorkerHub,
         @inject(GameSimulation) private readonly simulation: GameSimulation,
         @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
@@ -29,6 +35,16 @@ export class ApplicationServer {
         this.logger = rootLogger.child({ component: 'application-server' });
         this.server = createServer(httpApplication.app);
         socketServerGateway.attach(this.server);
+
+        httpApplication.app.use((req, res, next) => {
+            const requestId = randomUUID();
+            res.on('close', () => {
+                this.serverConnections.delete(requestId);
+            });
+
+            this.serverConnections.set(requestId, req.socket);
+            next();
+        });
     }
 
     async start(): Promise<void> {
@@ -46,13 +62,6 @@ export class ApplicationServer {
             }
         });
 
-        this.server.listen(this.serverConfig.port, () => {
-            this.logger.info({
-                event: 'server.listening',
-                port: this.serverConfig.port
-            }, 'Server listening');
-        });
-
         this.server.on('error', (error) => {
             this.logger.error({
                 err: error,
@@ -64,26 +73,81 @@ export class ApplicationServer {
             this.logger.info({
                 event: 'server.closed'
             }, 'Server closed');
+        });
+
+        await new Promise<void>((resolve, reject) => {
+            const onListenError = (error: Error) => {
+                reject(error);
+            };
+
+            this.server.once('error', onListenError);
+            this.server.listen(this.serverConfig.port, () => {
+                this.server.off('error', onListenError);
+                this.logger.info({
+                    event: 'server.listening',
+                    port: this.serverConfig.port
+                }, 'Server listening');
+                resolve();
+            });
+        });
+    }
+
+    async shutdown(): Promise<void> {
+        if (this.shutdownPromise) {
+            return this.shutdownPromise;
+        }
+
+        this.shutdownPromise = (async () => {
+            this.logger.info({ event: 'server.shutting-down' }, 'Shutting down server');
+
+            await this.shutdownHttpServer();
+
             this.backgroundWorkers.stop();
             this.simulation.dispose();
-            void this.mongoDatabase.close().catch((error: unknown) => {
+
+            try {
+                await this.mongoDatabase.close();
+            } catch (error: unknown) {
                 this.logger.error({
                     err: error,
                     event: 'mongo.close.error'
                 }, 'Failed to close MongoDB client');
-            });
-        });
+                throw error;
+            }
+        })();
 
-        for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-            process.once(signal, () => {
-                this.logger.info({
-                    event: 'server.shutdown.signal',
-                    signal
-                }, 'Received shutdown signal');
-                this.server.close(() => {
-                    process.exit(0);
-                });
-            });
+        return this.shutdownPromise;
+    }
+
+    private async shutdownHttpServer() {
+        if (!this.server.listening) {
+            return;
         }
+
+        this.logger.debug({ event: 'server.shutting-down' }, 'Stopping HTTP server');
+        this.socketServerGateway.shutdownConnections();
+
+        setTimeout(() => {
+            /* force close connections */
+            for (const connection of this.serverConnections.values()) {
+                connection.destroy(new Error("forced close due to server shutdown"));
+            }
+        }, 5_000);
+
+        await Promise.race([
+            new Promise<void>((resolve) => {
+                this.server.close((error) => {
+                    if (error) {
+                        this.logger.error({
+                            err: error,
+                            event: 'http.close.error'
+                        }, 'Failed to shutdown the HTTP server');
+                    }
+                    resolve();
+                });
+            }),
+            new Promise(resolve => setTimeout(resolve, 1_000)),
+        ]);
+        this.logger.debug({ event: 'server.shutting-down' }, 'HTTP server stopped');
     }
 }
