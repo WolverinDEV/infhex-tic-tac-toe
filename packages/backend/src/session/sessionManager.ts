@@ -91,11 +91,9 @@ export class SessionManager {
             }
 
             session.players.push(params.participantId);
-            session.playerDeviceIds[params.participantId] = params.deviceId;
             role = 'player';
         } else if (session.state === 'ingame') {
             session.spectators.push(params.participantId);
-            session.spectatorDeviceIds[params.participantId] = params.deviceId;
             role = 'spectator';
         } else {
             throw new SessionError('Session has already finished');
@@ -154,10 +152,15 @@ export class SessionManager {
         }
     }
 
-    handleDisconnect(participantId: string): void {
+    handleDisconnect(participantId: string, terminal: boolean): void {
         this.removePendingRematchesForPlayer(participantId);
 
         for (const session of this.store.findSessionsByParticipant(participantId)) {
+            if (session.state === "ingame" && !terminal) {
+                /* player may reconnect */
+                continue
+            }
+
             if (session.players.includes(participantId)) {
                 this.removePlayerFromSession(session, participantId, 'disconnect');
                 continue;
@@ -243,7 +246,6 @@ export class SessionManager {
         const nextSessionId = this.createSessionId();
         const nextSession = createStoredGameSession(nextSessionId);
         nextSession.players = [...rematch.players];
-        nextSession.playerDeviceIds = { ...rematch.playerDeviceIds };
 
         this.store.saveSession(nextSession);
         this.emitSessionsUpdated();
@@ -334,7 +336,6 @@ export class SessionManager {
                 this.store.savePendingRematch({
                     finishedSessionId: session.id,
                     players: [...session.players],
-                    playerDeviceIds: { ...session.playerDeviceIds },
                     availablePlayerIds: new Set<string>(session.players),
                     requestedPlayerIds: new Set<string>(),
                     createdAt: finishedAt
@@ -366,9 +367,7 @@ export class SessionManager {
             reason,
             winningPlayerId,
             players: [...session.players],
-            playerDeviceIds: { ...session.playerDeviceIds },
             spectators: [...session.spectators],
-            spectatorDeviceIds: { ...session.spectatorDeviceIds },
             boardState: finalBoardState,
             createdAt: new Date(session.createdAt).toISOString(),
             startedAt: session.startedAt === null ? null : new Date(session.startedAt).toISOString(),
@@ -391,14 +390,11 @@ export class SessionManager {
     }
 
     private removePlayerFromSession(session: StoredGameSession, participantId: string, source: PlayerLeaveSource): void {
-        const playerDeviceId = session.playerDeviceIds[participantId] ?? null;
         session.players = session.players.filter((playerId) => playerId !== participantId);
-        delete session.playerDeviceIds[participantId];
 
         this.backgroundWorkers.track('game-left', {
             sessionId: session.id,
             playerId: participantId,
-            deviceId: playerDeviceId,
             source,
             sessionState: session.state,
             remainingPlayers: [...session.players]
@@ -421,14 +417,11 @@ export class SessionManager {
     }
 
     private removeSpectatorFromSession(session: StoredGameSession, participantId: string, source: PlayerLeaveSource): void {
-        const spectatorDeviceId = session.spectatorDeviceIds[participantId] ?? null;
         session.spectators = session.spectators.filter((spectatorId) => spectatorId !== participantId);
-        delete session.spectatorDeviceIds[participantId];
 
         this.backgroundWorkers.track('spectator-left', {
             sessionId: session.id,
             spectatorId: participantId,
-            deviceId: spectatorDeviceId,
             source,
             sessionState: session.state,
             remainingSpectators: [...session.spectators]

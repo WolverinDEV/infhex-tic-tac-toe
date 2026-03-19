@@ -14,8 +14,6 @@ export interface StoredGameSession extends GameSession {
     createdAt: number;
     startedAt: number | null;
     moveHistory: GameMove[];
-    playerDeviceIds: Record<string, string | null>;
-    spectatorDeviceIds: Record<string, string | null>;
 }
 
 export type PlayerLeaveSource = 'leave-session' | 'disconnect';
@@ -23,7 +21,6 @@ export type PlayerLeaveSource = 'leave-session' | 'disconnect';
 export interface PendingRematch {
     finishedSessionId: string;
     players: string[];
-    playerDeviceIds: Record<string, string | null>;
     availablePlayerIds: Set<string>;
     requestedPlayerIds: Set<string>;
     createdAt: number;
@@ -38,7 +35,6 @@ export interface PublicGameStatePayload {
 export interface JoinSessionParams {
     sessionId: string;
     participantId: string;
-    deviceId: string | null;
     client: SocketClientInfo;
 }
 

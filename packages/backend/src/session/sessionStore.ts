@@ -68,8 +68,6 @@ export function createStoredGameSession(sessionId: string, createdAt = Date.now(
         createdAt,
         startedAt: null,
         moveHistory: [],
-        playerDeviceIds: {},
-        spectatorDeviceIds: {},
         gameState: {
             cells: [],
             currentTurnPlayerId: null,
