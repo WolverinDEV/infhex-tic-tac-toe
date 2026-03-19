@@ -61,7 +61,7 @@ export class BackgroundWorkerHub {
             details
         };
 
-        this.logger.info({
+        this.logger.trace({
             event: 'metric.tracked',
             metricEvent: event,
             details
