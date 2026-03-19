@@ -49,6 +49,11 @@ export class ApplicationServer {
 
     async start(): Promise<void> {
         this.logger.info({
+            event: 'server.config',
+            config: this.serverConfig.toLogObject()
+        }, 'Loaded server config');
+
+        this.logger.info({
             event: 'server.starting',
             port: this.serverConfig.port
         }, 'Starting server');
