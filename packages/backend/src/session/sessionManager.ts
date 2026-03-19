@@ -37,10 +37,10 @@ export class SessionManager {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        private readonly store: SessionStore,
-        private readonly simulation: GameSimulation,
-        private readonly gameHistoryRepository: GameHistoryRepository,
-        private readonly backgroundWorkers: BackgroundWorkerHub
+        @inject(SessionStore) private readonly store: SessionStore,
+        @inject(GameSimulation) private readonly simulation: GameSimulation,
+        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
+        @inject(BackgroundWorkerHub) private readonly backgroundWorkers: BackgroundWorkerHub
     ) {
         this.logger = rootLogger.child({ component: 'session-manager' });
     }

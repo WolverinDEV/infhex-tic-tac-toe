@@ -13,7 +13,7 @@ export class MongoDatabase {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        private readonly serverConfig: ServerConfig
+        @inject(ServerConfig) private readonly serverConfig: ServerConfig
     ) {
         this.logger = rootLogger.child({ component: 'mongo-database' });
     }
