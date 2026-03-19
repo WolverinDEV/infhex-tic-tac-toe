@@ -30,6 +30,20 @@ export class SessionError extends Error {
     }
 }
 
+export interface TerminalSessionStatus {
+    sessionId: string;
+    state: 'lobby' | 'ingame' | 'finished';
+    playerCount: number;
+    spectatorCount: number;
+    moveCount: number;
+    createdAt: number;
+    startedAt: number | null;
+    gameDurationMs: number | null;
+    totalLifetimeMs: number;
+    currentTurnPlayerId: string | null;
+    placementsRemaining: number;
+}
+
 const DEFAULT_SHUTDOWN_DELAY_MS = 10 * 60 * 1000;
 type ShutdownTrigger = 'all-sessions-finished' | 'deadline-reached';
 
@@ -62,6 +76,22 @@ export class SessionManager {
 
     listSessions(): SessionInfo[] {
         return this.store.listSessionInfos();
+    }
+
+    getTerminalSessionStatuses(now = Date.now()): TerminalSessionStatus[] {
+        return this.store.listSessions().map((session) => ({
+            sessionId: session.id,
+            state: session.state,
+            playerCount: session.players.length,
+            spectatorCount: session.spectators.length,
+            moveCount: session.moveHistory.length,
+            createdAt: session.createdAt,
+            startedAt: session.startedAt,
+            gameDurationMs: session.startedAt === null ? null : Math.max(0, now - session.startedAt),
+            totalLifetimeMs: Math.max(0, now - session.createdAt),
+            currentTurnPlayerId: session.gameState.currentTurnPlayerId,
+            placementsRemaining: session.gameState.placementsRemaining
+        }));
     }
 
     getShutdownState(): ShutdownState | null {

@@ -244,6 +244,13 @@ export class SocketServerGateway {
         this.io = io;
     }
 
+    public getConnectionStatus() {
+        return {
+            connectedClientCount: this.socketParticipationId.size,
+            reconnectingClientCount: this.orphanedParticipationIds.size
+        };
+    }
+
     private getParticipantId(socketId: string): string | undefined {
         return this.socketParticipationId.get(socketId);
     }
