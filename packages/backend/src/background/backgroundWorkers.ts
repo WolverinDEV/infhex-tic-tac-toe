@@ -1,4 +1,6 @@
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
+import { ROOT_LOGGER } from '../logger';
 import type { MetricDetails } from '../persistence/metricsRepository';
 import { MetricsRepository } from '../persistence/metricsRepository';
 
@@ -11,8 +13,14 @@ interface BackgroundWorkerOptions {
 @injectable()
 export class BackgroundWorkerHub {
     private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+    private readonly logger: Logger;
 
-    constructor(private readonly metricsRepository: MetricsRepository) {}
+    constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
+        private readonly metricsRepository: MetricsRepository
+    ) {
+        this.logger = rootLogger.child({ component: 'background-worker-hub' });
+    }
 
     start(options: BackgroundWorkerOptions = {}): void {
         const { rematchTtlMs, cleanupIntervalMs, onCleanupExpiredRematches } = options;
@@ -27,6 +35,11 @@ export class BackgroundWorkerHub {
             onCleanupExpiredRematches(rematchTtlMs);
         }, intervalMs);
         this.cleanupTimer.unref?.();
+        this.logger.info({
+            event: 'rematch-cleanup.started',
+            rematchTtlMs,
+            intervalMs
+        }, 'Started rematch cleanup worker');
     }
 
     stop(): void {
@@ -36,6 +49,9 @@ export class BackgroundWorkerHub {
 
         clearInterval(this.cleanupTimer);
         this.cleanupTimer = null;
+        this.logger.info({
+            event: 'rematch-cleanup.stopped'
+        }, 'Stopped rematch cleanup worker');
     }
 
     track(event: string, details: MetricDetails): void {
@@ -45,7 +61,11 @@ export class BackgroundWorkerHub {
             details
         };
 
-        console.log(JSON.stringify(document));
+        this.logger.info({
+            event: 'metric.tracked',
+            metricEvent: event,
+            details
+        }, 'Tracked metric');
         void this.metricsRepository.persist(document);
     }
 }

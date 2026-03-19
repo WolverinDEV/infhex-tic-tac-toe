@@ -1,8 +1,10 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import type { ClientToServerEvents, ServerToClientEvents } from '@ih3t/shared';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
+import { ROOT_LOGGER } from '../logger';
 import { getSocketClientInfo } from './clientInfo';
 import { CorsConfiguration } from './cors';
 import { SessionError, SessionManager } from '../session/sessionManager';
@@ -15,11 +17,16 @@ import type {
 
 @injectable()
 export class SocketServerGateway {
+    private readonly logger: Logger;
+
     constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
         private readonly sessionManager: SessionManager,
         private readonly backgroundWorkers: BackgroundWorkerHub,
         private readonly corsConfiguration: CorsConfiguration
-    ) {}
+    ) {
+        this.logger = rootLogger.child({ component: 'socket-server' });
+    }
 
     attach(server: HttpServer): Server<ClientToServerEvents, ServerToClientEvents> {
         const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, this.corsConfiguration.options ? {
@@ -57,7 +64,10 @@ export class SocketServerGateway {
         });
 
         io.on('connection', (socket) => {
-            console.log('Player connected:', socket.id);
+            this.logger.info({
+                event: 'socket.connected',
+                socketId: socket.id
+            }, 'Socket connected');
             this.backgroundWorkers.track('site-visited', {
                 client: getSocketClientInfo(socket)
             });
@@ -94,8 +104,16 @@ export class SocketServerGateway {
                         socket.emit('game-state', joinResult.gameState);
                     }
 
-                    console.log(`${joinResult.role === 'player' ? 'Player' : 'Spectator'} ${socket.id} joined session ${sessionId}`);
+                    this.logger.info({
+                        event: 'socket.joined-session',
+                        socketId: socket.id,
+                        sessionId,
+                        role: joinResult.role,
+                        state: joinResult.state,
+                        isNewParticipant: joinResult.isNewParticipant
+                    }, 'Socket joined session');
                 } catch (error: unknown) {
+                    logSocketActionFailure(this.logger, 'join-session', socket, error, { sessionId });
                     socket.emit('error', getSocketErrorMessage(error));
                 }
             });
@@ -135,6 +153,7 @@ export class SocketServerGateway {
 
                     this.sessionManager.activateSession(nextSession.sessionId);
                 } catch (error: unknown) {
+                    logSocketActionFailure(this.logger, 'request-rematch', socket, error, { finishedSessionId });
                     socket.emit('error', getSocketErrorMessage(error));
                 }
             });
@@ -147,12 +166,20 @@ export class SocketServerGateway {
                 try {
                     this.sessionManager.placeCell(data.sessionId, socket.id, data.x, data.y);
                 } catch (error: unknown) {
+                    logSocketActionFailure(this.logger, 'place-cell', socket, error, {
+                        sessionId: data.sessionId,
+                        x: data.x,
+                        y: data.y
+                    });
                     socket.emit('error', getSocketErrorMessage(error));
                 }
             });
 
             socket.on('disconnect', () => {
-                console.log('Player disconnected:', socket.id);
+                this.logger.info({
+                    event: 'socket.disconnected',
+                    socketId: socket.id
+                }, 'Socket disconnected');
                 this.sessionManager.handleDisconnect(socket.id);
             });
         });
@@ -171,4 +198,31 @@ function getSocketErrorMessage(error: unknown): string {
     }
 
     return 'Unexpected server error';
+}
+
+function logSocketActionFailure(
+    logger: Logger,
+    action: string,
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+    error: unknown,
+    extra: Record<string, unknown> = {}
+): void {
+    if (error instanceof SessionError) {
+        logger.warn({
+            event: 'socket.action.failed',
+            action,
+            socketId: socket.id,
+            message: error.message,
+            ...extra
+        }, 'Socket action rejected');
+        return;
+    }
+
+    logger.error({
+        err: error,
+        event: 'socket.action.failed',
+        action,
+        socketId: socket.id,
+        ...extra
+    }, 'Socket action failed unexpectedly');
 }

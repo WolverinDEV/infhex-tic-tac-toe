@@ -1,4 +1,5 @@
-import { injectable } from 'tsyringe';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import type { Collection, Document } from 'mongodb';
 import type {
     FinishedGameRecord,
@@ -6,6 +7,7 @@ import type {
     GameMove,
     SessionFinishReason,
 } from '@ih3t/shared';
+import { ROOT_LOGGER } from '../logger';
 import { MongoDatabase } from './mongoClient';
 
 export interface CreateGameHistoryPayload {
@@ -48,8 +50,14 @@ const mongoCollectionName = process.env.MONGODB_GAME_HISTORY_COLLECTION ?? 'game
 @injectable()
 export class GameHistoryRepository {
     private collectionPromise: Promise<Collection<GameHistoryDocument>> | null = null;
+    private readonly logger: Logger;
 
-    constructor(private readonly mongoDatabase: MongoDatabase) {}
+    constructor(
+        @inject(ROOT_LOGGER) rootLogger: Logger,
+        private readonly mongoDatabase: MongoDatabase
+    ) {
+        this.logger = rootLogger.child({ component: 'game-history-repository' });
+    }
 
     async createHistory(payload: CreateGameHistoryPayload): Promise<boolean> {
         const collection = await this.getCollection();
@@ -58,14 +66,13 @@ export class GameHistoryRepository {
             await collection.insertOne(this.createDocument(payload) as GameHistoryDocument);
             return true;
         } catch (error: unknown) {
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'game-history',
                 event: 'game-history-create-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                gameId: payload.id,
-                message: error instanceof Error ? error.message : String(error)
-            }));
+                gameId: payload.id
+            }, 'Failed to create game history');
 
             return false;
         }
@@ -94,14 +101,13 @@ export class GameHistoryRepository {
 
             return true;
         } catch (error: unknown) {
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'game-history',
                 event: 'game-history-start-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                gameId: payload.id,
-                message: error instanceof Error ? error.message : String(error)
-            }));
+                gameId: payload.id
+            }, 'Failed to mark game history as started');
 
             return false;
         }
@@ -135,15 +141,14 @@ export class GameHistoryRepository {
 
             return true;
         } catch (error: unknown) {
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'game-history',
                 event: 'game-history-move-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
                 gameId: payload.id,
-                moveNumber: move.moveNumber,
-                message: error instanceof Error ? error.message : String(error)
-            }));
+                moveNumber: move.moveNumber
+            }, 'Failed to append game move');
 
             return false;
         }
@@ -178,14 +183,13 @@ export class GameHistoryRepository {
 
             return true;
         } catch (error: unknown) {
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'game-history',
                 event: 'game-history-finalize-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                gameId: payload.id,
-                message: error instanceof Error ? error.message : String(error)
-            }));
+                gameId: payload.id
+            }, 'Failed to finalize game history');
 
             return false;
         }
@@ -226,26 +230,24 @@ export class GameHistoryRepository {
             await collection.createIndex({ state: 1, finishedAt: -1 });
             await collection.createIndex({ sessionId: 1, finishedAt: -1 });
 
-            console.log(JSON.stringify({
+            this.logger.info({
                 type: 'game-history',
                 event: 'game-history-storage-ready',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
                 database: mongoDbName,
                 collection: mongoCollectionName
-            }));
+            }, 'Game history storage ready');
 
             return collection;
         })().catch((error: unknown) => {
             this.collectionPromise = null;
 
-            console.error(JSON.stringify({
+            this.logger.error({
+                err: error,
                 type: 'game-history',
                 event: 'game-history-storage-error',
-                timestamp: new Date().toISOString(),
                 storage: 'mongodb',
-                message: error instanceof Error ? error.message : String(error)
-            }));
+            }, 'Failed to initialize game history storage');
 
             throw error;
         });
@@ -297,14 +299,12 @@ export class GameHistoryRepository {
     }
 
     private logMissingHistory(event: string, gameId: string, extraDetails: Record<string, unknown> = {}): void {
-        console.error(JSON.stringify({
+        this.logger.warn({
             type: 'game-history',
             event,
-            timestamp: new Date().toISOString(),
             storage: 'mongodb',
             gameId,
-            message: 'Game history does not exist.',
             ...extraDetails
-        }));
+        }, 'Game history does not exist');
     }
 }

@@ -12,6 +12,8 @@ export class ServerConfig {
     readonly mongoUri = this.requireEnv('MONGODB_URI');
     readonly mongoDbName = process.env.MONGODB_DB_NAME ?? 'ih3t';
     readonly port: string | number = process.env.PORT || 3001;
+    readonly logLevel = process.env.LOG_LEVEL?.trim() || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
+    readonly prettyLogs = this.parseBoolean(process.env.LOG_PRETTY) ?? process.env.NODE_ENV !== 'production';
     readonly rematchTtlMs = this.parsePositiveInt(process.env.REMATCH_TTL_MS);
 
     private requireEnv(name: string): string {
@@ -34,5 +36,22 @@ export class ServerConfig {
         }
 
         return parsed;
+    }
+
+    private parseBoolean(value: string | undefined): boolean | null {
+        if (!value) {
+            return null;
+        }
+
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true') {
+            return true;
+        }
+
+        if (normalized === 'false') {
+            return false;
+        }
+
+        return null;
     }
 }
