@@ -1,10 +1,14 @@
-import type { FinishedGameRecord, FinishedGameSummary, SessionInfo } from '@ih3t/shared'
-import { useQuery } from '@tanstack/react-query'
+import type { FinishedGameRecord, FinishedGamesPage, SessionInfo } from '@ih3t/shared'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { fetchJson } from './apiClient'
+
+export const FINISHED_GAMES_PAGE_SIZE = 20
 
 export const queryKeys = {
   availableSessions: ['sessions', 'available'] as const,
   finishedGames: ['finished-games'] as const,
+  finishedGamesPage: (page: number, pageSize: number, baseTimestamp: number) =>
+    ['finished-games', page, pageSize, baseTimestamp] as const,
   finishedGame: (gameId: string) => ['finished-games', gameId] as const
 }
 
@@ -13,9 +17,14 @@ async function fetchAvailableSessions() {
   return sessions.filter(session => session.canJoin)
 }
 
-async function fetchFinishedGames() {
-  const data = await fetchJson<{ games: FinishedGameSummary[] }>('/api/finished-games')
-  return data.games
+async function fetchFinishedGames(page: number, pageSize: number, baseTimestamp: number) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+    baseTimestamp: String(baseTimestamp)
+  })
+
+  return await fetchJson<FinishedGamesPage>(`/api/finished-games?${params.toString()}`)
 }
 
 async function fetchFinishedGame(gameId: string) {
@@ -30,10 +39,11 @@ export function useQueryAvailableSessions(options?: { enabled?: boolean }) {
   })
 }
 
-export function useQueryFinishedGames(options?: { enabled?: boolean }) {
+export function useQueryFinishedGames(page: number, baseTimestamp: number, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.finishedGames,
-    queryFn: fetchFinishedGames,
+    queryKey: queryKeys.finishedGamesPage(page, FINISHED_GAMES_PAGE_SIZE, baseTimestamp),
+    queryFn: () => fetchFinishedGames(page, FINISHED_GAMES_PAGE_SIZE, baseTimestamp),
+    placeholderData: keepPreviousData,
     enabled: options?.enabled
   })
 }

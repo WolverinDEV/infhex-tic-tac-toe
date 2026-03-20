@@ -19,9 +19,13 @@ export class ApiRouter {
             res.json(this.sessionManager.listSessions());
         });
 
-        router.get('/finished-games', async (_req, res) => {
-            const games = await this.gameHistoryRepository.listFinishedGames();
-            res.json({ games });
+        router.get('/finished-games', async (req, res) => {
+            const archivePage = await this.gameHistoryRepository.listFinishedGames({
+                page: this.parsePositiveInteger(req.query.page, 1),
+                pageSize: this.parsePositiveInteger(req.query.pageSize, 20),
+                baseTimestamp: this.parsePositiveInteger(req.query.baseTimestamp, Date.now())
+            });
+            res.json(archivePage);
         });
 
         router.get('/finished-games/:id', async (req, res) => {
@@ -57,5 +61,16 @@ export class ApiRouter {
         });
 
         this.router = router;
+    }
+
+    private parsePositiveInteger(value: unknown, fallback: number): number {
+        const candidate = Array.isArray(value) ? value[0] : value;
+        const parsedValue = Number.parseInt(String(candidate ?? ''), 10);
+
+        if (!Number.isFinite(parsedValue) || parsedValue < 1) {
+            return fallback;
+        }
+
+        return parsedValue;
     }
 }

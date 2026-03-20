@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import type { Collection, Document } from 'mongodb';
 import type {
+    FinishedGamesPage,
     FinishedGameRecord,
     FinishedGameSummary,
     GameMove,
@@ -42,6 +43,12 @@ interface GameHistoryDocument extends Document {
     finishedAt: number | null;
     gameDurationMs: number | null;
     updatedAt: number;
+}
+
+interface ListFinishedGamesOptions {
+    page?: number;
+    pageSize?: number;
+    baseTimestamp?: number;
 }
 
 const mongoDbName = process.env.MONGODB_DB_NAME ?? 'ih3t';
@@ -191,16 +198,68 @@ export class GameHistoryRepository {
         }
     }
 
-    async listFinishedGames(limit = 50): Promise<FinishedGameSummary[]> {
+    async listFinishedGames(options: ListFinishedGamesOptions = {}): Promise<FinishedGamesPage> {
         const collection = await this.getCollection();
+        const pageSize = this.normalizePageSize(options.pageSize);
+        const baseTimestamp = this.normalizeBaseTimestamp(options.baseTimestamp);
+        const requestedPage = this.normalizePage(options.page);
+        const aggregationResult = await collection.aggregate<{
+            games: GameHistoryDocument[];
+            totals: Array<{ totalGames: number; totalMoves: number }>;
+        }>([
+            {
+                $match: {
+                    state: 'finished',
+                    finishedAt: { $lte: baseTimestamp }
+                }
+            },
+            { $sort: { finishedAt: -1, id: -1 } },
+            {
+                $facet: {
+                    games: [
+                        { $skip: (requestedPage - 1) * pageSize },
+                        { $limit: pageSize }
+                    ],
+                    totals: [
+                        {
+                            $group: {
+                                _id: null,
+                                totalGames: { $sum: 1 },
+                                totalMoves: { $sum: '$moveCount' }
+                            }
+                        }
+                    ]
+                }
+            }
+        ]).toArray();
+        const facetResult = aggregationResult[0] ?? { games: [], totals: [] };
+        const totalGames = facetResult.totals[0]?.totalGames ?? 0;
+        const totalMoves = facetResult.totals[0]?.totalMoves ?? 0;
+        const totalPages = Math.max(1, Math.ceil(totalGames / pageSize));
+        const page = Math.min(requestedPage, totalPages);
+        const games = page === requestedPage
+            ? facetResult.games
+            : await collection
+                .find({
+                    state: 'finished',
+                    finishedAt: { $lte: baseTimestamp }
+                })
+                .sort({ finishedAt: -1, id: -1 })
+                .skip((page - 1) * pageSize)
+                .limit(pageSize)
+                .toArray();
 
-        const documents = await collection
-            .find({ state: 'finished' })
-            .sort({ finishedAt: -1 })
-            .limit(limit)
-            .toArray();
-
-        return documents.map((document) => this.mapSummary(document));
+        return {
+            games: games.map((document) => this.mapSummary(document)),
+            pagination: {
+                page,
+                pageSize,
+                totalGames,
+                totalMoves,
+                totalPages,
+                baseTimestamp
+            }
+        };
     }
 
     async getFinishedGame(id: string): Promise<FinishedGameRecord | undefined> {
@@ -223,7 +282,7 @@ export class GameHistoryRepository {
             const database = await this.mongoDatabase.getDatabase();
             const collection = database.collection<GameHistoryDocument>(mongoCollectionName);
             await collection.createIndex({ id: 1 }, { unique: true });
-            await collection.createIndex({ state: 1, finishedAt: -1 });
+            await collection.createIndex({ state: 1, finishedAt: -1, id: -1 });
             await collection.createIndex({ sessionId: 1, finishedAt: -1 });
 
             this.logger.info({
@@ -292,6 +351,30 @@ export class GameHistoryRepository {
             ...this.mapSummary(document),
             moves: [...document.moves]
         };
+    }
+
+    private normalizePageSize(pageSize: number | undefined): number {
+        if (!pageSize || !Number.isFinite(pageSize)) {
+            return 20;
+        }
+
+        return Math.min(100, Math.max(1, Math.floor(pageSize)));
+    }
+
+    private normalizePage(page: number | undefined): number {
+        if (!page || !Number.isFinite(page)) {
+            return 1;
+        }
+
+        return Math.max(1, Math.floor(page));
+    }
+
+    private normalizeBaseTimestamp(baseTimestamp: number | undefined): number {
+        if (!baseTimestamp || !Number.isFinite(baseTimestamp)) {
+            return Date.now();
+        }
+
+        return Math.max(0, Math.floor(baseTimestamp));
     }
 
     private logMissingHistory(event: string, gameId: string, extraDetails: Record<string, unknown> = {}): void {

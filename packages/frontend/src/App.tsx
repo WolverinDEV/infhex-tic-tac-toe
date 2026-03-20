@@ -26,21 +26,40 @@ import {
 
 type AppRoute =
   | { page: 'live' }
-  | { page: 'finished-games' }
-  | { page: 'finished-game'; gameId: string }
+  | { page: 'finished-games'; archivePage: number; archiveBaseTimestamp: number }
+  | { page: 'finished-game'; gameId: string; archivePage: number; archiveBaseTimestamp: number }
 
-function parseRoute(pathname: string): AppRoute {
+function parseArchivePage(params: URLSearchParams) {
+  const pageValue = params.get('page')
+  const page = Number.parseInt(pageValue ?? '', 10)
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1
+  }
+
+  return page
+}
+
+function parseRoute(pathname: string, search: string): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+  const params = new URLSearchParams(search)
+  const archivePage = parseArchivePage(params)
+  const archiveBaseTimestamp = Number.parseInt(params.get('at') ?? '', 10)
+  const normalizedArchiveBaseTimestamp = Number.isFinite(archiveBaseTimestamp) && archiveBaseTimestamp > 0
+    ? archiveBaseTimestamp
+    : Date.now()
 
   if (normalizedPath === '/games') {
-    return { page: 'finished-games' }
+    return { page: 'finished-games', archivePage, archiveBaseTimestamp: normalizedArchiveBaseTimestamp }
   }
 
   const gameMatch = normalizedPath.match(/^\/games\/([^/]+)$/)
   if (gameMatch) {
     return {
       page: 'finished-game',
-      gameId: decodeURIComponent(gameMatch[1])
+      gameId: decodeURIComponent(gameMatch[1]),
+      archivePage,
+      archiveBaseTimestamp: normalizedArchiveBaseTimestamp
     }
   }
 
@@ -49,29 +68,50 @@ function parseRoute(pathname: string): AppRoute {
 
 function buildRoutePath(route: AppRoute) {
   if (route.page === 'finished-games') {
-    return '/games'
+    const params = new URLSearchParams()
+    params.set('at', String(route.archiveBaseTimestamp))
+
+    if (route.archivePage > 1) {
+      params.set('page', String(route.archivePage))
+    }
+
+    const suffix = params.toString()
+    return suffix.length > 0 ? `/games?${suffix}` : '/games'
   }
 
   if (route.page === 'finished-game') {
-    return `/games/${encodeURIComponent(route.gameId)}`
+    const params = new URLSearchParams()
+    params.set('at', String(route.archiveBaseTimestamp))
+
+    if (route.archivePage > 1) {
+      params.set('page', String(route.archivePage))
+    }
+
+    const suffix = params.toString()
+    return suffix.length > 0
+      ? `/games/${encodeURIComponent(route.gameId)}?${suffix}`
+      : `/games/${encodeURIComponent(route.gameId)}`
   }
 
   return '/'
 }
 
 function App() {
-  const [route, setRoute] = useState<AppRoute>(() => parseRoute(window.location.pathname))
+  const [route, setRoute] = useState<AppRoute>(() => parseRoute(window.location.pathname, window.location.search))
   const connection = useLiveGameStore(state => state.connection)
   const shutdown = useLiveGameStore(state => state.shutdown)
   const liveScreen = useLiveGameStore(state => state.screen)
   const availableSessionsQuery = useQueryAvailableSessions({ enabled: route.page === 'live' })
-  const finishedGamesQuery = useQueryFinishedGames({ enabled: route.page === 'finished-games' })
+  const archivePage = route.page === 'live' ? 1 : route.archivePage
+  const archiveBaseTimestamp = route.page === 'live' ? Date.now() : route.archiveBaseTimestamp
+  const finishedGamesQuery = useQueryFinishedGames(archivePage, archiveBaseTimestamp, { enabled: route.page === 'finished-games' })
   const selectedFinishedGameId = route.page === 'finished-game' ? route.gameId : null
   const finishedGameQuery = useQueryFinishedGame(selectedFinishedGameId, { enabled: route.page === 'finished-game' })
 
   const navigateTo = (nextRoute: AppRoute) => {
     const nextPath = buildRoutePath(nextRoute)
-    if (window.location.pathname !== nextPath) {
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    if (currentPath !== nextPath) {
       window.history.pushState({}, '', nextPath)
     }
 
@@ -121,29 +161,48 @@ function App() {
 
   const openFinishedGameReview = (gameId: string) => {
     returnToLobby()
-    navigateTo({ page: 'finished-game', gameId })
+    navigateTo({ page: 'finished-game', gameId, archivePage: 1, archiveBaseTimestamp: Date.now() })
   }
 
   useEffect(() => {
     const handlePopState = () => {
-      setRoute(parseRoute(window.location.pathname))
+      setRoute(parseRoute(window.location.pathname, window.location.search))
     }
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  useEffect(() => {
+    if (route.page !== 'finished-games' || !finishedGamesQuery.data) {
+      return
+    }
+
+    if (route.archivePage > finishedGamesQuery.data.pagination.totalPages) {
+      navigateTo({
+        page: 'finished-games',
+        archivePage: finishedGamesQuery.data.pagination.totalPages,
+        archiveBaseTimestamp: route.archiveBaseTimestamp
+      })
+    }
+  }, [finishedGamesQuery.data, route])
+
   let screen = null
 
   if (route.page === 'finished-games') {
     screen = (
       <FinishedGamesScreen
-        games={finishedGamesQuery.data ?? []}
+        archive={finishedGamesQuery.data ?? null}
         isLoading={finishedGamesQuery.isLoading}
         errorMessage={finishedGamesQuery.error instanceof Error ? finishedGamesQuery.error.message : null}
         onBack={() => navigateTo({ page: 'live' })}
-        onOpenGame={(gameId) => navigateTo({ page: 'finished-game', gameId })}
-        onRefresh={() => void finishedGamesQuery.refetch()}
+        onOpenGame={(gameId) => navigateTo({ page: 'finished-game', gameId, archivePage, archiveBaseTimestamp })}
+        onChangePage={(nextArchivePage) =>
+          navigateTo({ page: 'finished-games', archivePage: nextArchivePage, archiveBaseTimestamp })
+        }
+        onRefresh={() =>
+          navigateTo({ page: 'finished-games', archivePage: 1, archiveBaseTimestamp: Date.now() })
+        }
       />
     )
   } else if (route.page === 'finished-game') {
@@ -152,7 +211,11 @@ function App() {
         game={finishedGameQuery.data ?? null}
         isLoading={finishedGameQuery.isLoading}
         errorMessage={finishedGameQuery.error instanceof Error ? finishedGameQuery.error.message : null}
-        onBack={() => navigateTo({ page: 'finished-games' })}
+        onBack={() => navigateTo({
+          page: 'finished-games',
+          archivePage: route.archivePage,
+          archiveBaseTimestamp: route.archiveBaseTimestamp
+        })}
         onRetry={() => void finishedGameQuery.refetch()}
       />
     )
@@ -164,7 +227,7 @@ function App() {
         availableSessions={availableSessionsQuery.data ?? []}
         onHostGame={hostGame}
         onJoinGame={joinGame}
-        onViewFinishedGames={() => navigateTo({ page: 'finished-games' })}
+        onViewFinishedGames={() => navigateTo({ page: 'finished-games', archivePage: 1, archiveBaseTimestamp: Date.now() })}
       />
     )
   } else if (liveScreen.kind === 'waiting') {

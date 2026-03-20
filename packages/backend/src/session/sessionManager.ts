@@ -6,7 +6,6 @@ import { ROOT_LOGGER } from '../logger';
 import {
     GameHistoryRepository,
     type CreateGameHistoryPayload,
-    type StartedGameHistoryPayload,
 } from '../persistence/gameHistoryRepository';
 import { GameSimulation, SimulationError } from '../simulation/gameSimulation';
 import { createStoredGameSession, SessionStore } from './sessionStore';

@@ -73,6 +73,20 @@ export interface FinishedGameRecord extends FinishedGameSummary {
     moves: GameMove[];
 }
 
+export interface FinishedGamesPagination {
+    page: number;
+    pageSize: number;
+    totalGames: number;
+    totalMoves: number;
+    totalPages: number;
+    baseTimestamp: number;
+}
+
+export interface FinishedGamesPage {
+    games: FinishedGameSummary[];
+    pagination: FinishedGamesPagination;
+}
+
 export interface SessionFinishedEvent {
     sessionId: string;
     finishedGameId: string;
