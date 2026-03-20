@@ -41,7 +41,10 @@ export class SessionStore {
 
     listSessionInfos(): SessionInfo[] {
         return this.listSessions()
-            .filter((session) => session.lobbyOptions.visibility === 'public')
+            .filter((session) => {
+                /* show private games when they are ingame to allow spectators to join via the main menu */
+                return session.state !== 'lobby' || session.lobbyOptions.visibility === 'public';
+            })
             .map((session) => ({
                 id: session.id,
                 playerCount: session.players.length,

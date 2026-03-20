@@ -43,7 +43,7 @@ export function startLiveGameClient() {
   socket.on('sessions-updated', (sessions) => {
     queryClient.setQueryData(
       queryKeys.availableSessions,
-      sortLobbySessions(sessions.filter(session => session.state !== 'finished' && session.lobbyOptions.visibility === 'public'))
+      sortLobbySessions(sessions.filter(session => session.state !== 'finished'))
     )
   })
 
