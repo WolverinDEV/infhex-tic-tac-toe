@@ -25,7 +25,7 @@ export function createRootLogger(options: CreateRootLoggerOptions = {}): Logger 
             colorize: true,
             translateTime: 'SYS:standard',
             ignore: 'pid,hostname'
-        }
+        },
     }) : process.stdout;
 
     return pino(
@@ -38,8 +38,8 @@ export function createRootLogger(options: CreateRootLoggerOptions = {}): Logger 
             }
         },
         pino.multistream([
-            { stream: getServerLogFileStream() },
-            { stream: consoleStream }
+            { stream: consoleStream, level },
+            { stream: getServerLogFileStream(), level },
         ])
     );
 }
