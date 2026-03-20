@@ -26,6 +26,7 @@ Backend: `http://localhost:3001`
 Backend startup requires `MONGODB_URI` to be set. `MONGODB_DB_NAME` remains optional and defaults to `ih3t`.
 Optional backend env vars: `FRONTEND_DIST_PATH`, `LOG_LEVEL`, `LOG_PRETTY`, and `REMATCH_TTL_MS`.
 Server logs are printed to the console and also written to `logs/server.log`, rotating in 50 MB segments with a 500 MB total cap.
+In production, the backend injects route-aware Open Graph and Twitter meta tags for shared lobby invites and finished-game replay URLs so link previews show the correct page context.
 
 While the backend is running, type `shutdown` into the backend terminal and press Enter to schedule a graceful shutdown.
 This immediately blocks new games, gives existing sessions up to 10 minutes to finish, and then closes any remaining sessions before the server exits.
