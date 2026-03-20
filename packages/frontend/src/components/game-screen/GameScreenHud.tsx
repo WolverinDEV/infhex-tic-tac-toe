@@ -135,7 +135,7 @@ function GameScreenHud({
             {players.map(({ playerId, displayColor, displayName }) => (
               <div key={playerId} className="mt-1 flex items-center gap-2.5 text-white">
                 <span
-                  className="h-3.5 w-3.5 rounded-full border border-white/20"
+                  className="h-3.5 w-3.5 rounded-full border border-white/20 flex-shrink-0"
                   style={{ backgroundColor: displayColor }}
                 />
                 <span>{displayName}</span>
