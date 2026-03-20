@@ -1,12 +1,16 @@
 import express from 'express';
 import { inject, injectable } from 'tsyringe';
 import {
+    type AccountResponse,
     DEFAULT_LOBBY_OPTIONS,
     type CreateSessionRequest,
     type CreateSessionResponse,
     type GameTimeControl,
     type LobbyOptions,
+    type UpdateAccountProfileRequest,
 } from '@ih3t/shared';
+import { AuthRepository } from '../../auth/authRepository';
+import { AuthService } from '../../auth/authService';
 import { getRequestClientInfo } from '../clientInfo';
 import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
 import { SessionError, SessionManager } from '../../session/sessionManager';
@@ -16,10 +20,47 @@ export class ApiRouter {
     readonly router: express.Router;
 
     constructor(
+        @inject(AuthService) private readonly authService: AuthService,
+        @inject(AuthRepository) private readonly authRepository: AuthRepository,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository
     ) {
         const router = express.Router();
+
+        router.get('/account', async (req, res) => {
+            const user = await this.authService.getCurrentUser(req);
+            const response: AccountResponse = { user };
+            res.json(response);
+        });
+
+        router.patch('/account', express.json(), async (req, res) => {
+            const user = await this.authService.getCurrentUser(req);
+            if (!user) {
+                res.status(401).json({ error: 'Sign in with Discord to update your username.' });
+                return;
+            }
+
+            try {
+                const username = this.parseUsername(req.body);
+                const updatedUser = await this.authRepository.updateUsername(user.id, username);
+                if (!updatedUser) {
+                    res.status(404).json({ error: 'Account not found.' });
+                    return;
+                }
+
+                const response: AccountResponse = {
+                    user: updatedUser
+                };
+                res.json(response);
+            } catch (error: unknown) {
+                if (error instanceof SessionError) {
+                    res.status(400).json({ error: error.message });
+                    return;
+                }
+
+                throw error;
+            }
+        });
 
         router.get('/sessions', (_req, res) => {
             res.json(this.sessionManager.listSessions());
@@ -49,7 +90,7 @@ export class ApiRouter {
             res.json(game);
         });
 
-        router.post('/sessions', express.json(), (req, res) => {
+        router.post('/sessions', express.json(), async (req, res) => {
             try {
                 const lobbyOptions = this.parseLobbyOptions(req.body);
                 const response: CreateSessionResponse = this.sessionManager.createSession({
@@ -126,5 +167,22 @@ export class ApiRouter {
         }
 
         return Math.min(maximum, Math.max(minimum, parsedValue));
+    }
+
+    private parseUsername(body: unknown): string {
+        const request = (body ?? {}) as Partial<UpdateAccountProfileRequest>;
+        const username = typeof request.username === 'string'
+            ? request.username.trim().replace(/\s+/g, ' ')
+            : '';
+
+        if (username.length < 2 || username.length > 32) {
+            throw new SessionError('Your username must be between 2 and 32 characters long.');
+        }
+
+        if (/[\p{C}]/u.test(username)) {
+            throw new SessionError('Your username contains unsupported characters.');
+        }
+
+        return username;
     }
 }

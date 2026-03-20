@@ -1,10 +1,11 @@
-import type { FinishedGameRecord, FinishedGamesPage, SessionInfo } from '@ih3t/shared'
+import type { AccountResponse, FinishedGameRecord, FinishedGamesPage, SessionInfo } from '@ih3t/shared'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { fetchJson } from './apiClient'
 
 export const FINISHED_GAMES_PAGE_SIZE = 20
 
 export const queryKeys = {
+  account: ['account'] as const,
   availableSessions: ['sessions', 'available'] as const,
   finishedGames: ['finished-games'] as const,
   finishedGamesPage: (page: number, pageSize: number, baseTimestamp: number) =>
@@ -29,6 +30,10 @@ async function fetchAvailableSessions() {
   )
 }
 
+async function fetchAccount() {
+  return await fetchJson<AccountResponse>('/api/account')
+}
+
 async function fetchFinishedGames(page: number, pageSize: number, baseTimestamp: number) {
   const params = new URLSearchParams({
     page: String(page),
@@ -47,6 +52,14 @@ export function useQueryAvailableSessions(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.availableSessions,
     queryFn: fetchAvailableSessions,
+    enabled: options?.enabled
+  })
+}
+
+export function useQueryAccount(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.account,
+    queryFn: fetchAccount,
     enabled: options?.enabled
   })
 }

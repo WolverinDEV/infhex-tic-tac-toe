@@ -1,3 +1,4 @@
+import type { PlayerNames } from '@ih3t/shared'
 import type { BoardCell } from '@ih3t/shared'
 
 export const HEX_RADIUS = 8
@@ -41,9 +42,14 @@ export function getCellKey(x: number, y: number): string {
   return `${x},${y}`
 }
 
-export function getPlayerLabel(players: string[], playerId: string | null): string {
+export function getPlayerLabel(players: string[], playerId: string | null, playerNames?: PlayerNames): string {
   if (!playerId) {
     return 'Waiting for a player'
+  }
+
+  const playerName = playerNames?.[playerId]?.trim()
+  if (playerName) {
+    return playerName
   }
 
   const playerIndex = players.indexOf(playerId)

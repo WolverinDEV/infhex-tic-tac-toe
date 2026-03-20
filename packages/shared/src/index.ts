@@ -4,6 +4,7 @@ export type SessionParticipantRole = 'player' | 'spectator';
 export type CellOccupant = string & { _type?: "CellOccupant" };
 export type SessionFinishReason = 'disconnect' | 'timeout' | 'terminated' | 'six-in-a-row';
 export type LobbyVisibility = 'public' | 'private';
+export type PlayerNames = Record<string, string>;
 export type GameTimeControl =
     | { mode: 'unlimited' }
     | { mode: 'turn'; turnTimeMs: number }
@@ -45,6 +46,7 @@ export interface BoardState {
 export interface GameSession {
     id: string;
     players: string[];
+    playerNames: PlayerNames;
     spectators: string[];
     maxPlayers: 2; // Fixed to 2 players
     state: SessionState;
@@ -58,6 +60,11 @@ export interface CreateSessionRequest {
 
 export interface CreateSessionResponse {
     sessionId: string;
+}
+
+export interface JoinSessionRequest {
+    sessionId: string;
+    username?: string;
 }
 
 export interface SessionInfo {
@@ -83,6 +90,7 @@ export interface FinishedGameSummary {
     id: string;
     sessionId: string;
     players: string[];
+    playerNames: PlayerNames;
     winningPlayerId: string | null;
     reason: SessionFinishReason;
     moveCount: number;
@@ -133,19 +141,20 @@ export interface ServerToClientEvents {
         state: SessionState;
         role: SessionParticipantRole;
         players: string[];
+        playerNames: PlayerNames;
         lobbyOptions: LobbyOptions;
         participantId: string;
     }) => void;
     'session-finished': (data: SessionFinishedEvent) => void;
-    'player-joined': (data: { playerId: string; players: string[]; state: SessionState }) => void;
-    'player-left': (data: { playerId: string; players: string[]; state: SessionState }) => void;
+    'player-joined': (data: { playerId: string; players: string[]; playerNames: PlayerNames; state: SessionState }) => void;
+    'player-left': (data: { playerId: string; players: string[]; playerNames: PlayerNames; state: SessionState }) => void;
     'game-state': (data: { sessionId: string; sessionState: SessionState, gameState: BoardState }) => void;
     'rematch-updated': (data: RematchUpdatedEvent) => void;
     error: (error: string) => void;
 }
 
 export interface ClientToServerEvents {
-    'join-session': (sessionId: string) => void;
+    'join-session': (request: JoinSessionRequest) => void;
     'leave-session': (sessionId: string) => void;
     'place-cell': (data: { sessionId: string; x: number; y: number }) => void;
     'request-rematch': (sessionId: string) => void;
@@ -168,4 +177,19 @@ export interface Player {
     name?: string;
     position?: Position;
     color?: string;
+}
+
+export interface AccountProfile {
+    id: string;
+    username: string;
+    email: string | null;
+    image: string | null;
+}
+
+export interface AccountResponse {
+    user: AccountProfile | null;
+}
+
+export interface UpdateAccountProfileRequest {
+    username: string;
 }

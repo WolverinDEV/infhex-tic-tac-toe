@@ -1,4 +1,4 @@
-import type { CreateSessionResponse, SessionFinishReason, SessionInfo, ShutdownState } from '@ih3t/shared';
+import type { CreateSessionResponse, PlayerNames, SessionFinishReason, SessionInfo, ShutdownState } from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
@@ -166,6 +166,10 @@ export class SessionManager {
 
     joinSession(params: JoinSessionParams): JoinSessionResult {
         const session = this.requireSession(params.sessionId);
+        session.participantProfiles[params.participantId] = {
+            userId: params.user.id,
+            username: params.user.username
+        };
         const existingRole = this.getExistingParticipantRole(session, params.participantId);
         if (existingRole) {
             return {
@@ -173,6 +177,7 @@ export class SessionManager {
                 state: session.state,
                 role: existingRole,
                 players: [...session.players],
+                playerNames: this.buildPlayerNames(session),
                 lobbyOptions: { ...session.lobbyOptions },
                 isNewParticipant: false,
                 gameState: session.state === 'ingame' ? this.simulation.getPublicGameState(session) : undefined
@@ -186,6 +191,7 @@ export class SessionManager {
             }
 
             session.players.push(params.participantId);
+            session.playerNames[params.participantId] = params.user.username;
             role = 'player';
         } else if (session.state === 'ingame') {
             session.spectators.push(params.participantId);
@@ -208,6 +214,7 @@ export class SessionManager {
                 sessionId: session.id,
                 playerId: params.participantId,
                 players: [...session.players],
+                playerNames: this.buildPlayerNames(session),
                 state: session.state
             });
         }
@@ -217,6 +224,7 @@ export class SessionManager {
             state: session.state,
             role,
             players: [...session.players],
+            playerNames: this.buildPlayerNames(session),
             lobbyOptions: { ...session.lobbyOptions },
             isNewParticipant: true,
             gameState: role === 'spectator' ? this.simulation.getPublicGameState(session) : undefined
@@ -347,6 +355,8 @@ export class SessionManager {
         const nextSessionId = this.createSessionId();
         const nextSession = createStoredGameSession(nextSessionId, rematch.lobbyOptions);
         nextSession.players = [...rematch.players];
+        nextSession.playerNames = { ...rematch.playerNames };
+        nextSession.participantProfiles = { ...rematch.participantProfiles };
         nextSession.spectators = Array.from(new Set(
             spectatorIds.filter((spectatorId) => !rematch.players.includes(spectatorId))
         ));
@@ -362,6 +372,7 @@ export class SessionManager {
             sessionId: nextSession.id,
             state: nextSession.state,
             players: [...nextSession.players],
+            playerNames: this.buildPlayerNames(nextSession),
             lobbyOptions: { ...nextSession.lobbyOptions }
         };
     }
@@ -439,7 +450,7 @@ export class SessionManager {
         session.state = 'ingame';
         session.startedAt = Date.now();
         this.simulation.startSession(session, this.handleTurnExpired, session.startedAt);
-        void this.gameHistoryRepository.markStarted(session.historyId, session.players);
+        void this.gameHistoryRepository.markStarted(session.historyId, session.players, this.buildPlayerNames(session));
 
         this.emitGameState(session);
         this.emitSessionsUpdated();
@@ -463,6 +474,8 @@ export class SessionManager {
                 this.store.savePendingRematch({
                     finishedSessionId: session.id,
                     players: [...session.players],
+                    playerNames: this.buildPlayerNames(session),
+                    participantProfiles: { ...session.participantProfiles },
                     lobbyOptions: { ...session.lobbyOptions },
                     availablePlayerIds: new Set<string>(session.players),
                     requestedPlayerIds: new Set<string>(),
@@ -482,7 +495,7 @@ export class SessionManager {
 
         void this.gameHistoryRepository.finalizeHistory({
             id: session.historyId,
-            startedAt: session.startedAt!,
+            startedAt: session.startedAt,
             winningPlayerId,
             reason,
         });
@@ -536,6 +549,7 @@ export class SessionManager {
             sessionId: session.id,
             playerId: participantId,
             players: [...session.players],
+            playerNames: this.buildPlayerNames(session),
             state: session.state
         });
         this.emitSessionsUpdated();
@@ -641,6 +655,18 @@ export class SessionManager {
         }
 
         return sessionId;
+    }
+
+    private buildPlayerNames(session: StoredGameSession): PlayerNames {
+        const playerNames: PlayerNames = {};
+
+        for (const [playerIndex, playerId] of session.players.entries()) {
+            playerNames[playerId] = session.participantProfiles[playerId]?.username
+                ?? session.playerNames[playerId]
+                ?? `Player ${playerIndex + 1}`;
+        }
+
+        return playerNames;
     }
 
     private getCreateHistoryPayload(session: StoredGameSession): CreateGameHistoryPayload {

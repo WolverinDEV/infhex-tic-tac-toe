@@ -1,4 +1,6 @@
 import { container, type DependencyContainer } from 'tsyringe';
+import { AuthRepository } from '../auth/authRepository';
+import { AuthService } from '../auth/authService';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
 import { ServerConfig } from '../config/serverConfig';
 import { createRootLogger, ROOT_LOGGER } from '../logger';
@@ -26,6 +28,8 @@ export function createAppContainer(): DependencyContainer {
     appContainer.registerSingleton(SessionStore);
     appContainer.registerSingleton(GameSimulation);
     appContainer.registerSingleton(MongoDatabase);
+    appContainer.registerSingleton(AuthRepository);
+    appContainer.registerSingleton(AuthService);
     appContainer.registerSingleton(GameHistoryRepository);
     appContainer.registerSingleton(MetricsRepository);
     appContainer.registerSingleton(BackgroundWorkerHub);

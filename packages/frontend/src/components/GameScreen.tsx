@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { BoardState, GameTimeControl, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
+import type { BoardState, GameTimeControl, PlayerNames, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
 import { playTilePlacedSound } from '../soundEffects'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import GameScreenHud from './game-screen/GameScreenHud'
@@ -11,6 +11,7 @@ import useGameBoard from './game-screen/useGameBoard'
 interface GameScreenProps {
   sessionId: string
   players: string[]
+  playerNames: PlayerNames
   participantRole: SessionParticipantRole
   currentPlayerId: string
   boardState: BoardState
@@ -29,6 +30,7 @@ function mergeCellKeys(existingKeys: string[], addedKeys: string[]) {
 function GameScreen({
   sessionId,
   players,
+  playerNames,
   participantRole,
   currentPlayerId,
   boardState,
@@ -179,6 +181,7 @@ function GameScreen({
             <TurnTimerHud
               effectiveTimeControl={effectiveTimeControl}
               players={players}
+              playerNames={playerNames}
               currentTurnPlayerId={boardState.currentTurnPlayerId}
               localPlayerId={isSpectator ? null : currentPlayerId}
             />

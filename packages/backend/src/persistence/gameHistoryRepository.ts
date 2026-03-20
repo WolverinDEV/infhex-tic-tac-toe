@@ -6,6 +6,7 @@ import type {
     FinishedGameRecord,
     FinishedGameSummary,
     GameMove,
+    PlayerNames,
     SessionFinishReason,
 } from '@ih3t/shared';
 import { ROOT_LOGGER } from '../logger';
@@ -18,8 +19,9 @@ export interface CreateGameHistoryPayload {
 }
 
 export interface StartedGameHistoryPayload extends CreateGameHistoryPayload {
-    startedAt: number;
+    startedAt: number | null;
     players: string[];
+    playerNames: PlayerNames;
 }
 
 export interface FinishedGameHistoryPayload extends StartedGameHistoryPayload {
@@ -34,6 +36,7 @@ interface GameHistoryDocument extends Document {
     sessionId: string;
     state: 'lobby' | 'ingame' | 'finished';
     players: string[];
+    playerNames?: PlayerNames;
     winningPlayerId: string | null;
     reason: SessionFinishReason | null;
     moveCount: number;
@@ -85,7 +88,7 @@ export class GameHistoryRepository {
         }
     }
 
-    async markStarted(id: string, players: string[]): Promise<boolean> {
+    async markStarted(id: string, players: string[], playerNames: PlayerNames): Promise<boolean> {
         const collection = await this.getCollection();
 
         try {
@@ -95,6 +98,7 @@ export class GameHistoryRepository {
                     $set: {
                         state: 'ingame',
                         players: players,
+                        playerNames: { ...playerNames },
                         startedAt: Date.now(),
                         updatedAt: Date.now()
                     }
@@ -163,6 +167,8 @@ export class GameHistoryRepository {
 
     async finalizeHistory(payload: Pick<FinishedGameHistoryPayload, "id" | "winningPlayerId" | "reason" | "startedAt">): Promise<boolean> {
         const collection = await this.getCollection();
+        const finishedAt = Date.now();
+        const effectiveStartedAt = payload.startedAt ?? finishedAt;
 
         try {
             const result = await collection.updateOne(
@@ -172,9 +178,9 @@ export class GameHistoryRepository {
                         state: 'finished',
                         winningPlayerId: payload.winningPlayerId,
                         reason: payload.reason,
-                        finishedAt: Date.now(),
-                        gameDurationMs: Math.max(0, Date.now() - payload.startedAt),
-                        updatedAt: Date.now()
+                        finishedAt,
+                        gameDurationMs: Math.max(0, finishedAt - effectiveStartedAt),
+                        updatedAt: finishedAt
                     }
                 }
             );
@@ -316,6 +322,7 @@ export class GameHistoryRepository {
             sessionId: payload.sessionId,
             state: 'lobby',
             players: [],
+            playerNames: {},
             winningPlayerId: null,
             reason: null,
             moveCount: 0,
@@ -336,6 +343,7 @@ export class GameHistoryRepository {
             id: document.id,
             sessionId: document.sessionId,
             players: [...document.players],
+            playerNames: this.normalizePlayerNames(document.players, document.playerNames),
             winningPlayerId: document.winningPlayerId,
             reason: document.reason ?? 'terminated',
             moveCount: document.moveCount,
@@ -351,6 +359,16 @@ export class GameHistoryRepository {
             ...this.mapSummary(document),
             moves: [...document.moves]
         };
+    }
+
+    private normalizePlayerNames(players: string[], playerNames: PlayerNames | undefined): PlayerNames {
+        const normalizedPlayerNames: PlayerNames = {};
+
+        for (const [playerIndex, playerId] of players.entries()) {
+            normalizedPlayerNames[playerId] = playerNames?.[playerId] ?? `Player ${playerIndex + 1}`;
+        }
+
+        return normalizedPlayerNames;
     }
 
     private normalizePageSize(pageSize: number | undefined): number {

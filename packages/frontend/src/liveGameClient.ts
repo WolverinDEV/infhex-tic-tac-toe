@@ -15,8 +15,6 @@ let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true
 const deviceId = getDeviceId()
 const socketUrl = getSocketUrl()
-const inviteSessionId = new URLSearchParams(window.location.search).get('join')
-let inviteHandled = false
 
 function showErrorToast(message: string) {
   toast.error(message, {
@@ -40,12 +38,6 @@ export function startLiveGameClient() {
   socket.on('connect', () => {
     useLiveGameStore.getState().setConnected()
     void fetchAvailableSessions()
-
-    if (inviteSessionId && !inviteHandled) {
-      inviteHandled = true
-      joinGame(inviteSessionId)
-      window.history.replaceState({}, '', window.location.pathname)
-    }
   })
 
   socket.on('sessions-updated', (sessions) => {
@@ -145,7 +137,9 @@ export async function hostGame(request: CreateSessionRequest) {
       },
       body: JSON.stringify(request)
     })
-    socket?.emit('join-session', data.sessionId)
+    socket?.emit('join-session', {
+      sessionId: data.sessionId
+    })
   } catch (error) {
     console.error('Failed to create session:', error)
     showErrorToast(error instanceof Error ? error.message : 'Failed to create a session.')
@@ -153,7 +147,9 @@ export async function hostGame(request: CreateSessionRequest) {
 }
 
 export function joinGame(sessionId: string) {
-  socket?.emit('join-session', sessionId)
+  socket?.emit('join-session', {
+    sessionId
+  })
 }
 
 export function leaveGame() {

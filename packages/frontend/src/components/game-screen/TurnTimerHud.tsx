@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import type { GameTimeControl } from '@ih3t/shared'
+import type { GameTimeControl, PlayerNames } from '@ih3t/shared'
 import { useLiveGameStore } from '../../liveGameStore'
 import { playCountdownWarningSound } from '../../soundEffects'
-import { formatCountdown, getPlayerColor } from './gameBoardUtils'
+import { formatCountdown, getPlayerColor, getPlayerLabel } from './gameBoardUtils'
 
 interface TurnTimerHudProps {
   effectiveTimeControl: GameTimeControl
   players: string[]
+  playerNames: PlayerNames
   currentTurnPlayerId: string | null
   localPlayerId: string | null
 }
@@ -16,6 +17,7 @@ const EMPTY_PLAYER_CLOCKS: Record<string, number> = {}
 function TurnTimerHud({
   effectiveTimeControl,
   players,
+  playerNames,
   currentTurnPlayerId,
   localPlayerId
 }: Readonly<TurnTimerHudProps>) {
@@ -60,9 +62,7 @@ function TurnTimerHud({
 
   const spectatorTurnDetail = !currentTurnPlayerId
     ? 'Waiting for the next player to move.'
-    : currentTurnPlayerId === firstPlayerId
-      ? 'Player 1 to move.'
-      : 'Player 2 to move.'
+    : `${getPlayerLabel(players, currentTurnPlayerId, playerNames)} to move.`
 
   const turnDetail = isSpectator
     ? spectatorTurnDetail
@@ -209,6 +209,9 @@ function TurnTimerHud({
                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: getPlayerColor(players, playerId) }}
                         />
+                        <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200 sm:text-[11px]">
+                          {getPlayerLabel(players, playerId, playerNames)}
+                        </span>
                         {isLocalPlayer && !isSpectator && (
                           <div className="rounded bg-white/10 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-200 sm:text-[9px]">
                             You

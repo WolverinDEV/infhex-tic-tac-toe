@@ -17,10 +17,13 @@ import {
   leaveGame,
   placeCell,
   requestRematch,
-  returnToLobby
+  returnToLobby,
+  startLiveGameClient,
+  stopLiveGameClient
 } from './liveGameClient'
 import { useLiveGameStore } from './liveGameStore'
 import {
+  useQueryAccount,
   useQueryAvailableSessions,
   useQueryFinishedGame,
   useQueryFinishedGames
@@ -117,12 +120,30 @@ function createFinishedGameReviewRoute(gameId: string): AppRoute {
   }
 }
 
+function removeInviteParamFromUrl() {
+  const nextUrl = new URL(window.location.href)
+  nextUrl.searchParams.delete('join')
+  const nextSearch = nextUrl.searchParams.toString()
+  const nextPath = `${nextUrl.pathname}${nextSearch ? `?${nextSearch}` : ''}`
+  window.history.replaceState({}, '', nextPath)
+}
+
 function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseRoute(window.location.pathname, window.location.search))
+  const [pendingInviteSessionId, setPendingInviteSessionId] = useState(
+    () => new URLSearchParams(window.location.search).get('join')
+  )
   const connection = useLiveGameStore(state => state.connection)
   const shutdown = useLiveGameStore(state => state.shutdown)
   const liveScreen = useLiveGameStore(state => state.screen)
   const previousLiveScreenKindRef = useRef(liveScreen.kind)
+  const previousIdentityKeyRef = useRef<string | null>(null)
+  const attemptedInviteSessionIdRef = useRef<string | null>(null)
+  const accountQuery = useQueryAccount()
+  const account = accountQuery.data?.user ?? null
+  const activeIdentityKey = account
+    ? `account:${account.id}:${account.username}`
+    : 'guest'
   const availableSessionsQuery = useQueryAvailableSessions({ enabled: route.page === 'live' })
   const archivePage = route.page === 'live' ? 1 : route.archivePage
   const archiveBaseTimestamp = route.page === 'live' ? Date.now() : route.archiveBaseTimestamp
@@ -135,6 +156,13 @@ function App() {
     const currentPath = `${window.location.pathname}${window.location.search}`
     if (currentPath !== nextPath) {
       window.history.pushState({}, '', nextPath)
+    }
+
+    const nextUrl = new URL(nextPath, window.location.origin)
+    const nextInviteSessionId = nextUrl.searchParams.get('join')
+    setPendingInviteSessionId(nextInviteSessionId)
+    if (!nextInviteSessionId) {
+      attemptedInviteSessionIdRef.current = null
     }
 
     setRoute(nextRoute)
@@ -180,6 +208,10 @@ function App() {
     void hostGame(request)
   }
 
+  const joinLiveGame = (sessionId: string) => {
+    joinGame(sessionId)
+  }
+
   const navigateToLiveLobby = () => {
     returnToLobby()
     navigateTo({ page: 'live' })
@@ -196,6 +228,25 @@ function App() {
   }
 
   useEffect(() => {
+    previousIdentityKeyRef.current = activeIdentityKey
+    startLiveGameClient()
+
+    return () => {
+      stopLiveGameClient()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (previousIdentityKeyRef.current === activeIdentityKey) {
+      return
+    }
+
+    previousIdentityKeyRef.current = activeIdentityKey
+    stopLiveGameClient()
+    startLiveGameClient()
+  }, [activeIdentityKey])
+
+  useEffect(() => {
     const previousKind = previousLiveScreenKindRef.current
     if (previousKind === 'waiting' && liveScreen.kind === 'playing' && liveScreen.participantRole === 'player') {
       playMatchStartSound()
@@ -207,11 +258,42 @@ function App() {
   useEffect(() => {
     const handlePopState = () => {
       setRoute(parseRoute(window.location.pathname, window.location.search))
+      setPendingInviteSessionId(new URLSearchParams(window.location.search).get('join'))
+      attemptedInviteSessionIdRef.current = null
     }
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (!pendingInviteSessionId || !connection.isConnected || liveScreen.kind !== 'lobby') {
+      return
+    }
+
+    if (attemptedInviteSessionIdRef.current === pendingInviteSessionId) {
+      return
+    }
+
+    attemptedInviteSessionIdRef.current = pendingInviteSessionId
+    joinGame(pendingInviteSessionId)
+  }, [connection.isConnected, liveScreen.kind, pendingInviteSessionId])
+
+  useEffect(() => {
+    if (!pendingInviteSessionId) {
+      attemptedInviteSessionIdRef.current = null
+      return
+    }
+
+    const activeSessionId = liveScreen.kind === 'lobby' ? null : liveScreen.sessionId
+    if (activeSessionId !== pendingInviteSessionId) {
+      return
+    }
+
+    removeInviteParamFromUrl()
+    setPendingInviteSessionId(null)
+    attemptedInviteSessionIdRef.current = null
+  }, [liveScreen, pendingInviteSessionId])
 
   useEffect(() => {
     if (route.page !== 'finished-games' || !finishedGamesQuery.data) {
@@ -266,7 +348,7 @@ function App() {
         shutdown={shutdown}
         liveSessions={availableSessionsQuery.data ?? []}
         onHostGame={createLobby}
-        onJoinGame={joinGame}
+        onJoinGame={joinLiveGame}
         onViewFinishedGames={() => navigateTo({ page: 'finished-games', archivePage: 1, archiveBaseTimestamp: Date.now() })}
       />
     )
@@ -275,6 +357,7 @@ function App() {
       <WaitingScreen
         sessionId={liveScreen.sessionId}
         playerCount={liveScreen.players.length}
+        playerNames={liveScreen.playerNames}
         lobbyOptions={liveScreen.lobbyOptions}
         onInviteFriend={() => inviteFriend(liveScreen.sessionId)}
         onCancel={leaveGame}
@@ -285,6 +368,7 @@ function App() {
       <GameScreen
         sessionId={liveScreen.sessionId}
         players={liveScreen.players}
+        playerNames={liveScreen.playerNames}
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}
@@ -306,6 +390,7 @@ function App() {
       <GameScreen
         sessionId={liveScreen.sessionId}
         players={liveScreen.players}
+        playerNames={liveScreen.playerNames}
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}
@@ -347,6 +432,7 @@ function App() {
       <GameScreen
         sessionId={liveScreen.sessionId}
         players={liveScreen.players}
+        playerNames={liveScreen.playerNames}
         participantRole={liveScreen.participantRole}
         currentPlayerId={connection.currentPlayerId}
         boardState={liveScreen.boardState}

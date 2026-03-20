@@ -2,6 +2,7 @@ import type { CreateSessionRequest, SessionInfo, ShutdownState } from '@ih3t/sha
 import { useEffect, useState } from 'react'
 import CreateLobbyDialog from './CreateLobbyDialog'
 import { formatTimeControl } from '../lobbyOptions'
+import LobbyAccountBox from './LobbyAccountBox'
 import ScreenFooter from './ScreenFooter'
 
 interface LobbyScreenProps {
@@ -32,7 +33,7 @@ function LobbyScreen({
   onJoinGame,
   onViewFinishedGames
 }: LobbyScreenProps) {
-  const isHostingDisabled = !isConnected || Boolean(shutdown)
+  const isPlayingDisabled = !isConnected || Boolean(shutdown)
   const [now, setNow] = useState(() => Date.now())
   const [isCreateLobbyDialogOpen, setIsCreateLobbyDialogOpen] = useState(false)
 
@@ -75,8 +76,8 @@ function LobbyScreen({
               <div className="mt-6 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap sm:gap-4">
                 <button
                   onClick={() => setIsCreateLobbyDialogOpen(true)}
-                  disabled={isHostingDisabled}
-                  className={`rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition sm:px-7 sm:text-base sm:tracking-[0.18em] ${!isHostingDisabled
+                  disabled={isPlayingDisabled}
+                  className={`rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition sm:px-7 sm:text-base sm:tracking-[0.18em] ${!isPlayingDisabled
                     ? 'bg-amber-300 text-slate-900 shadow-[0_10px_35px_rgba(251,191,36,0.35)] hover:-translate-y-0.5 hover:bg-amber-200'
                     : 'cursor-not-allowed bg-slate-500/60 text-slate-200'
                     }`}
@@ -169,6 +170,8 @@ function LobbyScreen({
               )}
             </div>
           </section>
+
+          <LobbyAccountBox />
         </div>
 
         <ScreenFooter />

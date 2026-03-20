@@ -1,6 +1,7 @@
 import type {
   BoardState,
   LobbyOptions,
+  PlayerNames,
   RematchUpdatedEvent,
   ServerToClientEvents,
   ShutdownState,
@@ -22,6 +23,7 @@ type LiveGameScreenState =
     kind: 'waiting'
     sessionId: string
     players: string[]
+    playerNames: PlayerNames
     lobbyOptions: LobbyOptions
     participantRole: SessionParticipantRole
     boardState: BoardState
@@ -30,6 +32,7 @@ type LiveGameScreenState =
     kind: 'playing'
     sessionId: string
     players: string[]
+    playerNames: PlayerNames
     lobbyOptions: LobbyOptions
     participantRole: SessionParticipantRole
     boardState: BoardState
@@ -38,6 +41,7 @@ type LiveGameScreenState =
     kind: 'finished-player'
     sessionId: string
     players: string[]
+    playerNames: PlayerNames
     participantRole: 'player'
     boardState: BoardState
     result: 'winner' | 'loser'
@@ -53,6 +57,7 @@ type LiveGameScreenState =
     kind: 'finished-spectator'
     sessionId: string
     players: string[]
+    playerNames: PlayerNames
     participantRole: 'spectator'
     boardState: BoardState
     finishReason: SessionFinishReason
@@ -104,6 +109,10 @@ function cloneLobbyOptions(lobbyOptions: LobbyOptions): LobbyOptions {
   }
 }
 
+function clonePlayerNames(playerNames: PlayerNames): PlayerNames {
+  return { ...playerNames }
+}
+
 function isActiveLiveGameScreenState(screen: LiveGameScreenState): screen is ActiveLiveGameScreenState {
   return screen.kind !== 'lobby'
 }
@@ -123,6 +132,7 @@ function createLiveSessionScreenState(params: {
   sessionState: SessionState
   participantRole: SessionParticipantRole
   players: string[]
+  playerNames: PlayerNames
   lobbyOptions: LobbyOptions
   boardState: BoardState
 }): Extract<LiveGameScreenState, { kind: 'waiting' | 'playing' }> {
@@ -131,6 +141,7 @@ function createLiveSessionScreenState(params: {
     sessionId: params.sessionId,
     participantRole: params.participantRole,
     players: [...params.players],
+    playerNames: clonePlayerNames(params.playerNames),
     lobbyOptions: cloneLobbyOptions(params.lobbyOptions),
     boardState: cloneBoardState(params.boardState)
   }
@@ -171,6 +182,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
           sessionState: payload.state,
           participantRole: payload.role,
           players: payload.players,
+          playerNames: payload.playerNames,
           lobbyOptions: payload.lobbyOptions,
           boardState: createEmptyBoardState()
         })
@@ -187,6 +199,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
           sessionState: payload.state,
           participantRole: currentScreen.participantRole,
           players: payload.players,
+          playerNames: payload.playerNames,
           lobbyOptions: currentScreen.lobbyOptions,
           boardState: currentScreen.boardState
         })
@@ -207,6 +220,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
           sessionState: payload.sessionState,
           participantRole: currentScreen.participantRole,
           players: currentScreen.players,
+          playerNames: currentScreen.playerNames,
           lobbyOptions: currentScreen.lobbyOptions,
           boardState: payload.gameState
         })
@@ -223,6 +237,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
             kind: 'finished-spectator',
             sessionId: currentScreen.sessionId,
             players: [...currentScreen.players],
+            playerNames: clonePlayerNames(currentScreen.playerNames),
             participantRole: 'spectator',
             boardState: cloneBoardState(currentScreen.boardState),
             finishReason: payload.reason,
@@ -235,6 +250,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
           kind: 'finished-player',
           sessionId: currentScreen.sessionId,
           players: [...currentScreen.players],
+          playerNames: clonePlayerNames(currentScreen.playerNames),
           participantRole: 'player',
           boardState: cloneBoardState(currentScreen.boardState),
           result: payload.winningPlayerId === state.connection.currentPlayerId ? 'winner' : 'loser',

@@ -1,4 +1,5 @@
 import type { FinishedGameSummary, FinishedGamesPage } from '@ih3t/shared'
+import { getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
 
 interface FinishedGamesScreenProps {
   archive: FinishedGamesPage | null
@@ -189,6 +190,20 @@ function FinishedGamesScreen({
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300 sm:text-sm">
                             <span className="rounded-full bg-slate-900/70 px-3 py-1">Moves: {game.moveCount}</span>
                             <span className="rounded-full bg-slate-900/70 px-3 py-1">Duration: {formatDuration(game.gameDurationMs)}</span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300 sm:text-sm">
+                            {game.players.map((playerId) => (
+                              <span
+                                key={playerId}
+                                className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1"
+                              >
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: getPlayerColor(game.players, playerId) }}
+                                />
+                                <span>{getPlayerLabel(game.players, playerId, game.playerNames)}</span>
+                              </span>
+                            ))}
                           </div>
                         </div>
 

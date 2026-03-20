@@ -11,6 +11,8 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@auth/express": "^0.12.1",
+        "@auth/mongodb-adapter": "^3.11.1",
         "@ih3t/shared": "workspace:*",
         "@types/cors": "^2.8.19",
         "cors": "^2.8.6",

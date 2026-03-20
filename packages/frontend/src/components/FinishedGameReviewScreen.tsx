@@ -249,7 +249,7 @@ function FinishedGameReviewScreen({
                       <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Current Step</div>
                       <div className="mt-1 text-2xl font-bold text-white">
                         {activeMove
-                          ? `${getPlayerLabel(game.players, activeMove.playerId)} at (${activeMove.x}, ${activeMove.y})`
+                          ? `${getPlayerLabel(game.players, activeMove.playerId, game.playerNames)} at (${activeMove.x}, ${activeMove.y})`
                           : 'Board setup'}
                       </div>
                       <div className="mt-1 text-sm text-slate-300">
@@ -332,7 +332,7 @@ function FinishedGameReviewScreen({
                   <div className="rounded-3xl border border-white/10 bg-slate-950/55 p-4">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Winner</div>
                     <div className="mt-1 text-xl font-bold text-white">
-                      {game.winningPlayerId ? getPlayerLabel(game.players, game.winningPlayerId) : 'No winner'}
+                      {game.winningPlayerId ? getPlayerLabel(game.players, game.winningPlayerId, game.playerNames) : 'No winner'}
                     </div>
                   </div>
                   <div className="rounded-3xl border border-white/10 bg-slate-950/55 p-4">
@@ -351,7 +351,7 @@ function FinishedGameReviewScreen({
                         className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: getPlayerColor(game.players, playerId) }}
                       />
-                      <span>{getPlayerLabel(game.players, playerId)}</span>
+                      <span>{getPlayerLabel(game.players, playerId, game.playerNames)}</span>
                     </div>
                   ))}
                 </div>
@@ -402,7 +402,7 @@ function FinishedGameReviewScreen({
                           />
                         </div>
                         <div className="mt-2 break-words text-lg font-semibold text-white">
-                          {getPlayerLabel(game.players, move.playerId)} placed at ({move.x}, {move.y})
+                          {getPlayerLabel(game.players, move.playerId, game.playerNames)} placed at ({move.x}, {move.y})
                         </div>
                         <div className="mt-1 break-words text-sm text-slate-300">
                           {formatDateTime(move.timestamp)} • +{formatElapsed(move.timestamp - game.startedAt)}

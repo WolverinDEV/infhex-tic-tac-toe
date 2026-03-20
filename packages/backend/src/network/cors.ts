@@ -3,9 +3,14 @@ import type { CorsOptions } from 'cors';
 
 @injectable()
 export class CorsConfiguration {
+    readonly allowedOrigins = this.createAllowedOrigins();
     readonly options: CorsOptions | null = this.createOptions();
 
-    private createOptions(): CorsOptions | null {
+    isAllowedOrigin(origin: string): boolean {
+        return this.allowedOrigins.has(origin);
+    }
+
+    private createAllowedOrigins(): Set<string> {
         const configuredOrigins = (process.env.ALLOWED_ORIGINS ?? '')
             .split(',')
             .map((origin) => origin.trim())
@@ -17,6 +22,11 @@ export class CorsConfiguration {
             allowedOrigins.add('http://127.0.0.1:5173');
         }
 
+        return allowedOrigins;
+    }
+
+    private createOptions(): CorsOptions | null {
+        const allowedOrigins = this.allowedOrigins;
         if (allowedOrigins.size === 0) {
             return null;
         }
@@ -30,7 +40,7 @@ export class CorsConfiguration {
 
                 callback(new Error(`Origin ${origin} is not allowed by CORS`));
             },
-            methods: ['GET', 'POST', 'OPTIONS'],
+            methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'X-Device-Id'],
             credentials: true
         };

@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+import { AuthService } from '../auth/authService';
 import { ServerConfig } from '../config/serverConfig';
 import { ROOT_LOGGER } from '../logger';
 import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
@@ -102,6 +103,7 @@ export class HttpApplication {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
+        @inject(AuthService) authService: AuthService,
         @inject(ApiRouter) apiRouter: ApiRouter,
         @inject(CorsConfiguration) corsConfiguration: CorsConfiguration,
         @inject(ServerConfig) serverConfig: ServerConfig,
@@ -145,6 +147,7 @@ export class HttpApplication {
             next();
         });
 
+        app.use('/auth', express.urlencoded({ extended: false }), express.json(), authService.handler);
         app.use('/api', apiRouter.router);
 
         if (process.env.NODE_ENV === 'production' && existsSync(frontendDistPath)) {

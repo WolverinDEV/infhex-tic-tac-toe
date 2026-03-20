@@ -1,16 +1,19 @@
-import type { LobbyOptions } from '@ih3t/shared'
+import type { LobbyOptions, PlayerNames } from '@ih3t/shared'
 import { formatTimeControl } from '../lobbyOptions'
 import ScreenFooter from './ScreenFooter'
 
 interface WaitingScreenProps {
   sessionId: string
   playerCount: number
+  playerNames: PlayerNames
   lobbyOptions: LobbyOptions
   onInviteFriend: () => void
   onCancel: () => void
 }
 
-function WaitingScreen({ sessionId, playerCount, lobbyOptions, onInviteFriend, onCancel }: Readonly<WaitingScreenProps>) {
+function WaitingScreen({ sessionId, playerCount, playerNames, lobbyOptions, onInviteFriend, onCancel }: Readonly<WaitingScreenProps>) {
+  const currentPlayerName = Object.values(playerNames)[0] ?? 'Player 1'
+
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.22),_transparent_30%),linear-gradient(135deg,_#111827,_#0f172a_45%,_#1e293b)] text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-10">
@@ -66,6 +69,11 @@ function WaitingScreen({ sessionId, playerCount, lobbyOptions, onInviteFriend, o
                 <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 sm:rounded-3xl sm:p-5">
                   <div className="text-xs uppercase tracking-[0.28em] text-slate-300">Time Control</div>
                   <div className="mt-2 break-words text-xl font-bold leading-tight text-white sm:text-2xl">{formatTimeControl(lobbyOptions.timeControl)}</div>
+                </div>
+                <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 sm:col-span-2 sm:rounded-3xl sm:p-5">
+                  <div className="text-xs uppercase tracking-[0.28em] text-slate-300">Hosting As</div>
+                  <div className="mt-2 break-words text-xl font-bold leading-tight text-white sm:text-2xl">{currentPlayerName}</div>
+                  <div className="mt-1 text-sm text-slate-400">Players ready: {playerCount}/2</div>
                 </div>
               </div>
 

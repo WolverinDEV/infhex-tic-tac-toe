@@ -3,7 +3,8 @@ import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
-import type { ClientToServerEvents, ServerToClientEvents } from '@ih3t/shared';
+import type { ClientToServerEvents, JoinSessionRequest, ServerToClientEvents } from '@ih3t/shared';
+import { AuthService } from '../auth/authService';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
 import { ROOT_LOGGER } from '../logger';
 import { getSocketClientInfo } from './clientInfo';
@@ -33,6 +34,7 @@ export class SocketServerGateway {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
+        @inject(AuthService) private readonly authService: AuthService,
         @inject(SessionStore) private readonly sessionStore: SessionStore,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(BackgroundWorkerHub) private readonly backgroundWorkers: BackgroundWorkerHub,
@@ -60,6 +62,7 @@ export class SocketServerGateway {
                 io.to(event.sessionId).emit('player-joined', {
                     playerId: event.playerId,
                     players: event.players,
+                    playerNames: event.playerNames,
                     state: event.state
                 });
             },
@@ -67,6 +70,7 @@ export class SocketServerGateway {
                 io.to(event.sessionId).emit('player-left', {
                     playerId: event.playerId,
                     players: event.players,
+                    playerNames: event.playerNames,
                     state: event.state
                 });
             },
@@ -96,14 +100,16 @@ export class SocketServerGateway {
 
                 this.socketParticipationId.set(socket.id, existingParticipantInfo.participantId);
 
-                for (const session of this.sessionStore.findSessionsByParticipant(existingParticipantInfo.participantId)) {
-                    try {
-                        this.socketJoinSession(socket, session.id);
-                    } catch (error: unknown) {
-                        logSocketActionFailure(this.logger, 'rejoin-session', socket, error, { sessionId: session.id });
-                        socket.emit('error', getSocketErrorMessage(error));
+                void (async () => {
+                    for (const session of this.sessionStore.findSessionsByParticipant(existingParticipantInfo.participantId)) {
+                        try {
+                            await this.socketJoinSession(socket, session.id);
+                        } catch (error: unknown) {
+                            logSocketActionFailure(this.logger, 'rejoin-session', socket, error, { sessionId: session.id });
+                            socket.emit('error', getSocketErrorMessage(error));
+                        }
                     }
-                }
+                })();
             } else {
                 /* assign a new id */
                 const participantId = randomUUID();
@@ -123,9 +129,16 @@ export class SocketServerGateway {
             socket.emit('sessions-updated', this.sessionManager.listSessions());
             socket.emit('shutdown-updated', this.sessionManager.getShutdownState());
 
-            socket.on('join-session', (sessionId: string) => {
+            socket.on('join-session', async (request) => {
+                const parsedRequest = parseJoinSessionRequest(request);
+                if (!parsedRequest) {
+                    socket.emit('error', 'Invalid session request.');
+                    return;
+                }
+
+                const { sessionId } = parsedRequest;
                 try {
-                    const joinResult = this.socketJoinSession(socket, sessionId);
+                    const joinResult = await this.socketJoinSession(socket, sessionId);
                     if (joinResult.role === 'player' && joinResult.isNewParticipant) {
                         this.sessionManager.activateSession(sessionId);
                     }
@@ -209,6 +222,7 @@ export class SocketServerGateway {
                             state: nextSession.state,
                             role: 'player',
                             players: nextSession.players,
+                            playerNames: nextSession.playerNames,
                             lobbyOptions: nextSession.lobbyOptions,
                             participantId: playerConnection.playerId
                         });
@@ -221,6 +235,7 @@ export class SocketServerGateway {
                             state: nextSession.state,
                             role: 'spectator',
                             players: nextSession.players,
+                            playerNames: nextSession.playerNames,
                             lobbyOptions: nextSession.lobbyOptions,
                             participantId: spectatorConnection.spectatorId
                         });
@@ -319,13 +334,19 @@ export class SocketServerGateway {
         return null;
     }
 
-    private socketJoinSession(socket: Socket<ClientToServerEvents, ServerToClientEvents>, sessionId: string): JoinSessionResult {
+    private async socketJoinSession(
+        socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+        sessionId: string
+    ): Promise<JoinSessionResult> {
         const participantId = this.requireParticipantId(socket.id);
+        const user = await this.authService.getCurrentUserFromSocket(socket)
+            ?? this.createGuestUser(socket, participantId);
 
         const joinResult = this.sessionManager.joinSession({
             sessionId,
             participantId,
             client: getSocketClientInfo(socket),
+            user,
         });
 
         socket.join(sessionId);
@@ -334,6 +355,7 @@ export class SocketServerGateway {
             state: joinResult.state,
             role: joinResult.role,
             players: joinResult.players,
+            playerNames: joinResult.playerNames,
             lobbyOptions: joinResult.lobbyOptions,
             participantId
         });
@@ -343,6 +365,21 @@ export class SocketServerGateway {
         }
 
         return joinResult;
+    }
+
+    private createGuestUser(
+        socket: Socket<ClientToServerEvents, ServerToClientEvents>,
+        participantId: string
+    ) {
+        const clientInfo = getSocketClientInfo(socket);
+        const fallbackSuffix = (clientInfo.deviceId ?? participantId).replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase() || 'PLAY';
+
+        return {
+            id: `guest:${clientInfo.deviceId ?? participantId}`,
+            username: `Guest ${fallbackSuffix}`,
+            email: null,
+            image: null
+        };
     }
 
     public async shutdownConnections() {
@@ -388,4 +425,18 @@ function logSocketActionFailure(
         socketId: socket.id,
         ...extra
     }, 'Socket action failed unexpectedly');
+}
+
+function parseJoinSessionRequest(request: JoinSessionRequest | string | null | undefined): JoinSessionRequest | null {
+    if (typeof request === 'string') {
+        return request.trim().length > 0 ? { sessionId: request } : null;
+    }
+
+    if (!request || typeof request.sessionId !== 'string' || request.sessionId.trim().length === 0) {
+        return null;
+    }
+
+    return {
+        sessionId: request.sessionId.trim()
+    };
 }
