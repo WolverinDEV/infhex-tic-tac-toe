@@ -1,4 +1,11 @@
-import type { CreateSessionResponse, PlayerNames, SessionFinishReason, SessionInfo, ShutdownState } from '@ih3t/shared';
+import type {
+    CreateSessionResponse,
+    PlayerNames,
+    PlayerProfileIds,
+    SessionFinishReason,
+    SessionInfo,
+    ShutdownState
+} from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
@@ -450,7 +457,12 @@ export class SessionManager {
         session.state = 'ingame';
         session.startedAt = Date.now();
         this.simulation.startSession(session, this.handleTurnExpired, session.startedAt);
-        void this.gameHistoryRepository.markStarted(session.historyId, session.players, this.buildPlayerNames(session));
+        void this.gameHistoryRepository.markStarted(
+            session.historyId,
+            session.players,
+            this.buildPlayerNames(session),
+            this.buildPlayerProfileIds(session)
+        );
 
         this.emitGameState(session);
         this.emitSessionsUpdated();
@@ -667,6 +679,17 @@ export class SessionManager {
         }
 
         return playerNames;
+    }
+
+    private buildPlayerProfileIds(session: StoredGameSession): PlayerProfileIds {
+        const playerProfileIds: PlayerProfileIds = {};
+
+        for (const playerId of session.players) {
+            const userId = session.participantProfiles[playerId]?.userId ?? null;
+            playerProfileIds[playerId] = userId?.startsWith('guest:') ? null : userId;
+        }
+
+        return playerProfileIds;
     }
 
     private getCreateHistoryPayload(session: StoredGameSession): CreateGameHistoryPayload {

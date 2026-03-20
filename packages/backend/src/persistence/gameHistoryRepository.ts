@@ -7,6 +7,7 @@ import type {
     FinishedGameSummary,
     GameMove,
     PlayerNames,
+    PlayerProfileIds,
     SessionFinishReason,
 } from '@ih3t/shared';
 import { ROOT_LOGGER } from '../logger';
@@ -22,6 +23,7 @@ export interface StartedGameHistoryPayload extends CreateGameHistoryPayload {
     startedAt: number | null;
     players: string[];
     playerNames: PlayerNames;
+    playerProfileIds: PlayerProfileIds;
 }
 
 export interface FinishedGameHistoryPayload extends StartedGameHistoryPayload {
@@ -37,6 +39,7 @@ interface GameHistoryDocument extends Document {
     state: 'lobby' | 'ingame' | 'finished';
     players: string[];
     playerNames?: PlayerNames;
+    playerProfileIds?: PlayerProfileIds;
     winningPlayerId: string | null;
     reason: SessionFinishReason | null;
     moveCount: number;
@@ -88,7 +91,12 @@ export class GameHistoryRepository {
         }
     }
 
-    async markStarted(id: string, players: string[], playerNames: PlayerNames): Promise<boolean> {
+    async markStarted(
+        id: string,
+        players: string[],
+        playerNames: PlayerNames,
+        playerProfileIds: PlayerProfileIds
+    ): Promise<boolean> {
         const collection = await this.getCollection();
 
         try {
@@ -99,6 +107,7 @@ export class GameHistoryRepository {
                         state: 'ingame',
                         players: players,
                         playerNames: { ...playerNames },
+                        playerProfileIds: { ...playerProfileIds },
                         startedAt: Date.now(),
                         updatedAt: Date.now()
                     }
@@ -323,6 +332,7 @@ export class GameHistoryRepository {
             state: 'lobby',
             players: [],
             playerNames: {},
+            playerProfileIds: {},
             winningPlayerId: null,
             reason: null,
             moveCount: 0,
@@ -344,6 +354,7 @@ export class GameHistoryRepository {
             sessionId: document.sessionId,
             players: [...document.players],
             playerNames: this.normalizePlayerNames(document.players, document.playerNames),
+            playerProfileIds: this.normalizePlayerProfileIds(document.players, document.playerProfileIds),
             winningPlayerId: document.winningPlayerId,
             reason: document.reason ?? 'terminated',
             moveCount: document.moveCount,
@@ -369,6 +380,19 @@ export class GameHistoryRepository {
         }
 
         return normalizedPlayerNames;
+    }
+
+    private normalizePlayerProfileIds(
+        players: string[],
+        playerProfileIds: PlayerProfileIds | undefined
+    ): PlayerProfileIds {
+        const normalizedPlayerProfileIds: PlayerProfileIds = {};
+
+        for (const playerId of players) {
+            normalizedPlayerProfileIds[playerId] = playerProfileIds?.[playerId] ?? null;
+        }
+
+        return normalizedPlayerProfileIds;
     }
 
     private normalizePageSize(pageSize: number | undefined): number {

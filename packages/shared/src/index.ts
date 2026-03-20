@@ -5,6 +5,7 @@ export type CellOccupant = string & { _type?: "CellOccupant" };
 export type SessionFinishReason = 'disconnect' | 'timeout' | 'terminated' | 'six-in-a-row';
 export type LobbyVisibility = 'public' | 'private';
 export type PlayerNames = Record<string, string>;
+export type PlayerProfileIds = Record<string, string | null>;
 export type GameTimeControl =
     | { mode: 'unlimited' }
     | { mode: 'turn'; turnTimeMs: number }
@@ -92,6 +93,7 @@ export interface FinishedGameSummary {
     sessionId: string;
     players: string[];
     playerNames: PlayerNames;
+    playerProfileIds: PlayerProfileIds;
     winningPlayerId: string | null;
     reason: SessionFinishReason;
     moveCount: number;
