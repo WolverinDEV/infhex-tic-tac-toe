@@ -48,6 +48,9 @@ function TurnTimerHud({
   const firstPlayerId = players[0]!
   const secondPlayerId = players[1]!
   const playerSlots = [firstPlayerId, secondPlayerId] as const
+  const activePlayerColor = currentTurnPlayerId ? getPlayerColor(players, currentTurnPlayerId) : '#7dd3fc'
+  const spectatorAccentTextStyle = isSpectator ? { color: activePlayerColor } : undefined
+  const spectatorAccentDotStyle = isSpectator ? { backgroundColor: activePlayerColor } : undefined
 
   const turnHeadline = isSpectator
     ? 'Spectating'
@@ -55,8 +58,14 @@ function TurnTimerHud({
       ? "It's your turn"
       : 'Opponents turn'
 
+  const spectatorTurnDetail = !currentTurnPlayerId
+    ? 'Waiting for the next player to move.'
+    : currentTurnPlayerId === firstPlayerId
+      ? 'Player 1 to move.'
+      : 'Player 2 to move.'
+
   const turnDetail = isSpectator
-    ? 'Watching the live board.'
+    ? spectatorTurnDetail
     : canPlaceCell
       ? `${placementsRemaining} ${placementsRemaining === 1 ? 'placement' : 'placements'} left.`
       : `${placementsRemaining} ${placementsRemaining === 1 ? 'placement' : 'placements'} left for the opponent.`
@@ -82,7 +91,7 @@ function TurnTimerHud({
             ? canPlaceCell
               ? 'bg-emerald-500'
               : isSpectator
-                ? 'bg-sky-300'
+                ? ''
                 : 'bg-white/90'
             : 'bg-white/30'
 
@@ -90,6 +99,7 @@ function TurnTimerHud({
             <span
               key={index}
               className={`h-1.5 flex-1 rounded-full ${color}`}
+              style={isFilled && isSpectator ? { backgroundColor: activePlayerColor } : undefined}
             />
           )
         })}
@@ -109,7 +119,9 @@ function TurnTimerHud({
         {effectiveTimeControl.mode === 'unlimited' ? (
           <div className="text-xs font-bold uppercase tracking-[0.12em] text-slate-200 sm:text-sm">Unlimited</div>
         ) : (
-          <div className={`text-base font-black tabular-nums leading-none sm:text-lg ${canPlaceCell ? 'text-emerald-100' : 'text-white'}`}>
+          <div
+            className={`text-base font-black tabular-nums leading-none sm:text-lg ${canPlaceCell ? 'text-emerald-100' : 'text-white'}`}
+          >
             {formatCountdown(activeClockCountdownMs)}
           </div>
         )}
@@ -162,8 +174,13 @@ function TurnTimerHud({
                 : isSpectator
                   ? 'text-sky-300'
                   : 'text-slate-300'
-                }`}>
-                <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${canPlaceCell ? 'bg-emerald-500' : isSpectator ? 'bg-sky-400' : 'bg-slate-400'}`} />
+                }`}
+                style={spectatorAccentTextStyle}
+              >
+                <span
+                  className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${canPlaceCell ? 'bg-emerald-500' : isSpectator ? '' : 'bg-slate-400'}`}
+                  style={isSpectator ? spectatorAccentDotStyle : undefined}
+                />
                 <span className="min-w-0 truncate">{turnHeadline}</span>
               </div>
               <div className="mt-0.5 truncate text-xs leading-tight text-slate-300">{turnDetail}</div>
