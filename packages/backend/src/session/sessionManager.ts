@@ -342,6 +342,9 @@ export class SessionManager {
         const nextSession = createStoredGameSession(nextSessionId);
         nextSession.players = [...rematch.players];
 
+        /* reverse the player order to effectively "switch sides" on re-match */
+        nextSession.players.reverse();
+
         this.store.saveSession(nextSession);
         this.emitSessionsUpdated();
         void this.gameHistoryRepository.createHistory(this.getCreateHistoryPayload(nextSession));
