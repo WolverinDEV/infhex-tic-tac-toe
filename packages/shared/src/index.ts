@@ -46,6 +46,8 @@ export interface SessionInfo {
     maxPlayers: 2; // Always 2
     state: SessionState;
     canJoin: boolean; // Whether the session can accept new players
+    createdAt: number;
+    startedAt: number | null;
 }
 
 export interface GameMove {

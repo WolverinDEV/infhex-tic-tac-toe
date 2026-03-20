@@ -12,9 +12,19 @@ export const queryKeys = {
   finishedGame: (gameId: string) => ['finished-games', gameId] as const
 }
 
+export function sortLobbySessions(sessions: SessionInfo[]) {
+  return [...sessions].sort((leftSession, rightSession) => {
+    if (leftSession.canJoin !== rightSession.canJoin) {
+      return leftSession.canJoin ? -1 : 1
+    }
+
+    return rightSession.createdAt - leftSession.createdAt
+  })
+}
+
 async function fetchAvailableSessions() {
   const sessions = await fetchJson<SessionInfo[]>('/api/sessions')
-  return sessions.filter(session => session.canJoin)
+  return sortLobbySessions(sessions.filter(session => session.state !== 'finished'))
 }
 
 async function fetchFinishedGames(page: number, pageSize: number, baseTimestamp: number) {

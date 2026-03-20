@@ -224,7 +224,7 @@ function App() {
       <LobbyScreen
         isConnected={connection.isConnected}
         shutdown={shutdown}
-        availableSessions={availableSessionsQuery.data ?? []}
+        liveSessions={availableSessionsQuery.data ?? []}
         onHostGame={hostGame}
         onJoinGame={joinGame}
         onViewFinishedGames={() => navigateTo({ page: 'finished-games', archivePage: 1, archiveBaseTimestamp: Date.now() })}

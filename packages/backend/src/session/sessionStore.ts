@@ -30,7 +30,9 @@ export class SessionStore {
             playerCount: session.players.length,
             maxPlayers: session.maxPlayers,
             state: session.state,
-            canJoin: session.state === 'lobby' && session.players.length < session.maxPlayers
+            canJoin: session.state === 'lobby' && session.players.length < session.maxPlayers,
+            createdAt: session.createdAt,
+            startedAt: session.startedAt
         }));
     }
 

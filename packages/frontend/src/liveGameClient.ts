@@ -8,7 +8,7 @@ import { toast } from 'react-toastify'
 import { fetchJson, getDeviceId, getSocketUrl } from './apiClient'
 import { getActiveSessionId, useLiveGameStore } from './liveGameStore'
 import { queryClient } from './queryClient'
-import { queryKeys } from './queryHooks'
+import { queryKeys, sortLobbySessions } from './queryHooks'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true
@@ -50,7 +50,7 @@ export function startLiveGameClient() {
   socket.on('sessions-updated', (sessions) => {
     queryClient.setQueryData(
       queryKeys.availableSessions,
-      sessions.filter(session => session.canJoin)
+      sortLobbySessions(sessions.filter(session => session.state !== 'finished'))
     )
   })
 
