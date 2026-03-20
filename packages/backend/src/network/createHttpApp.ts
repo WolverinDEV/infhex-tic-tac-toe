@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+import { z } from 'zod';
 import { AuthService } from '../auth/authService';
 import { ServerConfig } from '../config/serverConfig';
 import { ROOT_LOGGER } from '../logger';
@@ -149,6 +150,25 @@ export class HttpApplication {
 
         app.use('/auth', express.urlencoded({ extended: false }), express.json(), authService.handler);
         app.use('/api', apiRouter.router);
+        app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+            if (!(error instanceof z.ZodError)) {
+                next(error);
+                return;
+            }
+
+            logger.warn({
+                err: error,
+                event: 'http.request.invalid',
+                method: req.method,
+                path: req.originalUrl,
+                issues: error.issues
+            }, 'HTTP request validation failed');
+
+            res.status(400).json({
+                error: error.message,
+                issues: error.issues
+            });
+        });
 
         if (process.env.NODE_ENV === 'production' && existsSync(frontendDistPath)) {
             app.use(express.static(frontendDistPath, { index: false }));

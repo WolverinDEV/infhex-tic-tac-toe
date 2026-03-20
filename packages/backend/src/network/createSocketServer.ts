@@ -3,7 +3,14 @@ import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
-import type { ClientToServerEvents, JoinSessionRequest, ServerToClientEvents } from '@ih3t/shared';
+import {
+    type ClientToServerEvents,
+    type JoinSessionRequest,
+    type ServerToClientEvents,
+    zJoinSessionRequest,
+    zPlaceCellRequest,
+} from '@ih3t/shared';
+import { z } from 'zod';
 import { AuthService } from '../auth/authService';
 import { BackgroundWorkerHub } from '../background/backgroundWorkers';
 import { ROOT_LOGGER } from '../logger';
@@ -19,6 +26,11 @@ import type {
     SessionFinishedDomainEvent,
 } from '../session/types';
 import { SessionStore } from '../session/sessionStore';
+
+const zSocketSessionId = z.string().trim().min(1);
+const zSocketJoinSessionRequest = z.union([z.string().trim().min(1), zJoinSessionRequest])
+    .transform((request: string | JoinSessionRequest): JoinSessionRequest => typeof request === 'string' ? { sessionId: request } : request);
+
 type OrphanedParticipationId = {
     deviceId: string,
     participantId: string,
@@ -130,13 +142,14 @@ export class SocketServerGateway {
             socket.emit('shutdown-updated', this.sessionManager.getShutdownState());
 
             socket.on('join-session', async (request) => {
-                const parsedRequest = parseJoinSessionRequest(request);
-                if (!parsedRequest) {
+                let sessionId: string;
+                try {
+                    sessionId = zSocketJoinSessionRequest.parse(request).sessionId;
+                } catch {
                     socket.emit('error', 'Invalid session request.');
                     return;
                 }
 
-                const { sessionId } = parsedRequest;
                 try {
                     const joinResult = await this.socketJoinSession(socket, sessionId);
                     if (joinResult.role === 'player' && joinResult.isNewParticipant) {
@@ -158,13 +171,29 @@ export class SocketServerGateway {
             });
 
             socket.on('leave-session', (sessionId: string) => {
-                socket.leave(sessionId);
-                this.sessionManager.leaveSession(sessionId, participantId, 'leave-session');
+                let parsedSessionId: string;
+                try {
+                    parsedSessionId = zSocketSessionId.parse(sessionId);
+                } catch {
+                    socket.emit('error', 'Invalid session id.');
+                    return;
+                }
+
+                socket.leave(parsedSessionId);
+                this.sessionManager.leaveSession(parsedSessionId, participantId, 'leave-session');
             });
 
             socket.on('request-rematch', (finishedSessionId: string) => {
+                let parsedSessionId: string;
                 try {
-                    const rematch = this.sessionManager.requestRematch(finishedSessionId, participantId);
+                    parsedSessionId = zSocketSessionId.parse(finishedSessionId);
+                } catch {
+                    socket.emit('error', 'Invalid session id.');
+                    return;
+                }
+
+                try {
+                    const rematch = this.sessionManager.requestRematch(parsedSessionId, participantId);
                     if (rematch.status !== 'ready') {
                         return;
                     }
@@ -176,7 +205,7 @@ export class SocketServerGateway {
                     for (const playerId of rematch.players) {
                         const playerSocket = this.getSocketForSessionParticipant(io, playerId);
                         if (!playerSocket) {
-                            this.sessionManager.cancelRematch(finishedSessionId);
+                            this.sessionManager.cancelRematch(parsedSessionId);
                             socket.emit('error', 'Your opponent is no longer available for a rematch.');
                             return;
                         }
@@ -192,7 +221,7 @@ export class SocketServerGateway {
                         socket: Socket<ClientToServerEvents, ServerToClientEvents>;
                     }> = [];
                     const spectatorIds = new Set<string>();
-                    for (const roomSocketId of io.sockets.adapter.rooms.get(finishedSessionId) ?? []) {
+                    for (const roomSocketId of io.sockets.adapter.rooms.get(parsedSessionId) ?? []) {
                         const roomSocket = io.sockets.sockets.get(roomSocketId);
                         if (!roomSocket) {
                             continue;
@@ -211,11 +240,11 @@ export class SocketServerGateway {
                     }
 
                     const nextSession = this.sessionManager.createRematchSession(
-                        finishedSessionId,
+                        parsedSessionId,
                         spectatorConnections.map((spectatorConnection) => spectatorConnection.spectatorId)
                     );
                     for (const playerConnection of playerConnections) {
-                        playerConnection.socket.leave(finishedSessionId);
+                        playerConnection.socket.leave(parsedSessionId);
                         playerConnection.socket.join(nextSession.sessionId);
                         playerConnection.socket.emit('session-joined', {
                             sessionId: nextSession.sessionId,
@@ -228,7 +257,7 @@ export class SocketServerGateway {
                         });
                     }
                     for (const spectatorConnection of spectatorConnections) {
-                        spectatorConnection.socket.leave(finishedSessionId);
+                        spectatorConnection.socket.leave(parsedSessionId);
                         spectatorConnection.socket.join(nextSession.sessionId);
                         spectatorConnection.socket.emit('session-joined', {
                             sessionId: nextSession.sessionId,
@@ -249,22 +278,43 @@ export class SocketServerGateway {
             });
 
             socket.on('cancel-rematch', (finishedSessionId: string) => {
+                let parsedSessionId: string;
                 try {
-                    this.sessionManager.cancelRematch(finishedSessionId, participantId);
+                    parsedSessionId = zSocketSessionId.parse(finishedSessionId);
+                } catch {
+                    socket.emit('error', 'Invalid session id.');
+                    return;
+                }
+
+                try {
+                    this.sessionManager.cancelRematch(parsedSessionId, participantId);
                 } catch (error: unknown) {
                     logSocketActionFailure(this.logger, 'cancel-rematch', socket, error, { finishedSessionId });
                     socket.emit('error', getSocketErrorMessage(error));
                 }
             });
 
-            socket.on('place-cell', (data: { sessionId: string; x: number; y: number }) => {
+            socket.on('place-cell', (data) => {
+                let parsedRequest: z.infer<typeof zPlaceCellRequest>;
                 try {
-                    this.sessionManager.placeCell(data.sessionId, participantId, data.x, data.y);
+                    parsedRequest = zPlaceCellRequest.parse(data);
+                } catch {
+                    socket.emit('error', 'Invalid move request.');
+                    return;
+                }
+
+                try {
+                    this.sessionManager.placeCell(
+                        parsedRequest.sessionId,
+                        participantId,
+                        parsedRequest.x,
+                        parsedRequest.y
+                    );
                 } catch (error: unknown) {
                     logSocketActionFailure(this.logger, 'place-cell', socket, error, {
-                        sessionId: data.sessionId,
-                        x: data.x,
-                        y: data.y
+                        sessionId: parsedRequest.sessionId,
+                        x: parsedRequest.x,
+                        y: parsedRequest.y
                     });
                     socket.emit('error', getSocketErrorMessage(error));
                 }
@@ -425,18 +475,4 @@ function logSocketActionFailure(
         socketId: socket.id,
         ...extra
     }, 'Socket action failed unexpectedly');
-}
-
-function parseJoinSessionRequest(request: JoinSessionRequest | string | null | undefined): JoinSessionRequest | null {
-    if (typeof request === 'string') {
-        return request.trim().length > 0 ? { sessionId: request } : null;
-    }
-
-    if (!request || typeof request.sessionId !== 'string' || request.sessionId.trim().length === 0) {
-        return null;
-    }
-
-    return {
-        sessionId: request.sessionId.trim()
-    };
 }

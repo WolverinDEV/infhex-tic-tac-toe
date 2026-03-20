@@ -1,198 +1,285 @@
-export const DUMMY = "Hello?";
-export type SessionState = 'lobby' | 'ingame' | 'finished';
-export type SessionParticipantRole = 'player' | 'spectator';
-export type CellOccupant = string & { _type?: "CellOccupant" };
-export type SessionFinishReason = 'disconnect' | 'timeout' | 'terminated' | 'six-in-a-row';
-export type LobbyVisibility = 'public' | 'private';
-export type PlayerNames = Record<string, string>;
-export type PlayerProfileIds = Record<string, string | null>;
-export type GameTimeControl =
-    | { mode: 'unlimited' }
-    | { mode: 'turn'; turnTimeMs: number }
-    | { mode: 'match'; mainTimeMs: number; incrementMs: number };
+import { z } from 'zod';
 
-export interface LobbyOptions {
-    visibility: LobbyVisibility;
-    timeControl: GameTimeControl;
-}
+export const DUMMY = 'Hello?';
 
-export const DEFAULT_LOBBY_OPTIONS: LobbyOptions = {
+const zTimestamp = z.number().int();
+const zCoordinate = z.number().int();
+const zIdentifier = z.string();
+
+export const zSessionState = z.enum(['lobby', 'ingame', 'finished']);
+export type SessionState = z.infer<typeof zSessionState>;
+
+export const zSessionParticipantRole = z.enum(['player', 'spectator']);
+export type SessionParticipantRole = z.infer<typeof zSessionParticipantRole>;
+
+export const zCellOccupant = z.string().brand<'CellOccupant'>();
+export type CellOccupant = z.infer<typeof zCellOccupant>;
+
+export const zSessionFinishReason = z.enum(['disconnect', 'timeout', 'terminated', 'six-in-a-row']);
+export type SessionFinishReason = z.infer<typeof zSessionFinishReason>;
+
+export const zLobbyVisibility = z.enum(['public', 'private']);
+export type LobbyVisibility = z.infer<typeof zLobbyVisibility>;
+
+export const zPlayerNames = z.record(z.string(), z.string());
+export type PlayerNames = z.infer<typeof zPlayerNames>;
+
+export const zPlayerProfileIds = z.record(z.string(), z.string().nullable());
+export type PlayerProfileIds = z.infer<typeof zPlayerProfileIds>;
+
+export const zGameTimeControl = z.union([
+    z.object({
+        mode: z.literal('unlimited')
+    }),
+    z.object({
+        mode: z.literal('turn'),
+        turnTimeMs: z.number().int().nonnegative()
+    }),
+    z.object({
+        mode: z.literal('match'),
+        mainTimeMs: z.number().int().nonnegative(),
+        incrementMs: z.number().int().nonnegative()
+    })
+]);
+export type GameTimeControl = z.infer<typeof zGameTimeControl>;
+
+export const zLobbyOptions = z.object({
+    visibility: zLobbyVisibility,
+    timeControl: zGameTimeControl
+});
+export type LobbyOptions = z.infer<typeof zLobbyOptions>;
+
+export const DEFAULT_LOBBY_OPTIONS: LobbyOptions = zLobbyOptions.parse({
     visibility: 'public',
     timeControl: {
         mode: 'turn',
         turnTimeMs: 45_000
     }
-};
+});
 
-export interface ShutdownState {
-    scheduledAt: number;
-    shutdownAt: number;
-}
+export const zShutdownState = z.object({
+    scheduledAt: zTimestamp,
+    shutdownAt: zTimestamp
+});
+export type ShutdownState = z.infer<typeof zShutdownState>;
 
-export interface BoardCell {
-    x: number;
-    y: number;
-    occupiedBy: CellOccupant;
-}
+export const zBoardCell = z.object({
+    x: zCoordinate,
+    y: zCoordinate,
+    occupiedBy: zCellOccupant
+});
+export type BoardCell = z.infer<typeof zBoardCell>;
 
-export interface BoardState {
-    cells: BoardCell[];
-    currentTurnPlayerId: string | null;
-    placementsRemaining: number;
-    currentTurnExpiresAt: number | null;
-    playerTimeRemainingMs: Record<string, number>;
-}
+export const zBoardState = z.object({
+    cells: z.array(zBoardCell),
+    currentTurnPlayerId: zIdentifier.nullable(),
+    placementsRemaining: z.number().int().nonnegative(),
+    currentTurnExpiresAt: zTimestamp.nullable(),
+    playerTimeRemainingMs: z.record(z.string(), z.number().int().nonnegative())
+});
+export type BoardState = z.infer<typeof zBoardState>;
 
-// Game Session Types
-export interface GameSession {
-    id: string;
-    players: string[];
-    playerNames: PlayerNames;
-    spectators: string[];
-    maxPlayers: 2; // Fixed to 2 players
-    state: SessionState;
-    lobbyOptions: LobbyOptions;
-    gameState: BoardState;
-}
+export const zGameSession = z.object({
+    id: zIdentifier,
+    players: z.array(zIdentifier),
+    playerNames: zPlayerNames,
+    spectators: z.array(zIdentifier),
+    maxPlayers: z.literal(2),
+    state: zSessionState,
+    lobbyOptions: zLobbyOptions,
+    gameState: zBoardState
+});
+export type GameSession = z.infer<typeof zGameSession>;
 
-export interface CreateSessionRequest {
-    lobbyOptions?: LobbyOptions;
-}
+export const zCreateSessionRequest = z.object({
+    lobbyOptions: zLobbyOptions.optional()
+});
+export type CreateSessionRequest = z.infer<typeof zCreateSessionRequest>;
 
-export interface CreateSessionResponse {
-    sessionId: string;
-}
+export const zCreateSessionResponse = z.object({
+    sessionId: zIdentifier
+});
+export type CreateSessionResponse = z.infer<typeof zCreateSessionResponse>;
 
-export interface JoinSessionRequest {
-    sessionId: string;
-    username?: string;
-}
+export const zJoinSessionRequest = z.object({
+    sessionId: z.string().trim().min(1),
+    username: z.string().optional()
+});
+export type JoinSessionRequest = z.infer<typeof zJoinSessionRequest>;
 
-export interface SessionInfo {
-    id: string;
-    playerCount: number;
-    playerNames: string[];
-    maxPlayers: 2; // Always 2
-    state: SessionState;
-    lobbyOptions: LobbyOptions;
-    canJoin: boolean; // Whether the session can accept new players
-    createdAt: number;
-    startedAt: number | null;
-}
+export const zSessionInfo = z.object({
+    id: zIdentifier,
+    playerCount: z.number().int().nonnegative(),
+    playerNames: z.array(z.string()),
+    maxPlayers: z.literal(2),
+    state: zSessionState,
+    lobbyOptions: zLobbyOptions,
+    canJoin: z.boolean(),
+    createdAt: zTimestamp,
+    startedAt: zTimestamp.nullable()
+});
+export type SessionInfo = z.infer<typeof zSessionInfo>;
 
-export interface GameMove {
-    moveNumber: number;
-    playerId: string;
-    x: number;
-    y: number;
-    timestamp: number;
-}
+export const zGameMove = z.object({
+    moveNumber: z.number().int().nonnegative(),
+    playerId: zIdentifier,
+    x: zCoordinate,
+    y: zCoordinate,
+    timestamp: zTimestamp
+});
+export type GameMove = z.infer<typeof zGameMove>;
 
-export interface FinishedGameSummary {
-    id: string;
-    sessionId: string;
-    players: string[];
-    playerNames: PlayerNames;
-    playerProfileIds: PlayerProfileIds;
-    winningPlayerId: string | null;
-    reason: SessionFinishReason;
-    moveCount: number;
-    createdAt: number;
-    startedAt: number;
-    finishedAt: number;
-    gameDurationMs: number;
-}
+export const zFinishedGameSummary = z.object({
+    id: zIdentifier,
+    sessionId: zIdentifier,
+    players: z.array(zIdentifier),
+    playerNames: zPlayerNames,
+    playerProfileIds: zPlayerProfileIds,
+    winningPlayerId: zIdentifier.nullable(),
+    reason: zSessionFinishReason,
+    moveCount: z.number().int().nonnegative(),
+    createdAt: zTimestamp,
+    startedAt: zTimestamp,
+    finishedAt: zTimestamp,
+    gameDurationMs: z.number().int().nonnegative()
+});
+export type FinishedGameSummary = z.infer<typeof zFinishedGameSummary>;
 
-export interface FinishedGameRecord extends FinishedGameSummary {
-    moves: GameMove[];
-}
+export const zFinishedGameRecord = zFinishedGameSummary.extend({
+    moves: z.array(zGameMove)
+});
+export type FinishedGameRecord = z.infer<typeof zFinishedGameRecord>;
 
-export interface FinishedGamesPagination {
-    page: number;
-    pageSize: number;
-    totalGames: number;
-    totalMoves: number;
-    totalPages: number;
-    baseTimestamp: number;
-}
+export const zFinishedGamesPagination = z.object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    totalGames: z.number().int().nonnegative(),
+    totalMoves: z.number().int().nonnegative(),
+    totalPages: z.number().int().positive(),
+    baseTimestamp: zTimestamp
+});
+export type FinishedGamesPagination = z.infer<typeof zFinishedGamesPagination>;
 
-export interface FinishedGamesPage {
-    games: FinishedGameSummary[];
-    pagination: FinishedGamesPagination;
-}
+export const zFinishedGamesPage = z.object({
+    games: z.array(zFinishedGameSummary),
+    pagination: zFinishedGamesPagination
+});
+export type FinishedGamesPage = z.infer<typeof zFinishedGamesPage>;
 
-export interface SessionFinishedEvent {
-    sessionId: string;
-    finishedGameId: string;
-    winningPlayerId: string | null;
-    reason: SessionFinishReason;
-    canRematch: boolean;
-}
+export const zSessionFinishedEvent = z.object({
+    sessionId: zIdentifier,
+    finishedGameId: zIdentifier,
+    winningPlayerId: zIdentifier.nullable(),
+    reason: zSessionFinishReason,
+    canRematch: z.boolean()
+});
+export type SessionFinishedEvent = z.infer<typeof zSessionFinishedEvent>;
 
-export interface RematchUpdatedEvent {
-    sessionId: string;
-    canRematch: boolean;
-    requestedPlayerIds: string[];
-}
+export const zRematchUpdatedEvent = z.object({
+    sessionId: zIdentifier,
+    canRematch: z.boolean(),
+    requestedPlayerIds: z.array(zIdentifier)
+});
+export type RematchUpdatedEvent = z.infer<typeof zRematchUpdatedEvent>;
 
-// Socket Event Types
-export interface ServerToClientEvents {
+export const zSessionJoinedEvent = z.object({
+    sessionId: zIdentifier,
+    state: zSessionState,
+    role: zSessionParticipantRole,
+    players: z.array(zIdentifier),
+    playerNames: zPlayerNames,
+    lobbyOptions: zLobbyOptions,
+    participantId: zIdentifier
+});
+export type SessionJoinedEvent = z.infer<typeof zSessionJoinedEvent>;
+
+export const zSessionPlayersUpdatedEvent = z.object({
+    playerId: zIdentifier,
+    players: z.array(zIdentifier),
+    playerNames: zPlayerNames,
+    state: zSessionState
+});
+export type SessionPlayersUpdatedEvent = z.infer<typeof zSessionPlayersUpdatedEvent>;
+
+export const zGameStateEvent = z.object({
+    sessionId: zIdentifier,
+    sessionState: zSessionState,
+    gameState: zBoardState
+});
+export type GameStateEvent = z.infer<typeof zGameStateEvent>;
+
+export const zPlaceCellRequest = z.object({
+    sessionId: z.string().trim().min(1),
+    x: zCoordinate,
+    y: zCoordinate
+});
+export type PlaceCellRequest = z.infer<typeof zPlaceCellRequest>;
+
+export const zServerToClientEvents = z.custom<{
     'sessions-updated': (sessions: SessionInfo[]) => void;
     'shutdown-updated': (shutdown: ShutdownState | null) => void;
-    'session-joined': (data: {
-        sessionId: string;
-        state: SessionState;
-        role: SessionParticipantRole;
-        players: string[];
-        playerNames: PlayerNames;
-        lobbyOptions: LobbyOptions;
-        participantId: string;
-    }) => void;
+    'session-joined': (data: SessionJoinedEvent) => void;
     'session-finished': (data: SessionFinishedEvent) => void;
-    'player-joined': (data: { playerId: string; players: string[]; playerNames: PlayerNames; state: SessionState }) => void;
-    'player-left': (data: { playerId: string; players: string[]; playerNames: PlayerNames; state: SessionState }) => void;
-    'game-state': (data: { sessionId: string; sessionState: SessionState, gameState: BoardState }) => void;
+    'player-joined': (data: SessionPlayersUpdatedEvent) => void;
+    'player-left': (data: SessionPlayersUpdatedEvent) => void;
+    'game-state': (data: GameStateEvent) => void;
     'rematch-updated': (data: RematchUpdatedEvent) => void;
     error: (error: string) => void;
-}
+}>();
+export type ServerToClientEvents = z.infer<typeof zServerToClientEvents>;
 
-export interface ClientToServerEvents {
+export const zClientToServerEvents = z.custom<{
     'join-session': (request: JoinSessionRequest) => void;
     'leave-session': (sessionId: string) => void;
-    'place-cell': (data: { sessionId: string; x: number; y: number }) => void;
+    'place-cell': (data: PlaceCellRequest) => void;
     'request-rematch': (sessionId: string) => void;
     'cancel-rematch': (sessionId: string) => void;
-}
+}>();
+export type ClientToServerEvents = z.infer<typeof zClientToServerEvents>;
 
-// Common utility types
-export interface Position {
-    x: number;
-    y: number;
-}
+export const zPosition = z.object({
+    x: zCoordinate,
+    y: zCoordinate
+});
+export type Position = z.infer<typeof zPosition>;
 
-export interface Size {
-    width: number;
-    height: number;
-}
+export const zSize = z.object({
+    width: z.number(),
+    height: z.number()
+});
+export type Size = z.infer<typeof zSize>;
 
-export interface Player {
-    id: string;
-    name?: string;
-    position?: Position;
-    color?: string;
-}
+export const zPlayer = z.object({
+    id: zIdentifier,
+    name: z.string().optional(),
+    position: zPosition.optional(),
+    color: z.string().optional()
+});
+export type Player = z.infer<typeof zPlayer>;
 
-export interface AccountProfile {
-    id: string;
-    username: string;
-    email: string | null;
-    image: string | null;
-}
+const zNormalizedUsername = z.string()
+    .transform((username) => username.trim().replace(/\s+/g, ' '))
+    .refine((username) => username.length >= 2 && username.length <= 32, {
+        message: 'Your username must be between 2 and 32 characters long.'
+    })
+    .refine((username) => !/[\p{C}]/u.test(username), {
+        message: 'Your username contains unsupported characters.'
+    });
 
-export interface AccountResponse {
-    user: AccountProfile | null;
-}
+export const zAccountProfile = z.object({
+    id: zIdentifier,
+    username: z.string(),
+    email: z.string().nullable(),
+    image: z.string().nullable()
+});
+export type AccountProfile = z.infer<typeof zAccountProfile>;
 
-export interface UpdateAccountProfileRequest {
-    username: string;
-}
+export const zAccountResponse = z.object({
+    user: zAccountProfile.nullable()
+});
+export type AccountResponse = z.infer<typeof zAccountResponse>;
+
+export const zUpdateAccountProfileRequest = z.object({
+    username: zNormalizedUsername
+});
+export type UpdateAccountProfileRequest = z.infer<typeof zUpdateAccountProfileRequest>;

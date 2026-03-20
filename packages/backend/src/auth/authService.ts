@@ -1,6 +1,5 @@
-import { ExpressAuth, getSession, type ExpressAuthConfig } from '@auth/express';
+import { ExpressAuth, getSession, type ExpressAuthConfig, type Session } from '@auth/express';
 import Discord, { type DiscordProfile } from '@auth/express/providers/discord';
-import type { Session } from '@auth/express';
 import type { Request } from 'express';
 import type { Socket } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@ih3t/shared';

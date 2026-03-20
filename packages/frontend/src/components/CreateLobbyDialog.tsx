@@ -63,10 +63,9 @@ function formatStepSeconds(value: number) {
   return `${value}s`
 }
 
-function SelectableOptions({ key, onClick, selected, title, description }: Readonly<{ key: string, onClick: () => void, selected: boolean, title: string, description: string }>) {
+function SelectableOptions({ onClick, selected, title, description }: Readonly<{ onClick: () => void, selected: boolean, title: string, description: string }>) {
   return (
     <button
-      key={key}
       type="button"
       onClick={onClick}
       className={`flex flex-col items-start rounded-[1rem] border p-3.5 text-left transition ${selected

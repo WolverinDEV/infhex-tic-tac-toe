@@ -3,6 +3,9 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
+    "dependencies": {
+        "zod": "^4.3.6"
+    },
     "exports": {
         ".": {
             "types": "./src/index.ts",

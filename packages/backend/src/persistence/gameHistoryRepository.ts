@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import type { Collection, Document } from 'mongodb';
-import type {
+import {
     FinishedGamesPage,
     FinishedGameRecord,
     FinishedGameSummary,
@@ -9,7 +9,15 @@ import type {
     PlayerNames,
     PlayerProfileIds,
     SessionFinishReason,
+    zFinishedGameRecord,
+    zFinishedGamesPage,
+    zFinishedGameSummary,
+    zGameMove,
+    zPlayerNames,
+    zPlayerProfileIds,
+    zSessionFinishReason,
 } from '@ih3t/shared';
+import { z } from 'zod';
 import { ROOT_LOGGER } from '../logger';
 import { MongoDatabase } from './mongoClient';
 
@@ -33,23 +41,24 @@ export interface FinishedGameHistoryPayload extends StartedGameHistoryPayload {
     moves: GameMove[];
 }
 
-interface GameHistoryDocument extends Document {
-    id: string;
-    sessionId: string;
-    state: 'lobby' | 'ingame' | 'finished';
-    players: string[];
-    playerNames?: PlayerNames;
-    playerProfileIds?: PlayerProfileIds;
-    winningPlayerId: string | null;
-    reason: SessionFinishReason | null;
-    moveCount: number;
-    moves: GameMove[];
-    createdAt: number;
-    startedAt: number | null;
-    finishedAt: number | null;
-    gameDurationMs: number | null;
-    updatedAt: number;
-}
+const zGameHistoryDocument = z.object({
+    id: z.string(),
+    sessionId: z.string(),
+    state: z.enum(['lobby', 'ingame', 'finished']),
+    players: z.array(z.string()),
+    playerNames: zPlayerNames.optional(),
+    playerProfileIds: zPlayerProfileIds.optional(),
+    winningPlayerId: z.string().nullable(),
+    reason: zSessionFinishReason.nullable(),
+    moveCount: z.number().int().nonnegative(),
+    moves: z.array(zGameMove),
+    createdAt: z.number().int(),
+    startedAt: z.number().int().nullable(),
+    finishedAt: z.number().int().nullable(),
+    gameDurationMs: z.number().int().nonnegative().nullable(),
+    updatedAt: z.number().int()
+});
+type GameHistoryDocument = z.infer<typeof zGameHistoryDocument> & Document;
 
 interface ListFinishedGamesOptions {
     page?: number;
@@ -264,7 +273,7 @@ export class GameHistoryRepository {
                 .limit(pageSize)
                 .toArray();
 
-        return {
+        return zFinishedGamesPage.parse({
             games: games.map((document) => this.mapSummary(document)),
             pagination: {
                 page,
@@ -274,7 +283,7 @@ export class GameHistoryRepository {
                 totalPages,
                 baseTimestamp
             }
-        };
+        });
     }
 
     async getFinishedGame(id: string): Promise<FinishedGameRecord | undefined> {
@@ -345,31 +354,34 @@ export class GameHistoryRepository {
         };
     }
 
-    private mapSummary(document: GameHistoryDocument): FinishedGameSummary {
-        const startedAt = document.startedAt ?? document.createdAt;
-        const finishedAt = document.finishedAt ?? document.updatedAt;
+    private mapSummary(document: unknown): FinishedGameSummary {
+        const parsedDocument = zGameHistoryDocument.parse(document);
+        const startedAt = parsedDocument.startedAt ?? parsedDocument.createdAt;
+        const finishedAt = parsedDocument.finishedAt ?? parsedDocument.updatedAt;
 
-        return {
-            id: document.id,
-            sessionId: document.sessionId,
-            players: [...document.players],
-            playerNames: this.normalizePlayerNames(document.players, document.playerNames),
-            playerProfileIds: this.normalizePlayerProfileIds(document.players, document.playerProfileIds),
-            winningPlayerId: document.winningPlayerId,
-            reason: document.reason ?? 'terminated',
-            moveCount: document.moveCount,
-            createdAt: document.createdAt,
+        return zFinishedGameSummary.parse({
+            id: parsedDocument.id,
+            sessionId: parsedDocument.sessionId,
+            players: [...parsedDocument.players],
+            playerNames: this.normalizePlayerNames(parsedDocument.players, parsedDocument.playerNames),
+            playerProfileIds: this.normalizePlayerProfileIds(parsedDocument.players, parsedDocument.playerProfileIds),
+            winningPlayerId: parsedDocument.winningPlayerId,
+            reason: parsedDocument.reason ?? 'terminated',
+            moveCount: parsedDocument.moveCount,
+            createdAt: parsedDocument.createdAt,
             startedAt,
             finishedAt,
-            gameDurationMs: document.gameDurationMs ?? Math.max(0, finishedAt - startedAt)
-        };
+            gameDurationMs: parsedDocument.gameDurationMs ?? Math.max(0, finishedAt - startedAt)
+        });
     }
 
-    private mapRecord(document: GameHistoryDocument): FinishedGameRecord {
-        return {
+    private mapRecord(document: unknown): FinishedGameRecord {
+        const parsedDocument = zGameHistoryDocument.parse(document);
+
+        return zFinishedGameRecord.parse({
             ...this.mapSummary(document),
-            moves: [...document.moves]
-        };
+            moves: [...parsedDocument.moves]
+        });
     }
 
     private normalizePlayerNames(players: string[], playerNames: PlayerNames | undefined): PlayerNames {

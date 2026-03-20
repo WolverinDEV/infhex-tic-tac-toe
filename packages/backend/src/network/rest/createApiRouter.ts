@@ -1,19 +1,47 @@
 import express from 'express';
 import { inject, injectable } from 'tsyringe';
+import { z } from 'zod';
 import {
     type AccountResponse,
     DEFAULT_LOBBY_OPTIONS,
-    type CreateSessionRequest,
     type CreateSessionResponse,
-    type GameTimeControl,
     type LobbyOptions,
-    type UpdateAccountProfileRequest,
+    zLobbyVisibility,
+    zUpdateAccountProfileRequest,
 } from '@ih3t/shared';
 import { AuthRepository } from '../../auth/authRepository';
 import { AuthService } from '../../auth/authService';
 import { getRequestClientInfo } from '../clientInfo';
 import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
 import { SessionError, SessionManager } from '../../session/sessionManager';
+
+const zPositiveInteger = z.coerce.number().int().positive();
+const zPositiveIntegerQueryValue = z.preprocess((value) => Array.isArray(value) ? value[0] : value, zPositiveInteger);
+const zFinishedGamesQuery = z.object({
+    page: zPositiveIntegerQueryValue.optional(),
+    pageSize: zPositiveIntegerQueryValue.optional(),
+    baseTimestamp: zPositiveIntegerQueryValue.optional()
+});
+const zGameTimeControlInput = z.union([
+    z.object({
+        mode: z.literal('turn'),
+        turnTimeMs: z.coerce.number().int().min(5_000).max(120_000)
+    }),
+    z.object({
+        mode: z.literal('match'),
+        mainTimeMs: z.coerce.number().int().min(60_000).max(3_600_000),
+        incrementMs: z.coerce.number().int().min(0).max(300_000)
+    }),
+    z.object({
+        mode: z.literal('unlimited')
+    })
+]);
+const zCreateSessionRequestInput = z.object({
+    lobbyOptions: z.object({
+        visibility: zLobbyVisibility.optional(),
+        timeControl: zGameTimeControlInput.optional()
+    }).optional()
+});
 
 @injectable()
 export class ApiRouter {
@@ -67,10 +95,11 @@ export class ApiRouter {
         });
 
         router.get('/finished-games', async (req, res) => {
+            const query = zFinishedGamesQuery.parse(req.query);
             const archivePage = await this.gameHistoryRepository.listFinishedGames({
-                page: this.parsePositiveInteger(req.query.page, 1),
-                pageSize: this.parsePositiveInteger(req.query.pageSize, 20),
-                baseTimestamp: this.parsePositiveInteger(req.query.baseTimestamp, Date.now())
+                page: query.page ?? 1,
+                pageSize: query.pageSize ?? 20,
+                baseTimestamp: query.baseTimestamp ?? Date.now()
             });
             res.json(archivePage);
         });
@@ -113,76 +142,18 @@ export class ApiRouter {
     }
 
     private parseLobbyOptions(body: unknown): LobbyOptions {
-        const request = (body ?? {}) as CreateSessionRequest;
+        const request = zCreateSessionRequestInput.parse(body ?? {});
+
         const visibility = request.lobbyOptions?.visibility;
-        const timeControl = this.parseGameTimeControl(request.lobbyOptions?.timeControl);
+        const timeControl = request.lobbyOptions?.timeControl ?? { ...DEFAULT_LOBBY_OPTIONS.timeControl };
 
         return {
-            visibility: visibility === 'private' || visibility === 'public'
-                ? visibility
-                : DEFAULT_LOBBY_OPTIONS.visibility,
+            visibility: visibility ?? DEFAULT_LOBBY_OPTIONS.visibility,
             timeControl
         };
     }
 
-    private parseGameTimeControl(value: unknown): GameTimeControl {
-        if (!value || typeof value !== 'object') {
-            return { ...DEFAULT_LOBBY_OPTIONS.timeControl };
-        }
-
-        const candidate = value as Partial<GameTimeControl> & Record<string, unknown>;
-        if (candidate.mode === 'turn') {
-            return {
-                mode: 'turn',
-                turnTimeMs: this.clampMilliseconds(candidate.turnTimeMs, 5_000, 120_000)
-            };
-        }
-
-        if (candidate.mode === 'match') {
-            return {
-                mode: 'match',
-                mainTimeMs: this.clampMilliseconds(candidate.mainTimeMs, 60_000, 3_600_000),
-                incrementMs: this.clampMilliseconds(candidate.incrementMs, 0, 300_000)
-            };
-        }
-
-        return { mode: 'unlimited' };
-    }
-
-    private parsePositiveInteger(value: unknown, fallback: number): number {
-        const candidate = Array.isArray(value) ? value[0] : value;
-        const parsedValue = Number.parseInt(String(candidate ?? ''), 10);
-
-        if (!Number.isFinite(parsedValue) || parsedValue < 1) {
-            return fallback;
-        }
-
-        return parsedValue;
-    }
-
-    private clampMilliseconds(value: unknown, minimum: number, maximum: number): number {
-        const parsedValue = Number.parseInt(String(value ?? ''), 10);
-        if (!Number.isFinite(parsedValue)) {
-            return minimum;
-        }
-
-        return Math.min(maximum, Math.max(minimum, parsedValue));
-    }
-
     private parseUsername(body: unknown): string {
-        const request = (body ?? {}) as Partial<UpdateAccountProfileRequest>;
-        const username = typeof request.username === 'string'
-            ? request.username.trim().replace(/\s+/g, ' ')
-            : '';
-
-        if (username.length < 2 || username.length > 32) {
-            throw new SessionError('Your username must be between 2 and 32 characters long.');
-        }
-
-        if (/[\p{C}]/u.test(username)) {
-            throw new SessionError('Your username contains unsupported characters.');
-        }
-
-        return username;
+        return zUpdateAccountProfileRequest.parse(body ?? {}).username;
     }
 }

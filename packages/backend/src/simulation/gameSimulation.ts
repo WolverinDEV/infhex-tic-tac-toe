@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe';
-import type { BoardCell, GameMove, GameTimeControl } from '@ih3t/shared';
+import { zCellOccupant, type BoardCell, type GameMove, type GameTimeControl } from '@ih3t/shared';
 import type { PublicGameStatePayload, StoredGameSession } from '../session/types';
 
 interface ApplyMoveParams {
@@ -80,7 +80,7 @@ export class GameSimulation {
         session.gameState.cells.push({
             x,
             y,
-            occupiedBy: playerId
+            occupiedBy: zCellOccupant.parse(playerId)
         });
         session.moveHistory.push(move);
 
