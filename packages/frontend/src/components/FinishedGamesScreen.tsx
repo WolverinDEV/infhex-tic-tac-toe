@@ -6,6 +6,7 @@ interface FinishedGamesScreenProps {
   archive: FinishedGamesPage | null
   archiveView: FinishedGamesArchiveView
   requiresSignIn: boolean
+  showSignInHint: boolean
   isLoading: boolean
   errorMessage: string | null
   onBack: () => void
@@ -85,6 +86,7 @@ function FinishedGamesScreen({
   archive,
   archiveView,
   requiresSignIn,
+  showSignInHint,
   isLoading,
   errorMessage,
   onBack,
@@ -108,7 +110,7 @@ function FinishedGamesScreen({
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[92rem] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
         <div className="shrink-0 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <div className="flex items-start justify-between gap-3 sm:block">
+            <div className="flex items-start justify-between gap-3 lg:block">
               <div>
                 <p className="text-sm uppercase tracking-[0.32em] text-sky-200/80">Finished Games</p>
                 <h1 className="mt-2 text-2xl font-black uppercase tracking-[0.08em] text-white sm:text-4xl">
@@ -116,7 +118,7 @@ function FinishedGamesScreen({
                 </h1>
               </div>
 
-              <div className="flex items-center gap-2 sm:hidden">
+              <div className="flex items-center gap-2 lg:hidden">
                 <button
                   onClick={onBack}
                   aria-label="Back to lobby"
@@ -138,20 +140,9 @@ function FinishedGamesScreen({
                 ? 'Review the finished matches you played while signed in and open any replay move by move.'
                 : 'Browse completed matches and open any game to step through every move on the board.'}
             </p>
-
-            <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
-              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-slate-200 sm:px-4 sm:py-2 sm:text-sm">
-                <span className="uppercase tracking-[0.18em] text-slate-400 sm:tracking-[0.22em]">Games</span>
-                <span className="ml-2 text-base font-black text-white sm:ml-3 sm:text-lg">{totalGames}</span>
-              </div>
-              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-slate-200 sm:px-4 sm:py-2 sm:text-sm">
-                <span className="uppercase tracking-[0.18em] text-slate-400 sm:tracking-[0.22em]">Moves</span>
-                <span className="ml-2 text-base font-black text-white sm:ml-3 sm:text-lg">{totalMoves}</span>
-              </div>
-            </div>
           </div>
 
-          <div className="hidden items-center justify-end gap-3 sm:flex">
+          <div className="hidden items-center justify-end gap-3 lg:flex">
             <button
               onClick={onRefresh}
               aria-label="Refresh archive"
@@ -168,7 +159,29 @@ function FinishedGamesScreen({
           </div>
         </div>
 
-        <div className="mt-6 min-h-0 flex-1 overflow-hidden">
+        <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-[auto_auto_1fr]">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-slate-200 sm:px-4 sm:py-2 sm:text-sm">
+            <span className="uppercase tracking-[0.18em] text-slate-400 sm:tracking-[0.22em]">Games</span>
+            <span className="ml-2 text-base font-black text-white sm:ml-3 sm:text-lg">{totalGames}</span>
+          </div>
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-slate-200 sm:px-4 sm:py-2 sm:text-sm">
+            <span className="uppercase tracking-[0.18em] text-slate-400 sm:tracking-[0.22em]">Moves</span>
+            <span className="ml-2 text-base font-black text-white sm:ml-3 sm:text-lg">{totalMoves}</span>
+          </div>
+
+          {showSignInHint && (
+            <div className="mt-2 col-span-2 lg:col-span-1 ml-auto lg:mt-[-2em] w-full lg:text-right lg:max-w-md rounded-[1.35rem] border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-50 sm:px-5">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100/90">
+                Personal Match History
+              </div>
+              <div className="mt-2 leading-6 text-amber-50/85">
+                Sign in with Discord to unlock your own match history.
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
           <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden p-0 sm:rounded-[2rem] sm:border sm:border-white/10 sm:bg-slate-950/55 sm:p-6 sm:shadow-[0_20px_80px_rgba(15,23,42,0.45)] sm:backdrop-blur">
             {isLoading ? (
               <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-white/15 bg-white/5 px-6 py-12 text-center text-slate-300">
@@ -179,7 +192,7 @@ function FinishedGamesScreen({
                 <div>
                   <p className="text-lg font-semibold text-white">Sign in to view your own match history.</p>
                   <p className="mt-3 text-sm leading-6 text-amber-50/80">
-                    This filter uses your player profile id, so it is only available for logged-in accounts.
+                    You have to login in order to view your personal match history.
                   </p>
                 </div>
               </div>
@@ -237,10 +250,10 @@ function FinishedGamesScreen({
                         </div>
 
                         <div className="text-xs text-slate-300 sm:text-right sm:text-sm">
-                           <div className="font-semibold text-white">
-                             {formatDateTime(game.finishedAt ?? game.startedAt)}
-                           </div>
-                         </div>
+                          <div className="font-semibold text-white">
+                            {formatDateTime(game.finishedAt ?? game.startedAt)}
+                          </div>
+                        </div>
                       </div>
                     </button>
                   ))}

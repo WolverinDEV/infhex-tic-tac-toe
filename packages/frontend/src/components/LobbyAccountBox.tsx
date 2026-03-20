@@ -62,7 +62,7 @@ function LobbyGuestDisplay({ hasPendingInvite }: LobbyGuestDisplayProps) {
           <div className="mt-1 text-sm text-slate-400">
             {hasPendingInvite
               ? 'You can accept this invite as a guest, but only signed-in players get a custom username.'
-              : 'Guests can host, join, and spectate. Sign in with Discord if you want a custom username.'}
+              : 'Guests can host, join, and spectate. Sign in with Discord if you want a custom username and your own match history page.'}
           </div>
         </div>
       </div>
@@ -208,7 +208,7 @@ function LobbySignedInAccount({ account, onViewOwnFinishedGames }: LobbySignedIn
               onClick={onViewOwnFinishedGames}
               className="rounded-full border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:bg-sky-400/20"
             >
-              My Matches
+              View My Matches
             </button>
             <button
               onClick={() => void handleSignOut()}

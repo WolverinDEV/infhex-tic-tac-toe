@@ -44,6 +44,7 @@ function FinishedGamesRoute() {
       errorMessage={finishedGamesQuery.error instanceof Error ? finishedGamesQuery.error.message : null}
       archiveView={archiveRouteState.archiveView}
       requiresSignIn={isOwnArchive && !accountQuery.data?.user}
+      showSignInHint={!isOwnArchive && !accountQuery.isLoading && !accountQuery.data?.user}
       onBack={() => void navigate('/')}
       onOpenGame={(gameId) => void navigate(
         buildFinishedGamePath(
