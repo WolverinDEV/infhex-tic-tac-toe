@@ -9,14 +9,8 @@ import { startTerminalCommandHandler } from './terminal/startTerminalCommandHand
 
 const bootstrapLogger = createRootLogger();
 const DEFAULT_SCHEDULED_SHUTDOWN_MS = 10 * 60 * 1000;
-
-async function shutdownSignal(): Promise<NodeJS.Signals> {
-    return await new Promise<NodeJS.Signals>(resolve => {
-        for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-            process.once(signal, () => resolve(signal));
-        }
-    })
-}
+const IMMEDIATE_SHUTDOWN_SIGNAL_COUNT = 3;
+const FORCED_SHUTDOWN_SIGNAL_COUNT = 5;
 
 async function main() {
     const appContainer = createAppContainer();
@@ -38,34 +32,73 @@ async function main() {
         socketServerGateway,
         shutdownDelayMs: DEFAULT_SCHEDULED_SHUTDOWN_MS
     });
-    sessionManager.setShutdownHandler(() => {
-        stopTerminalShutdownScheduler();
-        void applicationServer.shutdown().catch((error: unknown) => {
-            bootstrapLogger.error({
-                err: error,
-                event: 'server.shutdown.failed',
-                source: 'scheduled'
-            }, 'Scheduled shutdown failed');
-            process.exit(1);
+    const shutdownCompleted = new Promise<void>(resolve => {
+        let shutdownPromise: Promise<void> | null = null;
+        let signalCount = 0;
+
+        const runApplicationShutdown = () => {
+            stopTerminalShutdownScheduler();
+            if (shutdownPromise) {
+                return shutdownPromise;
+            }
+
+            shutdownPromise = applicationServer.shutdown()
+                .then(() => {
+                    resolve();
+                })
+                .catch((error: unknown) => {
+                    bootstrapLogger.error({
+                        err: error,
+                        event: 'server.shutdown.failed',
+                        source: 'scheduled'
+                    }, 'Scheduled shutdown failed');
+                    process.exit(1);
+                });
+
+            return shutdownPromise;
+        };
+
+        sessionManager.setShutdownHandler(() => {
+            void runApplicationShutdown();
         });
+
+        for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+            process.on(signal, () => {
+                signalCount += 1;
+
+                if (signalCount >= FORCED_SHUTDOWN_SIGNAL_COUNT) {
+                    bootstrapLogger.warn({
+                        event: 'server.shutdown.signal-forced',
+                        signal,
+                        signalCount
+                    }, 'Received fith shutdown signal; force exiting');
+                    process.exit(0);
+                } else if (signalCount >= IMMEDIATE_SHUTDOWN_SIGNAL_COUNT) {
+                    bootstrapLogger.warn({
+                        event: 'server.shutdown.signal-immediate',
+                        signal,
+                        signalCount
+                    }, 'Received third shutdown signal; exiting without waiting');
+                    runApplicationShutdown();
+                    return;
+                }
+
+                const existingShutdown = sessionManager.getShutdownState();
+                const shutdown = sessionManager.scheduleShutdown(DEFAULT_SCHEDULED_SHUTDOWN_MS);
+                bootstrapLogger.info({
+                    event: existingShutdown ? 'server.shutdown.signal-repeat' : 'server.shutdown.signal',
+                    signal,
+                    signalCount,
+                    shutdownAt: new Date(shutdown.shutdownAt).toISOString(),
+                    timeoutMs: shutdown.shutdownAt - shutdown.scheduledAt
+                }, existingShutdown
+                    ? `Received shutdown signal ${signalCount}/${FORCED_SHUTDOWN_SIGNAL_COUNT}; graceful shutdown already scheduled`
+                    : 'Received shutdown signal; scheduled graceful shutdown');
+            });
+        }
     });
 
-    await shutdownSignal().then(signal => {
-        bootstrapLogger.info({
-            event: 'server.shutdown.signal',
-            signal
-        }, 'Received shutdown signal');
-    });
-
-    stopTerminalShutdownScheduler();
-
-    await applicationServer.shutdown().catch((error: unknown) => {
-        bootstrapLogger.error({
-            err: error,
-            event: 'server.shutdown.failed',
-        }, 'Server shutdown failed');
-        process.exit(1);
-    });
+    await shutdownCompleted;
 
     process.exit(0);
 }

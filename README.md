@@ -29,6 +29,7 @@ Server logs are printed to the console and also written to `logs/server.log`, ro
 
 While the backend is running, type `shutdown` into the backend terminal and press Enter to schedule a graceful shutdown.
 This immediately blocks new games, gives existing sessions up to 10 minutes to finish, and then closes any remaining sessions before the server exits.
+Sending `SIGINT` or `SIGTERM` now follows the same graceful path on the first and second signal; the process exits immediately only after the third signal.
 
 ## AI Use
 > This project was built mostly with AI-assisted "vibe coding" techniques.
