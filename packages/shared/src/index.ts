@@ -70,6 +70,7 @@ export interface JoinSessionRequest {
 export interface SessionInfo {
     id: string;
     playerCount: number;
+    playerNames: string[];
     maxPlayers: 2; // Always 2
     state: SessionState;
     lobbyOptions: LobbyOptions;

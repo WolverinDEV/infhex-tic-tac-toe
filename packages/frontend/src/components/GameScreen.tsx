@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BoardState, GameTimeControl, PlayerNames, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
 import { playTilePlacedSound } from '../soundEffects'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
-import GameScreenHud from './game-screen/GameScreenHud'
+import GameScreenHud, { HudPlayerInfo } from './game-screen/GameScreenHud'
 import TurnTimerHud from './game-screen/TurnTimerHud'
-import { getCellKey, getPlayerColor } from './game-screen/gameBoardUtils'
+import { getCellKey, getPlayerColor, getPlayerLabel } from './game-screen/gameBoardUtils'
 import useGameBoard from './game-screen/useGameBoard'
 
 interface GameScreenProps {
@@ -50,9 +50,16 @@ function GameScreen({
 
   const effectiveTimeControl: GameTimeControl = timeControl ?? { mode: 'unlimited' }
   const isSpectator = participantRole === 'spectator'
-  const ownColor = getPlayerColor(players, currentPlayerId)
   const isOwnTurn = Boolean(currentPlayerId) && boardState.currentTurnPlayerId === currentPlayerId
   const canPlaceCell = interactionEnabled && !isSpectator && isOwnTurn
+
+  const hudPlayerInfo = useMemo(() => {
+    return players.map(playerId => ({
+      playerId,
+      displayName: getPlayerLabel(players, playerId, playerNames),
+      displayColor: getPlayerColor(players, playerId)
+    } satisfies HudPlayerInfo))
+  }, [players, currentPlayerId, playerNames]);
 
   useEffect(() => {
     previousBoardStateRef.current = null
@@ -190,11 +197,14 @@ function GameScreen({
           {interactionEnabled && (
             <GameScreenHud
               sessionId={sessionId}
-              isSpectator={isSpectator}
+              players={hudPlayerInfo}
+              localPlayerId={currentPlayerId}
+
               occupiedCellCount={boardState.cells.length}
-              ownColor={ownColor}
               renderableCellCount={renderableCellCount}
+
               shutdown={shutdown}
+
               onLeave={onLeave}
               onResetView={resetView}
             />

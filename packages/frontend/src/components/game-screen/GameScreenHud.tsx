@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react'
 import type { ShutdownState } from '@ih3t/shared'
 
+export type HudPlayerInfo = {
+  playerId: string,
+  displayColor: string,
+  displayName: string,
+}
+
 interface GameScreenHudProps {
   sessionId: string
-  isSpectator: boolean
+  localPlayerId: string | null
+  players: HudPlayerInfo[]
+
   occupiedCellCount: number
-  ownColor: string
   renderableCellCount: number
+
   shutdown: ShutdownState | null
+
   onLeave: () => void
   onResetView: () => void
 }
@@ -22,11 +31,14 @@ function formatRemainingTime(remainingMs: number) {
 
 function GameScreenHud({
   sessionId,
-  isSpectator,
+  players,
+  localPlayerId,
+
   occupiedCellCount,
-  ownColor,
   renderableCellCount,
+
   shutdown,
+
   onLeave,
   onResetView
 }: Readonly<GameScreenHudProps>) {
@@ -101,7 +113,7 @@ function GameScreenHud({
         <h1 className="mt-1 text-2xl font-bold">Infinite Hex Tic-Tac-Toe</h1>
         <div className="mt-2 text-sm text-slate-300">
           Connect 6 hexagons in a row.<br />
-          {isSpectator ? 'Drag to pan and pinch to zoom while the players battle it out.' : 'Tap to place, drag to pan, pinch to zoom.'}
+          {localPlayerId ? 'Tap to place, drag to pan, pinch to zoom.' : 'Drag to pan and pinch to zoom while the players battle it out.'}
         </div>
 
         {shutdown && shutdownCountdownMs !== null && (
@@ -119,18 +131,21 @@ function GameScreenHud({
           </div>
 
           <div className="border-l border-white/18 pl-3">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">{isSpectator ? 'Viewing Mode' : 'Your Color'}</div>
-            {isSpectator ? (
-              <div className="mt-1 text-white">Read-only spectator</div>
-            ) : (
-              <div className="mt-1 flex items-center gap-2.5 text-white">
-                <span>{ownColor}</span>
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Players</div>
+            {players.map(({ playerId, displayColor, displayName }) => (
+              <div key={playerId} className="mt-1 flex items-center gap-2.5 text-white">
                 <span
                   className="h-3.5 w-3.5 rounded-full border border-white/20"
-                  style={{ backgroundColor: ownColor }}
+                  style={{ backgroundColor: displayColor }}
                 />
+                <span>{displayName}</span>
+                {playerId === localPlayerId && (
+                  <span className="rounded-md border border-white/10 bg-white/6 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    You
+                  </span>
+                )}
               </div>
-            )}
+            ))}
           </div>
         </div>
 

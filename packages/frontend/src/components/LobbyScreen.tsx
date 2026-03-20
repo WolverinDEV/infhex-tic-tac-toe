@@ -25,6 +25,14 @@ function formatLiveDuration(startedAt: number | null, now: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function formatLobbyPlayers(playerNames: string[]) {
+  if (playerNames.length === 0) {
+    return 'Waiting for first player'
+  }
+
+  return playerNames.join(' vs ')
+}
+
 function LobbyScreen({
   isConnected,
   shutdown,
@@ -131,7 +139,6 @@ function LobbyScreen({
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-[11px] uppercase tracking-[0.22em] text-sky-200/75 sm:text-xs sm:tracking-[0.28em]">Session</div>
                           <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${session.canJoin
                             ? 'bg-emerald-400/15 text-emerald-200'
                             : 'bg-sky-400/15 text-sky-200'
@@ -143,11 +150,11 @@ function LobbyScreen({
                           </span>
                         </div>
                         <div className="mt-2 break-all text-xl font-bold text-white sm:text-2xl">{session.id}</div>
-                        {session.canJoin && (
-                          <div className="mt-2 text-sm text-slate-300">Players waiting: {session.playerCount}/{session.maxPlayers}</div>
-                        )}
+                        <div className="mt-2 text-sm text-slate-400">
+                          {formatLobbyPlayers(session.playerNames)}
+                        </div>
                         {!session.canJoin && session.startedAt && (
-                          <div className="mt-1 text-sm text-slate-400">
+                          <div className="text-sm text-slate-400">
                             In game for {formatLiveDuration(session.startedAt, now)}
                           </div>
                         )}

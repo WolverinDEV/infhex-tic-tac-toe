@@ -42,9 +42,9 @@ export function getCellKey(x: number, y: number): string {
   return `${x},${y}`
 }
 
-export function getPlayerLabel(players: string[], playerId: string | null, playerNames?: PlayerNames): string {
+export function getPlayerLabel(players: string[], playerId: string | null, playerNames?: PlayerNames, fallbackName: string = "A player"): string {
   if (!playerId) {
-    return 'Waiting for a player'
+    return fallbackName
   }
 
   const playerName = playerNames?.[playerId]?.trim()
@@ -54,7 +54,7 @@ export function getPlayerLabel(players: string[], playerId: string | null, playe
 
   const playerIndex = players.indexOf(playerId)
   if (playerIndex === -1) {
-    return 'A player'
+    return fallbackName
   }
 
   return `Player ${playerIndex + 1}`

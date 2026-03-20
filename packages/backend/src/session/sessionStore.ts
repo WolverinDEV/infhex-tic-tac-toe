@@ -10,6 +10,14 @@ function cloneLobbyOptions(lobbyOptions: StoredGameSession['lobbyOptions']): Sto
     };
 }
 
+function buildSessionInfoPlayerNames(session: StoredGameSession): string[] {
+    return session.players.map((playerId, playerIndex) =>
+        session.participantProfiles[playerId]?.username
+        ?? session.playerNames[playerId]
+        ?? `Player ${playerIndex + 1}`
+    );
+}
+
 @injectable()
 export class SessionStore {
     private readonly sessions = new Map<string, StoredGameSession>();
@@ -37,6 +45,7 @@ export class SessionStore {
             .map((session) => ({
                 id: session.id,
                 playerCount: session.players.length,
+                playerNames: buildSessionInfoPlayerNames(session),
                 maxPlayers: session.maxPlayers,
                 state: session.state,
                 lobbyOptions: cloneLobbyOptions(session.lobbyOptions),
@@ -55,6 +64,7 @@ export class SessionStore {
         return {
             id: session.id,
             playerCount: session.players.length,
+            playerNames: buildSessionInfoPlayerNames(session),
             maxPlayers: session.maxPlayers,
             state: session.state,
             lobbyOptions: cloneLobbyOptions(session.lobbyOptions),
