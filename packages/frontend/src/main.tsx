@@ -5,7 +5,9 @@ import './index.css'
 import App from './App'
 import { startLiveGameClient } from './liveGameClient'
 import { queryClient } from './queryClient'
+import { installSoundEffects } from './soundEffects'
 
+installSoundEffects()
 startLiveGameClient()
 
 let root = document.getElementById('root');

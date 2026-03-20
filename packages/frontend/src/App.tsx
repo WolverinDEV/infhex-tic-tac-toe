@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import FinishedGameReviewScreen from './components/FinishedGameReviewScreen'
@@ -23,6 +23,7 @@ import {
   useQueryFinishedGame,
   useQueryFinishedGames
 } from './queryHooks'
+import { playMatchStartSound } from './soundEffects'
 
 type AppRoute =
   | { page: 'live' }
@@ -101,6 +102,7 @@ function App() {
   const connection = useLiveGameStore(state => state.connection)
   const shutdown = useLiveGameStore(state => state.shutdown)
   const liveScreen = useLiveGameStore(state => state.screen)
+  const previousLiveScreenKindRef = useRef(liveScreen.kind)
   const availableSessionsQuery = useQueryAvailableSessions({ enabled: route.page === 'live' })
   const archivePage = route.page === 'live' ? 1 : route.archivePage
   const archiveBaseTimestamp = route.page === 'live' ? Date.now() : route.archiveBaseTimestamp
@@ -163,6 +165,15 @@ function App() {
     returnToLobby()
     navigateTo({ page: 'finished-game', gameId, archivePage: 1, archiveBaseTimestamp: Date.now() })
   }
+
+  useEffect(() => {
+    const previousKind = previousLiveScreenKindRef.current
+    if (previousKind === 'waiting' && liveScreen.kind === 'playing' && liveScreen.participantRole === 'player') {
+      playMatchStartSound()
+    }
+
+    previousLiveScreenKindRef.current = liveScreen.kind
+  }, [liveScreen.kind])
 
   useEffect(() => {
     const handlePopState = () => {

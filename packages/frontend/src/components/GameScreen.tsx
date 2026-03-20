@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { BoardState, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
+import { playCountdownWarningSound, playTilePlacedSound } from '../soundEffects'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import GameScreenHud from './game-screen/GameScreenHud'
 import GameScreenStatus from './game-screen/GameScreenStatus'
@@ -37,8 +38,10 @@ function GameScreen({
   const [turnCountdownMs, setTurnCountdownMs] = useState<number | null>(TURN_TIMEOUT_MS)
   const [highlightedCellKeys, setHighlightedCellKeys] = useState<string[]>([])
   const previousBoardStateRef = useRef<BoardState | null>(null)
+  const previousCellCountRef = useRef(boardState.cells.length)
   const ongoingOpponentTurnKeysRef = useRef<string[]>([])
   const lastOpponentTurnKeysRef = useRef<string[]>([])
+  const lastCountdownWarningSecondRef = useRef<number | null>(null)
 
   const isSpectator = participantRole === 'spectator'
   const ownColor = getPlayerColor(players, currentPlayerId)
@@ -60,8 +63,10 @@ function GameScreen({
 
   useEffect(() => {
     previousBoardStateRef.current = null
+    previousCellCountRef.current = boardState.cells.length
     ongoingOpponentTurnKeysRef.current = []
     lastOpponentTurnKeysRef.current = []
+    lastCountdownWarningSecondRef.current = null
     setHighlightedCellKeys([])
   }, [currentPlayerId, participantRole])
 
@@ -141,6 +146,15 @@ function GameScreen({
   })
 
   useEffect(() => {
+    const previousCellCount = previousCellCountRef.current
+    if (interactionEnabled && boardState.cells.length > previousCellCount) {
+      playTilePlacedSound()
+    }
+
+    previousCellCountRef.current = boardState.cells.length
+  }, [boardState.cells.length, interactionEnabled])
+
+  useEffect(() => {
     const expiresAt = boardState.currentTurnExpiresAt
     if (!expiresAt) {
       setTurnCountdownMs(null)
@@ -155,6 +169,25 @@ function GameScreen({
     const interval = window.setInterval(updateCountdown, 250)
     return () => window.clearInterval(interval)
   }, [boardState.currentTurnExpiresAt])
+
+  useEffect(() => {
+    if (!interactionEnabled || isSpectator || !isOwnTurn || turnCountdownMs === null || turnCountdownMs > 10_000) {
+      lastCountdownWarningSecondRef.current = null
+      return
+    }
+
+    const remainingWarningSecond = Math.floor(turnCountdownMs / 1000)
+    if (remainingWarningSecond < 1 || remainingWarningSecond > 9) {
+      return
+    }
+
+    if (lastCountdownWarningSecondRef.current === remainingWarningSecond) {
+      return
+    }
+
+    lastCountdownWarningSecondRef.current = remainingWarningSecond
+    playCountdownWarningSound()
+  }, [interactionEnabled, isOwnTurn, isSpectator, turnCountdownMs])
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-slate-950 text-white">
