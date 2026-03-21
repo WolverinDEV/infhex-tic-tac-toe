@@ -286,6 +286,8 @@ export class SocketServerGateway {
             this.socketParticipations.delete(socket.id);
             this.sessionManager.handleSocketDisconnect(socket.id);
         });
+
+        socket.emit("initialized");
     }
 
     public getConnectedClientCount() {

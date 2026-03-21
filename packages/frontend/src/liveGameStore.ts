@@ -34,12 +34,14 @@ type PendingSessionJoinState =
 interface LiveGameStoreState {
   connection: {
     isConnected: boolean
+    isInitialized: boolean
     currentPlayerId: string
   }
   shutdown: ShutdownState | null
   screen: SessionScreen
   pendingSessionJoin: PendingSessionJoinState
   setConnected: () => void
+  setInitialized: () => void
   setDisconnected: () => void
   setShutdownState: (shutdown: ShutdownState | null) => void
   startJoiningSession: (sessionId: string) => void
@@ -124,6 +126,7 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
   immer((set) => ({
     connection: {
       isConnected: false,
+      isInitialized: false,
       currentPlayerId: ''
     },
     shutdown: null,
@@ -132,10 +135,13 @@ export const useLiveGameStore = create<LiveGameStoreState>()(
     setConnected: () =>
       set((state) => {
         state.connection.isConnected = true
+        state.connection.isInitialized = false
       }),
+    setInitialized: () => set(state => { state.connection.isInitialized = true }),
     setDisconnected: () =>
       set((state) => {
         state.connection.isConnected = false
+        state.connection.isInitialized = false
         state.connection.currentPlayerId = ''
         state.shutdown = null
         state.screen = { kind: 'none' }

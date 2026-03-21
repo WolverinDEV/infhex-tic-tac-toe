@@ -311,6 +311,7 @@ export const zPlaceCellRequest = z.object({
 export type PlaceCellRequest = z.infer<typeof zPlaceCellRequest>;
 
 export const zServerToClientEvents = z.custom<{
+    'initialized': () => void;
     'lobby-list': (lobbies: LobbyInfo[]) => void;
     'shutdown-updated': (shutdown: ShutdownState | null) => void;
     'admin-message': (broadcast: AdminBroadcastMessage) => void;

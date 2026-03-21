@@ -60,6 +60,10 @@ export function startLiveGameClient() {
     void fetchAvailableSessions()
   })
 
+  socket.on('initialized', () => {
+    useLiveGameStore.getState().setInitialized()
+  });
+
   socket.on('lobby-list', (lobbies) => {
     queryClient.setQueryData(
       queryKeys.availableSessions,
@@ -239,7 +243,7 @@ export function placeCell(x: number, y: number) {
     return
   }
 
-  socket?.emit('place-cell', { sessionId: activeSessionId, x, y })
+  socket?.emit('place-cell', { x, y })
 }
 
 export function requestRematch() {

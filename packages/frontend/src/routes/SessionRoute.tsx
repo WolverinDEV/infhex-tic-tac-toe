@@ -163,7 +163,7 @@ function SessionRoute() {
   }, [liveScreen, sessionId])
 
   useEffect(() => {
-    if (!sessionId || !connection.isConnected || liveScreen.kind !== 'none') {
+    if (!sessionId || !connection.isInitialized || liveScreen.kind !== 'none') {
       return
     }
 
@@ -173,7 +173,7 @@ function SessionRoute() {
 
     attemptedSessionIdRef.current = sessionId
     joinGame(sessionId)
-  }, [connection.isConnected, liveScreen.kind, sessionId])
+  }, [connection.isInitialized, liveScreen.kind, sessionId])
 
   if (!sessionId) {
     return <Navigate to="/" replace />
