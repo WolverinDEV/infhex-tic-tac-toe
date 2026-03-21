@@ -98,7 +98,7 @@ export class SocketServerGateway {
                 }
             }
 
-            this.logger.info({
+            this.logger.debug({
                 event: 'socket.connected',
                 socketId: socket.id,
                 reconnect: Boolean(reclaimedSession),
@@ -246,7 +246,7 @@ export class SocketServerGateway {
             });
 
             socket.on('disconnect', () => {
-                this.logger.info({
+                this.logger.debug({
                     event: 'socket.disconnected',
                     socketId: socket.id
                 }, 'Socket disconnected');
