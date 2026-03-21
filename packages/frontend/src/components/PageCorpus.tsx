@@ -18,7 +18,7 @@ function BackIcon() {
 interface PageCorpusProperties {
     category: React.ReactNode,
     title: React.ReactNode,
-    description: React.ReactNode,
+    description?: React.ReactNode,
     children?: React.ReactNode,
 
     back?: string,
@@ -44,17 +44,19 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                             </div>
 
                             <div className="flex items-center gap-2 lg:hidden">
-                                <button
-                                    onClick={onBack}
-                                    aria-label="Back to lobby"
-                                    className="inline-flex items-center justify-center rounded-full bg-amber-300 p-2.5 text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200"
-                                >
-                                    <BackIcon />
-                                </button>
+                                {onBack && (
+                                    <button
+                                        onClick={onBack}
+                                        aria-label="Back"
+                                        className="inline-flex items-center justify-center rounded-full bg-amber-300 p-2.5 text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200"
+                                    >
+                                        <BackIcon />
+                                    </button>
+                                )}
                                 {onRefresh && (
                                     <button
                                         onClick={onRefresh}
-                                        aria-label="Refresh archive"
+                                        aria-label="Refresh"
                                         className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/8 p-2.5 text-white transition hover:-translate-y-0.5 hover:bg-white/14"
                                     >
                                         <RefreshIcon />
@@ -62,9 +64,11 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                 )}
                             </div>
                         </div>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-4 sm:text-base sm:leading-7">
-                            {description}
-                        </p>
+                        {description && (
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-4 sm:text-base sm:leading-7">
+                                {description}
+                            </p>
+                        )}
                     </div>
 
                     <div className="hidden items-center justify-end gap-3 lg:flex">
@@ -77,12 +81,14 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                 Refresh
                             </button>
                         )}
-                        <button
-                            onClick={onBack}
-                            className="hidden rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200 sm:inline-flex"
-                        >
-                            {back ?? "Back To Lobby"}
-                        </button>
+                        {onBack && (
+                            <button
+                                onClick={onBack}
+                                className="hidden rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200 sm:inline-flex"
+                            >
+                                {back ?? "Back To Lobby"}
+                            </button>
+                        )}
                     </div>
                 </div>
 

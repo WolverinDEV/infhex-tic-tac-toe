@@ -43,6 +43,7 @@ function FinishedGamesRoute() {
       isLoading={isOwnArchive ? accountQuery.isLoading || finishedGamesQuery.isLoading : finishedGamesQuery.isLoading}
       errorMessage={finishedGamesQuery.error instanceof Error ? finishedGamesQuery.error.message : null}
       archiveView={archiveRouteState.archiveView}
+      currentProfileId={accountQuery.data?.user?.id ?? null}
       requiresSignIn={isOwnArchive && !accountQuery.data?.user}
       showSignInHint={!isOwnArchive && !accountQuery.isLoading && !accountQuery.data?.user}
       onBack={() => void navigate('/')}
@@ -55,9 +56,13 @@ function FinishedGamesRoute() {
         )
       )}
       onChangePage={(nextArchivePage) => void navigate(
-        buildFinishedGamesPath(nextArchivePage, archiveRouteState.archiveBaseTimestamp, archiveRouteState.archiveView)
+        buildFinishedGamesPath(nextArchivePage, archiveRouteState.archiveBaseTimestamp, archiveRouteState.archiveView),
+        { replace: true }
       )}
-      onRefresh={() => void navigate(buildFinishedGamesPath(1, Date.now(), archiveRouteState.archiveView))}
+      onRefresh={() => void navigate(
+        buildFinishedGamesPath(1, Date.now(), archiveRouteState.archiveView),
+        { replace: true }
+      )}
     />
   )
 }
