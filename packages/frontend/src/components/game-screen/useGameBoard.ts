@@ -292,15 +292,10 @@ function useGameBoard({
       return
     }
 
-    const parent = canvas.parentElement
-    if (!parent) {
-      return
-    }
-
     const resizeObserver = new ResizeObserver(() => {
       scheduleDraw()
     })
-    resizeObserver.observe(parent)
+    resizeObserver.observe(canvas)
     scheduleDraw()
 
     return () => {
