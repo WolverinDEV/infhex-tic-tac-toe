@@ -21,11 +21,13 @@ interface PageCorpusProperties {
     description: React.ReactNode,
     children?: React.ReactNode,
 
+    back?: string,
     onBack?: () => void,
+
     onRefresh?: () => void,
 }
 
-const PageCorpus = ({ category, title, description, children, onBack, onRefresh }: PageCorpusProperties) => {
+const PageCorpus = ({ category, title, description, children, back, onBack, onRefresh }: PageCorpusProperties) => {
     return (
         <div className="h-dvh overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.16),_transparent_24%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
             <div className="mx-auto flex h-full min-h-0 w-full max-w-[92rem] flex-col gap-4">
@@ -79,7 +81,7 @@ const PageCorpus = ({ category, title, description, children, onBack, onRefresh 
                             onClick={onBack}
                             className="hidden rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200 sm:inline-flex"
                         >
-                            Back To Lobby
+                            {back ?? "Back To Lobby"}
                         </button>
                     </div>
                 </div>

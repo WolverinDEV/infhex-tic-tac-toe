@@ -143,7 +143,6 @@ function AdminStatsScreen({
   stats,
   isLoading,
   errorMessage,
-  onBack,
   onOpenControls,
   onRefresh,
   onOpenGame
@@ -161,19 +160,12 @@ function AdminStatsScreen({
         </>
       }
 
-      onBack={onBack}
+      back={"Admin Controls"}
+      onBack={onOpenControls}
+
       onRefresh={onRefresh}
     >
       <div className={"px-4 sm:px-6 overscroll-contain min-h-0 overflow-auto"}>
-        <div className="flex justify-end">
-          <button
-            onClick={onOpenControls}
-            className="rounded-full border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:bg-sky-400/20 sm:px-5 sm:py-3 sm:text-sm"
-          >
-            Admin Controls
-          </button>
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="Active Games" value={stats?.activeGames.total ?? '...'} tone="accent" />
           <SummaryCard label="Public Games" value={stats?.activeGames.public ?? '...'} />
