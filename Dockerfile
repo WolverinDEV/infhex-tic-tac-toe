@@ -18,6 +18,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN pnpm generate:changelog
 RUN pnpm build
 
 FROM node:22-alpine AS runtime

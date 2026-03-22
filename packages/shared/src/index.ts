@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const DUMMY = 'Hello?';
 export const PLACE_CELL_HEX_RADIUS = 8;
+export type { ChangelogDay, ChangelogEntry, ChangelogEntryKind } from './generatedChangelog';
+export { CHANGELOG_COMMIT_COUNT, CHANGELOG_DAYS, CHANGELOG_GENERATED_AT } from './generatedChangelog';
 
 export interface HexCoordinate {
     x: number;
@@ -430,7 +432,8 @@ export type AccountStatistics = z.infer<typeof zAccountStatistics>;
 
 export const zAccountPreferences = z.object({
     moveConfirmation: z.boolean().default(false),
-    tilePieceMarkers: z.boolean().default(false)
+    tilePieceMarkers: z.boolean().default(false),
+    changelogReadAt: z.number().int().nonnegative().nullable().default(null)
 });
 export type AccountPreferences = z.infer<typeof zAccountPreferences>;
 

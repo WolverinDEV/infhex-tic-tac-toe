@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "build": "pnpm --filter @ih3t/backend build && pnpm --filter @ih3t/frontend build",
+    "generate:changelog": "tsx build/generateChangelog.ts",
+    "build": "pnpm generate:changelog && pnpm --filter @ih3t/backend build && pnpm --filter @ih3t/frontend build",
     "build:backend": "pnpm --filter @ih3t/backend build",
-    "build:frontend": "pnpm --filter @ih3t/frontend build",
+    "build:frontend": "pnpm generate:changelog && pnpm --filter @ih3t/frontend build",
     "dev:frontend": "pnpm --filter @ih3t/frontend dev",
     "dev:backend": "pnpm --filter @ih3t/backend dev",
     "docker:build": "docker build -t ih3t:latest .",

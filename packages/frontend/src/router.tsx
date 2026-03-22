@@ -1,6 +1,7 @@
 import { createBrowserRouter, createMemoryRouter, createRoutesFromElements, Navigate, Outlet, Route } from 'react-router'
 import { ToastContainer } from 'react-toastify'
 import CommonPageLayout from './components/CommonPageLayout'
+import ChangelogRoute from './routes/ChangelogRoute'
 import LiveGameRuntime from './components/LiveGameRuntime'
 import RouteErrorScreen from './components/RouteErrorScreen'
 import AccountPreferencesRoute from './routes/AccountPreferencesRoute'
@@ -43,6 +44,7 @@ export function createAppRoutes() {
           <Route path="/" element={<LobbyRoute />} />
           <Route path="/games" element={<FinishedGamesRoute />} />
           <Route path="/games/:gameId" element={<FinishedGameRoute />} />
+          <Route path="/changelog" element={<ChangelogRoute />} />
           <Route path="/account/profile" element={<ProfileRoute />} />
           <Route path="/account/preferences" element={<AccountPreferencesRoute />} />
           <Route path="/account/games" element={<FinishedGamesRoute />} />

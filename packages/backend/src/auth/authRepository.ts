@@ -100,7 +100,7 @@ export class AuthRepository implements Adapter {
         const document: AuthUserDocument = {
             _id: new ObjectId(),
             role: 'user',
-            preferences: DEFAULT_ACCOUNT_PREFERENCES,
+            preferences: this.createInitialAccountPreferences(now),
             registeredAt: now,
             lastActiveAt: now,
             ...this.toUserDocument(user),
@@ -349,7 +349,9 @@ export class AuthRepository implements Adapter {
         }
 
         const document = await collection.findOne({ _id: objectId });
-        return document ? this.normalizeAccountPreferences(document.preferences) : null;
+        return document
+            ? await this.resolveStoredAccountPreferences(collection, objectId, document.preferences)
+            : null;
     }
 
     async updateAccountPreferences(userId: string, preferences: AccountPreferences): Promise<AccountPreferences | null> {
@@ -631,6 +633,36 @@ export class AuthRepository implements Adapter {
     private normalizeAccountPreferences(value: unknown): AccountPreferences {
         const result = zAccountPreferences.safeParse(value ?? {});
         return result.success ? result.data : DEFAULT_ACCOUNT_PREFERENCES;
+    }
+
+    private createInitialAccountPreferences(changelogReadAt: number): AccountPreferences {
+        return {
+            ...DEFAULT_ACCOUNT_PREFERENCES,
+            changelogReadAt,
+        };
+    }
+
+    private async resolveStoredAccountPreferences(
+        collection: Collection<AuthUserDocument>,
+        userId: ObjectId,
+        value: unknown
+    ): Promise<AccountPreferences> {
+        const normalizedPreferences = this.normalizeAccountPreferences(value);
+        if (normalizedPreferences.changelogReadAt !== null) {
+            return normalizedPreferences;
+        }
+
+        const initializedPreferences = this.createInitialAccountPreferences(Date.now());
+        await collection.updateOne(
+            { _id: userId },
+            {
+                $set: {
+                    preferences: initializedPreferences,
+                },
+            }
+        );
+
+        return initializedPreferences;
     }
 
     private toUserDocument(user: Partial<AdapterUser>): Omit<AuthUserDocument, '_id'> {
