@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import type { CreateSessionRequest } from '@ih3t/shared'
+import { CHANGELOG_DAYS, type CreateSessionRequest } from '@ih3t/shared'
 import { useNavigate, useSearchParams } from 'react-router'
+import { countUnreadChangelogEntries } from '../changelogState'
 import LobbyScreen from '../components/LobbyScreen'
 import { hostGame, joinGame } from '../liveGameClient'
 import { useLiveGameStore } from '../liveGameStore'
-import { useQueryAccount, useQueryAvailableSessions } from '../queryHooks'
+import { useQueryAccount, useQueryAccountPreferences, useQueryAvailableSessions } from '../queryHooks'
 import { buildFinishedGamesPath, buildSessionPath } from './archiveRouteState'
 
 function LobbyRoute() {
@@ -14,7 +15,13 @@ function LobbyRoute() {
   const connection = useLiveGameStore(state => state.connection)
   const shutdown = useLiveGameStore(state => state.shutdown)
   const accountQuery = useQueryAccount({ enabled: true })
+  const accountPreferencesQuery = useQueryAccountPreferences({
+    enabled: !accountQuery.isLoading && Boolean(accountQuery.data?.user)
+  })
   const availableSessionsQuery = useQueryAvailableSessions({ enabled: true })
+  const unreadChangelogEntries = accountQuery.data?.user && accountPreferencesQuery.data?.preferences
+    ? countUnreadChangelogEntries(CHANGELOG_DAYS, accountPreferencesQuery.data.preferences.changelogReadAt)
+    : 0
 
   useEffect(() => {
     if (!inviteSessionId) {
@@ -51,8 +58,10 @@ function LobbyRoute() {
       onJoinGame={joinLiveGame}
       onViewFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now()))}
       onViewLeaderboard={() => void navigate('/leaderboard')}
+      onViewChangelog={() => void navigate('/changelog')}
       onViewOwnFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now(), 'mine'))}
       onViewAdmin={() => void navigate('/admin')}
+      unreadChangelogEntries={unreadChangelogEntries}
     />
   )
 }

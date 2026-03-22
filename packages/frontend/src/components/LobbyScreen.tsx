@@ -12,10 +12,12 @@ interface LobbyScreenProps {
   account: AccountProfile | null
   isAccountLoading: boolean
   liveSessions: LobbyInfo[]
+  unreadChangelogEntries: number
   onHostGame: (request: CreateSessionRequest) => void
   onJoinGame: (sessionId: string) => void
   onViewFinishedGames: () => void
   onViewLeaderboard: () => void
+  onViewChangelog: () => void
   onViewOwnFinishedGames: () => void
   onViewAdmin: () => void
 }
@@ -65,14 +67,25 @@ function ModeBadgeIcon({ rated }: Readonly<{ rated: boolean }>) {
   )
 }
 
+function ChangelogLinkIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5 fill-none stroke-current">
+      <path d="M4.5 8h7" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M8.8 4.7 12.1 8l-3.3 3.3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function LobbyScreen({
   isConnected,
   shutdown,
   account,
   isAccountLoading,
   liveSessions,
+  unreadChangelogEntries,
   onHostGame,
   onJoinGame,
+  onViewChangelog,
   onViewLeaderboard,
 }: Readonly<LobbyScreenProps>) {
   const isPlayingDisabled = !isConnected || Boolean(shutdown)
@@ -164,7 +177,29 @@ function LobbyScreen({
                 Leaderboard
               </button>
             </div>
+
+            {unreadChangelogEntries > 0 && (
+              <button
+                type="button"
+                onClick={onViewChangelog}
+                className="mt-5 self-start inline-flex items-center gap-3 rounded-2xl border border-sky-300/25 bg-sky-400/10 px-4 py-3 text-left text-sm text-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200/35 hover:bg-sky-400/18 hover:text-white"
+              >
+                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.6)]" />
+                <span className="flex flex-col">
+                  <span className="font-semibold">
+                    {unreadChangelogEntries} new feature{unreadChangelogEntries === 1 ? '' : 's'} dropped
+                  </span>
+                  <span className="text-xs uppercase tracking-[0.18em] text-sky-200/85">
+                    View changelog
+                  </span>
+                </span>
+                <span className="ml-1 flex-shrink-0 text-sky-200/85">
+                  <ChangelogLinkIcon />
+                </span>
+              </button>
+            )}
           </div>
+
         </section>
 
         <section className="w-full rounded-[2rem] border border-white/10 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:min-h-[34rem] sm:h-[34rem] sm:bg-slate-950/55 md:p-8 lg:flex lg:flex-col">

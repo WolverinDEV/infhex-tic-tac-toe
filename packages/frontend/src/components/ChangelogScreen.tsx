@@ -2,6 +2,7 @@ import type { AccountPreferences, AccountProfile, ChangelogDay, ChangelogEntryKi
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { updateAccountPreferences } from '../authClient'
+import { countUnreadChangelogEntries, getLatestChangelogCommitAt, isUnreadChangelogEntry } from '../changelogState'
 import { queryKeys } from '../queryHooks'
 import { queryClient } from '../queryClient'
 import PageCorpus from './PageCorpus'
@@ -69,10 +70,6 @@ function formatTimestamp(value: number) {
   }).format(new Date(value))
 }
 
-function isEntryNew(entryCommittedAt: number, changelogReadAt: number | null) {
-  return changelogReadAt === null || entryCommittedAt > changelogReadAt
-}
-
 function ChangelogScreen({
   changelogDays,
   commitCount,
@@ -84,16 +81,10 @@ function ChangelogScreen({
 }: Readonly<ChangelogScreenProps>) {
   const [isMarkingRead, setIsMarkingRead] = useState(false)
   const latestDate = changelogDays[0]?.date ?? null
-  const latestCommitAt = changelogDays.flatMap((day) => day.entries).reduce(
-    (highestValue, entry) => Math.max(highestValue, entry.committedAt),
-    0
-  )
+  const latestCommitAt = getLatestChangelogCommitAt(changelogDays)
   const changelogReadAt = preferences?.changelogReadAt ?? null
   const newEntryCount = account && preferences
-    ? changelogDays.reduce(
-      (total, day) => total + day.entries.filter((entry) => isEntryNew(entry.committedAt, changelogReadAt)).length,
-      0
-    )
+    ? countUnreadChangelogEntries(changelogDays, changelogReadAt)
     : 0
   const hasNewEntries = newEntryCount > 0
 
@@ -173,7 +164,7 @@ function ChangelogScreen({
 
         {changelogDays.map((day) => {
           const dayNewEntryCount = account && preferences
-            ? day.entries.filter((entry) => isEntryNew(entry.committedAt, changelogReadAt)).length
+            ? day.entries.filter((entry) => isUnreadChangelogEntry(entry.committedAt, changelogReadAt)).length
             : 0
 
           return (
@@ -221,7 +212,7 @@ function ChangelogScreen({
                             {entry.scope}
                           </span>
                         )}
-                        {account && preferences && isEntryNew(entry.committedAt, changelogReadAt) && (
+                        {account && preferences && isUnreadChangelogEntry(entry.committedAt, changelogReadAt) && (
                           <span className="rounded-full border border-amber-300/20 bg-amber-300/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
                             New
                           </span>
