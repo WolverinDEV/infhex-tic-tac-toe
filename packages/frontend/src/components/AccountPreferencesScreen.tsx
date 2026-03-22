@@ -38,28 +38,6 @@ function PreferencesErrorState({ message }: Readonly<{ message: string }>) {
   )
 }
 
-function PreferenceInfoCard({
-  label,
-  description,
-  value
-}: Readonly<{
-  label: string
-  description: string
-  value: string
-}>) {
-  return (
-    <div className="max-w-xl rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5">
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white">{label}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
-        <div className="mt-3 text-sm font-semibold text-sky-100">
-          {value}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 interface PreferenceSwitchCardProps {
   label: string
   description: string
@@ -108,17 +86,6 @@ function PreferenceSwitchCard({
       </div>
     </div>
   )
-}
-
-function formatPreferenceTimestamp(value: number | null) {
-  if (value === null) {
-    return 'No changelog visit recorded yet.'
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value))
 }
 
 function AccountPreferencesScreen({
@@ -226,11 +193,6 @@ function AccountPreferencesScreen({
                     disabled={isSavingPreference}
                     isSaving={savingPreferenceKey === 'tilePieceMarkers'}
                     onToggle={(nextChecked) => void handlePreferenceToggle('tilePieceMarkers', nextChecked)}
-                  />
-                  <PreferenceInfoCard
-                    label="Changelog Read Status"
-                    description="This timestamp is used to highlight updates that landed since your last recorded changelog visit."
-                    value={formatPreferenceTimestamp(preferences.changelogReadAt)}
                   />
                 </div>
               ) : (
