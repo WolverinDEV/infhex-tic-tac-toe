@@ -472,6 +472,7 @@ export const zAdminStatsWindow = z.object({
     endAt: zTimestamp,
     siteVisits: z.number().int().nonnegative(),
     gamesPlayed: z.number().int().nonnegative(),
+    timePlayedMs: z.number().int().nonnegative(),
     longestGameInMoves: zAdminLongestGameInMoves.nullable(),
     longestGameInDuration: zAdminLongestGameInDuration.nullable()
 });

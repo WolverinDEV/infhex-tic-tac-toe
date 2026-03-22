@@ -60,6 +60,7 @@ export class AdminStatsService {
             endAt: interval.endAt,
             siteVisits,
             gamesPlayed: gameStats.gamesPlayed,
+            timePlayedMs: gameStats.timePlayedMs,
             longestGameInMoves: gameStats.longestGameInMoves,
             longestGameInDuration: gameStats.longestGameInDuration
         };

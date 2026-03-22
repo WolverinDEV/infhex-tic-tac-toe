@@ -11,7 +11,6 @@ interface AdminStatsScreenProps {
   stats: AdminStatsResponse | null
   isLoading: boolean
   errorMessage: string | null
-  onBack: () => void
   onOpenControls: () => void
   onRefresh: () => void
   onOpenGame: (gameId: string) => void
@@ -49,12 +48,29 @@ function SummaryCard({
   tone?: 'default' | 'accent'
 }) {
   return (
-    <div className={`rounded-[1.5rem] border p-5 shadow-lg ${tone === 'accent'
+    <div className={`rounded-[1.35rem] border px-4 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.2)] ${tone === 'accent'
       ? 'border-amber-300/25 bg-amber-300/10'
       : 'border-white/10 bg-white/6'
       }`}>
-      <div className="text-xs uppercase tracking-[0.28em] text-slate-300">{label}</div>
-      <div className="mt-3 text-3xl font-black text-white">{value}</div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0 text-[0.65rem] uppercase tracking-[0.28em] text-slate-300">{label}</div>
+        <div className="text-2xl font-black leading-none text-white sm:text-[1.8rem]">{value}</div>
+      </div>
+    </div>
+  )
+}
+
+function StatStripItem({
+  label,
+  value
+}: {
+  label: string
+  value: string | number
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2.5">
+      <div className="text-[0.62rem] uppercase tracking-[0.24em] text-slate-500">{label}</div>
+      <div className="mt-1 text-lg font-bold leading-none text-white">{value}</div>
     </div>
   )
 }
@@ -73,23 +89,23 @@ function LongestGameCard({
   onOpenGame: (gameId: string) => void
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-4">
-      <div className="text-xs uppercase tracking-[0.22em] text-slate-400">{label}</div>
+    <div className="rounded-[1.2rem] border border-white/10 bg-slate-950/45 p-3">
+      <div className="text-[0.65rem] uppercase tracking-[0.22em] text-slate-500">{label}</div>
       {game && value ? (
         <>
-          <div className="mt-3 text-2xl font-bold text-white">{value}</div>
-          <div className="mt-2 text-sm text-slate-300">{game.players.join(' vs ') || game.sessionId}</div>
-          <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{game.sessionId}</div>
-          <div className="mt-1 text-sm text-slate-400">Finished {formatDateTime(game.finishedAt)}</div>
+          <div className="mt-2 text-xl font-bold leading-tight text-white">{value}</div>
+          <div className="mt-2 line-clamp-2 text-sm leading-5 text-slate-300">{game.players.join(' vs ') || game.sessionId}</div>
+          <div className="mt-1 text-[0.68rem] uppercase tracking-[0.16em] text-slate-500">{game.sessionId}</div>
+          <div className="mt-1 text-xs text-slate-400">Finished {formatDateTime(game.finishedAt)}</div>
           <button
             onClick={() => onOpenGame(game.gameId)}
-            className="mt-4 rounded-full border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:bg-sky-400/20"
+            className="mt-3 rounded-full border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-sky-100 transition hover:bg-sky-400/20"
           >
             Open Replay
           </button>
         </>
       ) : (
-        <div className="mt-3 text-sm text-slate-400">{emptyLabel}</div>
+        <div className="mt-2 text-sm leading-5 text-slate-400">{emptyLabel}</div>
       )}
     </div>
   )
@@ -105,21 +121,23 @@ function IntervalSection({
   onOpenGame: (gameId: string) => void
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-white/10 bg-white/6 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.35)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="rounded-[1.5rem] border border-white/10 bg-white/6 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.28)]">
+      <div className="flex flex-col gap-2">
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-sky-200/80">{title}</div>
-          <div className="mt-2 text-sm text-slate-400">
+          <div className="text-[0.68rem] uppercase tracking-[0.3em] text-sky-200/80">{title}</div>
+          <div className="mt-1 text-xs leading-5 text-slate-400">
             {formatDateTime(windowStats.startAt)} to {formatDateTime(windowStats.endAt)}
           </div>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300">
-          Games played: <span className="font-bold text-white">{windowStats.gamesPlayed}</span>
-        </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3">
-        <SummaryCard label="Site Visits" value={windowStats.siteVisits} tone="accent" />
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <StatStripItem label="Games" value={windowStats.gamesPlayed} />
+        <StatStripItem label="Visits" value={windowStats.siteVisits} />
+        <StatStripItem label="Played" value={formatDuration(windowStats.timePlayedMs)} />
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <LongestGameCard
           label="Longest Game In Moves"
           emptyLabel="No completed games in this interval yet."
@@ -143,7 +161,6 @@ function AdminStatsScreen({
   stats,
   isLoading,
   errorMessage,
-  onOpenControls,
   onRefresh,
   onOpenGame
 }: Readonly<AdminStatsScreenProps>) {
@@ -160,13 +177,10 @@ function AdminStatsScreen({
         </>
       }
 
-      back={"Admin Controls"}
-      onBack={onOpenControls}
-
       onRefresh={onRefresh}
     >
       <div className={"px-4 sm:px-6 overscroll-contain min-h-0 overflow-auto"}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="Active Games" value={stats?.activeGames.total ?? '...'} tone="accent" />
           <SummaryCard label="Public Games" value={stats?.activeGames.public ?? '...'} />
           <SummaryCard label="Private Games" value={stats?.activeGames.private ?? '...'} />
@@ -184,7 +198,7 @@ function AdminStatsScreen({
             Loading statistics...
           </div>
         ) : stats ? (
-          <div className="mt-6 space-y-6">
+          <div className="mt-5 grid gap-4 xl:grid-cols-3">
             <IntervalSection title="Since Midnight" windowStats={stats.intervals.sinceMidnight} onOpenGame={onOpenGame} />
             <IntervalSection title="Last 24 Hours" windowStats={stats.intervals.last24Hours} onOpenGame={onOpenGame} />
             <IntervalSection title="Last 7 Days" windowStats={stats.intervals.last7Days} onOpenGame={onOpenGame} />

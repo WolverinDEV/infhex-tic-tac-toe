@@ -84,6 +84,7 @@ interface ListFinishedGamesOptions {
 
 export interface GameHistoryAdminWindowStats {
     gamesPlayed: number;
+    timePlayedMs: number;
     longestGameInMoves: AdminLongestGameInMoves | null;
     longestGameInDuration: AdminLongestGameInDuration | null;
 }
@@ -107,6 +108,7 @@ export interface PlayerProfileStatistics {
 
 const mongoDbName = process.env.MONGODB_DB_NAME ?? 'ih3t';
 const mongoCollectionName = process.env.MONGODB_GAME_HISTORY_COLLECTION ?? 'gameHistory';
+const maxTrackedGameDurationMs = 8 * 60 * 60 * 1000;
 
 @injectable()
 export class GameHistoryRepository {
@@ -348,20 +350,51 @@ export class GameHistoryRepository {
             }
         };
 
-        const [gamesPlayed, longestGameInMovesDocument, longestGameInDurationDocument] = await Promise.all([
+        const [gamesPlayed, timePlayedResult, longestGameInMovesDocument, longestGameInDurationDocument] = await Promise.all([
             collection.countDocuments(finishedGameMatch),
+            collection.aggregate<{ timePlayedMs: number }>([
+                {
+                    $match: finishedGameMatch
+                },
+                {
+                    $group: {
+                        _id: null,
+                        timePlayedMs: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $ne: ['$gameResult.durationMs', null] },
+                                            { $lt: ['$gameResult.durationMs', maxTrackedGameDurationMs] }
+                                        ]
+                                    },
+                                    '$gameResult.durationMs',
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        timePlayedMs: 1
+                    }
+                }
+            ]).next(),
             collection.find(finishedGameMatch).sort({ moveCount: -1, finishedAt: -1, id: 1 }).limit(1).next(),
             collection.find({
                 ...finishedGameMatch,
                 'gameResult.durationMs': {
                     $ne: null,
-                    $lt: 8 * 60 * 60 * 1000
+                    $lt: maxTrackedGameDurationMs
                 }
             }).sort({ 'gameResult.durationMs': -1, finishedAt: -1, id: 1 }).limit(1).next()
         ]);
 
         return {
             gamesPlayed,
+            timePlayedMs: timePlayedResult?.timePlayedMs ?? 0,
             longestGameInMoves: longestGameInMovesDocument
                 ? this.mapAdminLongestGameInMoves(longestGameInMovesDocument)
                 : null,
