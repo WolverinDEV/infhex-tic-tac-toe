@@ -22,7 +22,7 @@ export function getSessionFinishReasonLabel(reason: SessionFinishReason | null |
 
 export function getWinnerResultMessage(reason: SessionFinishReason | null | undefined) {
   if (reason === 'timeout') {
-    return 'The other player failed to place a cell before the timer ran out.'
+    return 'The other player ran out of time.'
   }
 
   if (reason === 'six-in-a-row') {
@@ -42,7 +42,7 @@ export function getWinnerResultMessage(reason: SessionFinishReason | null | unde
 
 export function getLoserResultMessage(reason: SessionFinishReason | null | undefined) {
   if (reason === 'timeout') {
-    return 'You failed to place a cell before the timer ran out.'
+    return 'You ran out of time.'
   }
 
   if (reason === 'six-in-a-row') {

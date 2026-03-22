@@ -13,7 +13,7 @@ import { HttpApplication } from './network/createHttpApp';
 import { SocketServerGateway } from './network/createSocketServer';
 import { MongoDatabase } from './persistence/mongoClient';
 import { SessionManager } from './session/sessionManager';
-import { GameSimulation } from './simulation/gameSimulation';
+import { GameTimeControlManager } from './simulation/gameTimeControlManager';
 
 @injectable()
 export class ApplicationServer {
@@ -29,7 +29,7 @@ export class ApplicationServer {
         @inject(ROOT_LOGGER) rootLogger: Logger,
         @inject(HttpApplication) httpApplication: HttpApplication,
         @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
-        @inject(GameSimulation) private readonly simulation: GameSimulation,
+        @inject(GameTimeControlManager) private readonly timeControl: GameTimeControlManager,
         @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
@@ -109,7 +109,7 @@ export class ApplicationServer {
             await this.shutdownHttpServer();
 
             this.stopCronJobs();
-            this.simulation.dispose();
+            this.timeControl.dispose();
 
             try {
                 await this.mongoDatabase.close();

@@ -33,12 +33,12 @@ const timeControlModeOptions: Array<{
     {
       value: 'match',
       title: 'Match Based',
-      description: 'A main clock between 1m and 60m plus an increment between 0s and 5m.'
+      description: 'A main clock between 1m and 60m plus an increment after each completed turn.'
     },
     {
       value: 'turn',
       title: 'Turn Based',
-      description: 'A time limit per move between 5s and 120s.'
+      description: 'A time limit per turn between 5s and 120s.'
     },
     {
       value: 'unlimited',

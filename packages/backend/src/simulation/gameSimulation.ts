@@ -6,8 +6,7 @@ import {
     PLACE_CELL_HEX_RADIUS,
     zCellOccupant,
     type BoardCell,
-    type GameMove,
-    type GameTimeControl
+    type GameMove
 } from '@ih3t/shared';
 import type { PublicGameStatePayload, ServerGameSession } from '../session/types';
 
@@ -20,10 +19,9 @@ interface ApplyMoveParams {
 
 interface ApplyMoveResult {
     move: GameMove;
+    turnCompleted: boolean;
     winningPlayerId: string | null;
 }
-
-type TurnExpiredHandler = (sessionId: string) => void;
 
 export class SimulationError extends Error {
     constructor(message: string) {
@@ -34,14 +32,10 @@ export class SimulationError extends Error {
 
 @injectable()
 export class GameSimulation {
-    private readonly turnTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
-
-    startSession(session: ServerGameSession, onTurnExpired: TurnExpiredHandler, startedAt = Date.now()): void {
+    startSession(session: ServerGameSession): void {
         session.boardState.playerTiles = buildPlayerTileConfigMap(session.players.map((player) => player.id));
         session.boardState.highlightedCells = [];
-        this.initializePlayerClocks(session);
-        this.setTurn(session, session.players[0]?.id ?? null, 1, startedAt);
-        this.syncTurnTimeout(session, onTurnExpired);
+        this.setTurn(session, session.players[0]?.id ?? null, 1);
     }
 
     getPublicGameState(session: ServerGameSession): PublicGameStatePayload {
@@ -70,8 +64,6 @@ export class GameSimulation {
             throw new SimulationError('It is not your turn');
         }
 
-        this.ensureTurnHasTimeRemaining(session, timestamp);
-
         if (session.boardState.placementsRemaining <= 0) {
             throw new SimulationError('No placements remaining this turn');
         }
@@ -89,9 +81,8 @@ export class GameSimulation {
         if (!isCellWithinPlacementRadius(session.boardState.cells, { x, y })) {
             throw new SimulationError(`Cell must be within ${PLACE_CELL_HEX_RADIUS} hexes of an existing placed cell`);
         }
-
-        this.applyMoveTimeControl(session, playerId, timestamp);
         const isFirstPlacementOfTurn = session.moveHistory.length === 0 || session.boardState.placementsRemaining === 2;
+        const turnCompleted = session.boardState.placementsRemaining === 1;
 
         const move: GameMove = {
             moveNumber: session.moveHistory.length + 1,
@@ -110,146 +101,35 @@ export class GameSimulation {
             ? [{ x, y }]
             : [...session.boardState.highlightedCells, { x, y }].slice(-2);
         session.moveHistory.push(move);
+        session.boardState.placementsRemaining -= 1;
 
         if (this.hasSixInARow(session, playerId, x, y)) {
             return {
                 move,
+                turnCompleted,
                 winningPlayerId: playerId
             };
         }
 
-        session.boardState.placementsRemaining -= 1;
-        if (session.boardState.placementsRemaining === 0) {
+        if (turnCompleted) {
             const currentPlayerIndex = session.players.findIndex((player) => player.id === playerId);
             const nextPlayerIndex = currentPlayerIndex === 0 ? 1 : 0;
-            this.setTurn(session, session.players[nextPlayerIndex]?.id ?? playerId, 2, timestamp);
-        } else {
-            this.syncActiveTurnClock(session, timestamp);
+            this.setTurn(session, session.players[nextPlayerIndex]?.id ?? playerId, 2);
         }
 
         return {
             move,
+            turnCompleted,
             winningPlayerId: null
         };
     }
 
-    syncTurnTimeout(session: ServerGameSession, onTurnExpired: TurnExpiredHandler): void {
-        this.clearSession(session.id);
-
-        if (session.state !== 'in-game' || !session.boardState.currentTurnPlayerId || !session.boardState.currentTurnExpiresAt) {
-            return;
-        }
-
-        const delay = Math.max(0, session.boardState.currentTurnExpiresAt - Date.now());
-        const timeout = setTimeout(() => {
-            onTurnExpired(session.id);
-        }, delay);
-
-        this.turnTimeouts.set(session.id, timeout);
-    }
-
-    clearSession(sessionId: string): void {
-        const timeout = this.turnTimeouts.get(sessionId);
-        if (!timeout) {
-            return;
-        }
-
-        clearTimeout(timeout);
-        this.turnTimeouts.delete(sessionId);
-    }
-
-    dispose(): void {
-        for (const sessionId of this.turnTimeouts.keys()) {
-            this.clearSession(sessionId);
-        }
-    }
-
-    private initializePlayerClocks(session: ServerGameSession): void {
-        const timeControl = this.getTimeControl(session);
-        if (timeControl.mode !== 'match') {
-            session.boardState.playerTimeRemainingMs = {};
-            return;
-        }
-
-        session.boardState.playerTimeRemainingMs = Object.fromEntries(
-            session.players.map((player) => [player.id, timeControl.mainTimeMs])
-        );
-    }
-
-    private ensureTurnHasTimeRemaining(session: ServerGameSession, timestamp: number): void {
-        const expiresAt = session.boardState.currentTurnExpiresAt;
-        if (expiresAt !== null && timestamp > expiresAt) {
-            throw new SimulationError('Your time has expired');
-        }
-    }
-
-    private applyMoveTimeControl(session: ServerGameSession, playerId: string, timestamp: number): void {
-        const timeControl = this.getTimeControl(session);
-        if (timeControl.mode !== 'match') {
-            return;
-        }
-
-        const remainingTimeMs = this.getRemainingTimeAt(session, playerId, timestamp, timeControl.mainTimeMs);
-        session.boardState.playerTimeRemainingMs[playerId] = remainingTimeMs + timeControl.incrementMs;
-    }
-
-    private setTurn(session: ServerGameSession, playerId: string | null, placementsRemaining: number, timestamp: number): void {
+    private setTurn(session: ServerGameSession, playerId: string | null, placementsRemaining: number): void {
         session.boardState.currentTurnPlayerId = playerId;
         session.boardState.placementsRemaining = playerId ? placementsRemaining : 0;
         if (!playerId) {
             session.boardState.currentTurnExpiresAt = null;
-            return;
         }
-
-        this.syncActiveTurnClock(session, timestamp);
-    }
-
-    private syncActiveTurnClock(session: ServerGameSession, timestamp: number): void {
-        const currentPlayerId = session.boardState.currentTurnPlayerId;
-        if (!currentPlayerId) {
-            session.boardState.currentTurnExpiresAt = null;
-            return;
-        }
-
-        const timeControl = this.getTimeControl(session);
-        switch (timeControl.mode) {
-            case 'unlimited':
-                session.boardState.currentTurnExpiresAt = null;
-                break;
-
-            case 'match':
-                session.boardState.currentTurnExpiresAt = timestamp + this.getPlayerRemainingTime(
-                    session,
-                    currentPlayerId,
-                    timeControl.mainTimeMs
-                );
-                break;
-
-            case 'turn':
-                session.boardState.currentTurnExpiresAt = timestamp + timeControl.turnTimeMs;
-                break;
-        }
-    }
-
-    private getRemainingTimeAt(
-        session: ServerGameSession,
-        playerId: string,
-        timestamp: number,
-        fallbackTimeMs: number
-    ): number {
-        if (session.boardState.currentTurnPlayerId === playerId && session.boardState.currentTurnExpiresAt !== null) {
-            return Math.max(0, session.boardState.currentTurnExpiresAt - timestamp);
-        }
-
-        return this.getPlayerRemainingTime(session, playerId, fallbackTimeMs);
-    }
-
-    private getPlayerRemainingTime(session: ServerGameSession, playerId: string, fallbackTimeMs: number): number {
-        return session.boardState.playerTimeRemainingMs[playerId] ?? fallbackTimeMs;
-    }
-
-    private getTimeControl(session: ServerGameSession): GameTimeControl {
-        return session.gameOptions.timeControl;
     }
 
     private getBoardCells(session: ServerGameSession): BoardCell[] {

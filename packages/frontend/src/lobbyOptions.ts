@@ -30,5 +30,5 @@ export function formatTimeControlDescription(timeControl: GameTimeControl) {
     return `Each turn is configured for ${formatSeconds(Math.round(timeControl.turnTimeMs / 1000))}.`
   }
 
-  return `Each player can keep up to ${formatSeconds(Math.round(timeControl.mainTimeMs / 1000))} total, gaining ${formatSeconds(Math.round(timeControl.incrementMs / 1000))} after every move.`
+  return `Each player can keep up to ${formatSeconds(Math.round(timeControl.mainTimeMs / 1000))} total, gaining ${formatSeconds(Math.round(timeControl.incrementMs / 1000))} after each completed turn.`
 }

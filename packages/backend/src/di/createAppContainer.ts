@@ -19,6 +19,7 @@ import { MongoDatabase } from '../persistence/mongoClient';
 import { MetricsRepository } from '../persistence/metricsRepository';
 import { SessionManager } from '../session/sessionManager';
 import { GameSimulation } from '../simulation/gameSimulation';
+import { GameTimeControlManager } from '../simulation/gameTimeControlManager';
 import { ApplicationServer } from '../serverRuntime';
 
 export function createAppContainer(): DependencyContainer {
@@ -31,6 +32,7 @@ export function createAppContainer(): DependencyContainer {
         pretty: serverConfig.prettyLogs
     }));
     appContainer.registerSingleton(GameSimulation);
+    appContainer.registerSingleton(GameTimeControlManager);
     appContainer.registerSingleton(MongoDatabase);
     appContainer.registerSingleton(AuthRepository);
     appContainer.registerSingleton(AuthService);

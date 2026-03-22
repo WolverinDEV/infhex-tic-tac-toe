@@ -21,6 +21,7 @@ import {
     GameHistoryRepository,
 } from '../persistence/gameHistoryRepository';
 import { GameSimulation, SimulationError } from '../simulation/gameSimulation';
+import { GameTimeControlError, GameTimeControlManager } from '../simulation/gameTimeControlManager';
 import type {
     CreateSessionParams,
     JoinSessionParams,
@@ -88,6 +89,7 @@ export class SessionManager {
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
         @inject(GameSimulation) private readonly simulation: GameSimulation,
+        @inject(GameTimeControlManager) private readonly timeControl: GameTimeControlManager,
         @inject(EloHandler) private readonly eloHandler: EloHandler,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
@@ -429,19 +431,30 @@ export class SessionManager {
         }
 
         let moveResult;
+        const timestamp = Date.now();
+        const turnExpiresAt = session.boardState.currentTurnExpiresAt;
         try {
+            this.timeControl.ensureTurnHasTimeRemaining(session, timestamp);
             moveResult = this.simulation.applyMove(session, {
                 playerId: participantId,
                 x,
-                y
+                y,
+                timestamp
             });
         } catch (error: unknown) {
-            if (error instanceof SimulationError) {
+            if (error instanceof SimulationError || error instanceof GameTimeControlError) {
                 throw new SessionError(error.message);
             }
 
             throw error;
         }
+
+        this.timeControl.handleMoveApplied(session, {
+            playerId: participantId,
+            timestamp,
+            turnCompleted: moveResult.turnCompleted,
+            turnExpiresAt
+        });
 
         void this.gameHistoryRepository.appendMove(session.currentGameId, moveResult.move);
 
@@ -451,7 +464,7 @@ export class SessionManager {
             return;
         }
 
-        this.simulation.syncTurnTimeout(session, this.handleTurnExpired);
+        this.timeControl.syncTurnTimeout(session, this.handleTurnExpired);
         this.emitGameState(session);
     }
 
@@ -543,13 +556,13 @@ export class SessionManager {
     private readonly handleTurnExpired = (sessionId: string): void => {
         const session = this.sessions.get(sessionId);
         if (!session || session.state !== 'in-game' || session.players.length < MAX_PLAYERS_PER_SESSION) {
-            this.simulation.clearSession(sessionId);
+            this.timeControl.clearSession(sessionId);
             return;
         }
 
         const timedOutPlayerId = session.boardState.currentTurnPlayerId;
         if (!timedOutPlayerId) {
-            this.simulation.clearSession(sessionId);
+            this.timeControl.clearSession(sessionId);
             return;
         }
 
@@ -612,7 +625,7 @@ export class SessionManager {
                 event: 'session.terminated-empty',
                 sessionId: session.id
             }, 'Removing empty session');
-            this.simulation.clearSession(session.id);
+            this.timeControl.clearSession(session.id);
             this.sessions.delete(session.id);
             this.emitLobbyListUpdated();
             return;
@@ -641,7 +654,8 @@ export class SessionManager {
         session.isRatedGame = this.isRatedGameEnabled(session);
         this.clearParticipantEloChanges(session.players);
         this.clearParticipantEloChanges(session.spectators);
-        this.simulation.startSession(session, this.handleTurnExpired, session.startedAt);
+        this.simulation.startSession(session);
+        this.timeControl.startSession(session, this.handleTurnExpired, session.startedAt);
 
         this.emitGameState(session);
         this.emitLobbyListUpdated();
@@ -661,6 +675,7 @@ export class SessionManager {
 
         const finishedAt = Date.now();
         session.state = 'finished';
+        this.timeControl.freezeActiveTurnState(session, finishedAt);
         session.boardState = cloneGameBoard(this.simulation.getPublicGameState(session).gameState);
         session.finishReason = reason;
         session.winningPlayerId = winningPlayerId;
@@ -689,7 +704,7 @@ export class SessionManager {
             totalLifetimeMs: finishedAt - session.createdAt
         });
 
-        this.simulation.clearSession(session.id);
+        this.timeControl.clearSession(session.id);
         this.emitLobbyListUpdated();
         this.emitSessionUpdated(session);
         this.maybeShutdownAfterSessionFinished();
