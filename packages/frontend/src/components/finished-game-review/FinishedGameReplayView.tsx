@@ -330,17 +330,21 @@ function FinishedGameReplayView({
               </div>
 
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Time Control</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Game Type</div>
                 <div className="mt-1 text-sm text-white">
-                  {formatTimeControl(game.gameOptions.timeControl)}
-                </div>
-                <div className="mt-1 text-sm text-white/75">
                   {game.gameOptions.rated ? 'Rated' : 'Casual'}
                 </div>
               </div>
 
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Reason</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Time Control</div>
+                <div className="mt-1 text-sm text-white">
+                  {formatTimeControl(game.gameOptions.timeControl)}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Finish Reason</div>
                 <div className="mt-1 text-sm text-white">
                   {getFinishReasonLabel(gameResult?.reason)}
                 </div>
