@@ -1,7 +1,9 @@
 import type { AccountStatistics, PublicAccountProfile } from '@ih3t/shared'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { toast } from 'react-toastify'
 import { signInWithDiscord } from '../query/authClient'
+import { getInitialRenderTimestamp } from '../ssrState'
+import { formatCalendarDate, formatRelativeTimeFrom } from '../utils/dateTime'
 import { formatDetailedDuration } from '../utils/duration'
 import {
   formatStreakDetail,
@@ -57,6 +59,20 @@ function SecondaryStatCard({ label, value, detail }: Readonly<SecondaryStatCardP
       <div className="text-xs uppercase tracking-[0.22em] text-slate-400">{label}</div>
       <div className="mt-2 text-2xl font-black uppercase tracking-[0.05em] text-white">{value}</div>
       <div className="mt-2 text-sm text-slate-300">{detail}</div>
+    </div>
+  )
+}
+
+interface AccountMetaItemProps {
+  label: string
+  value: string
+}
+
+function AccountMetaItem({ label, value }: Readonly<AccountMetaItemProps>) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</span>
+      <span className="text-sm text-slate-200">{value}</span>
     </div>
   )
 }
@@ -125,6 +141,8 @@ function ProfileScreen({
   statisticsErrorMessage,
   isPublicView
 }: Readonly<ProfileScreenProps>) {
+  const [referenceTimestamp] = useState(() => getInitialRenderTimestamp())
+
   const handleSignIn = async () => {
     try {
       await signInWithDiscord()
@@ -135,6 +153,8 @@ function ProfileScreen({
   }
 
   const isMissingPublicProfile = isPublicView && errorMessage === 'Profile not found.'
+  const memberSinceLabel = account ? formatCalendarDate(account.registeredAt) : null
+  const lastSeenLabel = account ? formatRelativeTimeFrom(account.lastActiveAt, referenceTimestamp) : null
 
   return (
     <PageCorpus
@@ -193,10 +213,10 @@ function ProfileScreen({
           )
         ) : (
           <div className="space-y-6">
-            <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.16),transparent_30%),rgba(255,255,255,0.06)] p-6 shadow-[0_24px_100px_rgba(15,23,42,0.4)] sm:p-8">
+            <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_30%),rgba(255,255,255,0.05)] p-6 shadow-[0_24px_100px_rgba(15,23,42,0.34)] sm:p-8">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-200/50 to-transparent" />
-              <div className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-                <div className="min-w-0">
+              <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr),minmax(22rem,0.85fr)] xl:items-end">
+                <div className="min-w-0 flex items-center my-auto">
                   <div className="flex min-w-0 items-start gap-4">
                     {account.image ? (
                       <img
@@ -224,11 +244,10 @@ function ProfileScreen({
                         {account.username}
                       </h2>
 
-                      <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                        {isPublicView
-                          ? 'This public profile combines identity, match performance, and current ranking in one place.'
-                          : 'Your profile combines identity, match performance, and current ranking in one place, with competitive status leading the page.'}
-                      </p>
+                      <div className="mt-4 flex flex-col text-slate-300">
+                        <AccountMetaItem label="Member Since" value={memberSinceLabel ?? 'Unavailable'} />
+                        <AccountMetaItem label="Last Seen" value={lastSeenLabel ?? 'Unavailable'} />
+                      </div>
                     </div>
                   </div>
                 </div>

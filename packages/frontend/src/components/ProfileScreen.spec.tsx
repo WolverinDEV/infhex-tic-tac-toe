@@ -146,6 +146,9 @@ test('matches the full profile statistics screen', async ({ mount }) => {
     />
   )
 
+  await expect(component.getByText('Member Since')).toBeVisible()
+  await expect(component.getByText('Last Seen')).toBeVisible()
+
   await expect(component).toHaveScreenshot('profile-screen-loaded.png', {
     animations: 'disabled',
     scale: 'css',
