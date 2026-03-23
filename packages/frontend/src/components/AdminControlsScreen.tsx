@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { LobbyInfo, ShutdownState } from '@ih3t/shared'
-import { formatTimeControl } from '../lobbyOptions'
+import { formatDateTime } from '../utils/dateTime'
+import { formatCountdownDuration } from '../utils/duration'
+import { formatTimeControl } from '../utils/gameTimeControl'
+import { formatActiveSessionDuration, formatLobbyPlayers } from '../utils/lobby'
 import { getInitialRenderTimestamp } from '../ssrState'
 
 interface AdminControlsScreenProps {
@@ -29,45 +32,6 @@ interface AdminControlsScreenProps {
   onTerminateGame: (sessionId: string) => void
   onBack: () => void
   onOpenStats: () => void
-}
-
-function formatDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(timestamp)
-}
-
-function formatRemainingTime(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-  const hours = Math.floor(totalSeconds / 3_600)
-  const minutes = Math.floor((totalSeconds % 3_600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours > 0) {
-    return `${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
-  }
-
-  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
-}
-
-function formatLiveDuration(startedAt: number, now: number) {
-  const totalSeconds = Math.max(0, Math.round((now - startedAt) / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
-
-function formatLobbyPlayers(players: LobbyInfo['players'], rated: boolean) {
-  if (players.length === 0) {
-    return 'Waiting for players'
-  }
-
-  return players
-    .map((player) => rated && player.elo !== null
-      ? `${player.displayName} (${player.elo})`
-      : player.displayName)
-    .join(' vs ')
 }
 
 function renderConcurrentGamesSummary(maxConcurrentGames: string, currentConcurrentGames: number | null) {
@@ -110,7 +74,7 @@ function ShutdownSummary({ shutdown }: { shutdown: ShutdownState | null }) {
     <div className="rounded-[1.35rem] border border-amber-300/25 bg-amber-300/10 px-5 py-5">
       <div className="text-xs uppercase tracking-[0.24em] text-amber-100">Scheduled Restart</div>
       <div className="mt-2 text-2xl font-black text-white">
-        {formatRemainingTime(Math.max(0, shutdown.gracefulTimeout - now))}
+        {formatCountdownDuration(Math.max(0, shutdown.gracefulTimeout - now))}
       </div>
       <div className="mt-3 text-sm text-amber-50/90">
         Goes down at {formatDateTime(shutdown.gracefulTimeout)}
@@ -364,10 +328,10 @@ function AdminControlsScreen({
                           </div>
 
                           <div className="mt-3 break-all text-lg font-bold text-white sm:text-xl">{session.id}</div>
-                          <div className="mt-1 text-sm text-slate-300">{formatLobbyPlayers(session.players, session.rated)}</div>
+                          <div className="mt-1 text-sm text-slate-300">{formatLobbyPlayers(session.players, session.rated, 'Waiting for players')}</div>
                           {session.startedAt && (
                             <div className="mt-1 text-sm text-slate-400">
-                              Running for {formatLiveDuration(session.startedAt, now)} • Started {formatDateTime(session.startedAt)}
+                              Running for {formatActiveSessionDuration(session.startedAt, now)} • Started {formatDateTime(session.startedAt)}
                             </div>
                           )}
                         </div>

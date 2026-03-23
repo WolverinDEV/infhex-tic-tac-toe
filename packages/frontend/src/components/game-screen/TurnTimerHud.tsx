@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GameState, LobbyOptions, SessionParticipant } from '@ih3t/shared'
 import { playCountdownWarningSound } from '../../soundEffects'
-import { formatCountdown, getPlayerLabel, getPlayerTileColor } from './gameBoardUtils'
+import { formatMinutesSeconds } from '../../utils/duration'
+import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard'
 
 interface TurnTimerHudProps {
   gameOptions: LobbyOptions
@@ -103,7 +104,7 @@ function TurnTimerHud({
           <div
             className={`text-base font-black tabular-nums leading-none sm:text-lg ${canPlaceCell ? 'text-emerald-100' : 'text-white'}`}
           >
-            {formatCountdown(activeClockCountdownMs)}
+            {formatMinutesSeconds(activeClockCountdownMs)}
           </div>
         )}
       </div>
@@ -200,7 +201,7 @@ function TurnTimerHud({
                         )}
                       </div>
                       <div className={`text-base font-black tabular-nums leading-none sm:text-lg ${isActivePlayer ? 'text-emerald-100' : 'text-white'}`}>
-                        {formatCountdown(displayedClockMs)}
+                        {formatMinutesSeconds(displayedClockMs)}
                       </div>
                     </div>
                   </div>

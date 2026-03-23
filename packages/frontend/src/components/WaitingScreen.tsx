@@ -1,5 +1,5 @@
 import type { LobbyOptions, PlayerNames } from '@ih3t/shared'
-import { formatTimeControl } from '../lobbyOptions'
+import { formatTimeControl } from '../utils/gameTimeControl'
 import ScreenFooter from './ScreenFooter'
 
 interface WaitingScreenProps {

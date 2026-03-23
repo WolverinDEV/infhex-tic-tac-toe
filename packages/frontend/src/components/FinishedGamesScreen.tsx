@@ -1,6 +1,14 @@
-import type { FinishedGameSummary, FinishedGamesPage, SessionFinishReason } from '@ih3t/shared'
-import { getPlayerLabel, getPlayerTileColor } from './game-screen/gameBoardUtils'
+import type { FinishedGameSummary, FinishedGamesPage } from '@ih3t/shared'
 import type { FinishedGamesArchiveView } from '../query/queryDefinitions'
+import { formatDateTime } from '../utils/dateTime'
+import { formatCompactDuration } from '../utils/duration'
+import {
+  getNeutralResultLabel,
+  getPersonalResultLabel,
+  type PersonalResultTone
+} from '../utils/finishedGames'
+import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard'
+import { getVisiblePageNumbers } from '../utils/pagination'
 import PageCorpus from './PageCorpus'
 
 interface FinishedGamesScreenProps {
@@ -14,83 +22,6 @@ interface FinishedGamesScreenProps {
   onOpenGame: (gameId: string) => void
   onChangePage: (page: number) => void
   onRefresh: () => void
-}
-
-function formatDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(timestamp))
-}
-
-function formatDuration(milliseconds: number) {
-  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  if (minutes === 0) {
-    return `${seconds}s`
-  }
-
-  return `${minutes}m ${seconds}s`
-}
-
-type PersonalResultTone = 'win' | 'loss' | 'neutral'
-type ResultLabelKey = `${SessionFinishReason}-${PersonalResultTone}`
-
-const RESULT_LABELS: Record<ResultLabelKey, string> = {
-  'disconnect-neutral': 'Won by disconnect',
-  'disconnect-win': 'Won by disconnect',
-  'disconnect-loss': 'Lost due to disconnect',
-  'surrender-neutral': 'Won by surrender',
-  'surrender-win': 'Won by surrender',
-  'surrender-loss': 'Lost due to surrender',
-  'timeout-neutral': 'Won on time',
-  'timeout-win': 'Won on time',
-  'timeout-loss': 'Lost due to timeout',
-  'terminated-neutral': 'Match terminated',
-  'terminated-win': 'Match terminated',
-  'terminated-loss': 'Match terminated',
-  'six-in-a-row-neutral': 'Won by six in a row',
-  'six-in-a-row-win': 'Won by six in a row',
-  'six-in-a-row-loss': 'Lost due to six in a row'
-}
-
-function getResultLabelFromLookup(reason: SessionFinishReason, tone: PersonalResultTone) {
-  return RESULT_LABELS[`${reason}-${tone}`]
-}
-
-function getOwnPlayerId(game: FinishedGameSummary, currentProfileId: string | null) {
-  if (!currentProfileId) {
-    return null
-  }
-
-  return game.players.find((player) => player.profileId === currentProfileId)?.playerId ?? null
-}
-
-function getNeutralResultLabel(game: FinishedGameSummary) {
-  return getResultLabelFromLookup(game.gameResult?.reason ?? 'terminated', 'neutral')
-}
-
-function getPersonalResultLabel(game: FinishedGameSummary, currentProfileId: string | null) {
-  const ownPlayerId = getOwnPlayerId(game, currentProfileId)
-  const reason = game.gameResult?.reason ?? 'terminated'
-  const winningPlayerId = game.gameResult?.winningPlayerId ?? null
-
-  if (!ownPlayerId || !winningPlayerId || !game.gameResult) {
-    return {
-      label: getResultLabelFromLookup(reason, 'neutral'),
-      tone: 'neutral' as const
-    }
-  }
-
-  const didWin = ownPlayerId === winningPlayerId
-  const tone = didWin ? 'win' as const : 'loss' as const
-
-  return {
-    label: getResultLabelFromLookup(reason, tone),
-    tone
-  }
 }
 
 function getResultPresentation(
@@ -131,17 +62,6 @@ function getResultPresentation(
     titleClassName: 'text-white',
     sessionClassName: 'text-sky-200/75',
   }
-}
-
-function getVisiblePageNumbers(currentPage: number, totalPages: number) {
-  const maxVisiblePages = 5
-  const halfVisiblePages = Math.floor(maxVisiblePages / 2)
-  let startPage = Math.max(1, currentPage - halfVisiblePages)
-  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-  startPage = Math.max(1, endPage - maxVisiblePages + 1)
-
-  return Array.from({ length: endPage - startPage + 1 }, (_, index) => startPage + index)
 }
 
 function FinishedGamesScreen({
@@ -269,7 +189,7 @@ function FinishedGamesScreen({
                               ])}
                             </span>
                             <span className="rounded-full bg-slate-900/60 px-2.5 py-0.5">
-                              Duration: {formatDuration(game.gameResult?.durationMs ?? 0)}
+                              Duration: {formatCompactDuration(game.gameResult?.durationMs ?? 0)}
                             </span>
                           </div>
                         </div>

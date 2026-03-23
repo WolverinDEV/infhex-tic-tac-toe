@@ -3,30 +3,8 @@ import type { Leaderboard, LeaderboardPlacement, LeaderboardPlayer } from '@ih3t
 import { Link } from 'react-router'
 import { useQueryAccount } from '../query/accountClient'
 import { getInitialRenderTimestamp } from '../ssrState'
-
-export function formatDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(timestamp)
-}
-
-function formatCountdown(remainingMs: number) {
-  if (remainingMs <= 0) {
-    return 'Refreshing now'
-  }
-
-  const totalSeconds = Math.ceil(remainingMs / 1000)
-  const hours = Math.floor(totalSeconds / 3_600)
-  const minutes = Math.floor((totalSeconds % 3_600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours > 0) {
-    return `${hours}h ${String(minutes).padStart(2, '0')}m`
-  }
-
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
-}
+import { formatDateTime } from '../utils/dateTime'
+import { formatRefreshCountdown } from '../utils/duration'
 
 function LeaderboardAvatar({ player }: Readonly<{ player: LeaderboardPlayer }>) {
   if (player.image) {
@@ -266,7 +244,7 @@ export function LeaderboardRefreshIndicator({
           Leaderboard Refresh
         </div>
         <div className="text-sm font-bold text-white">
-          {isRefreshing ? 'Updating...' : formatCountdown(remainingMs)}
+          {isRefreshing ? 'Updating...' : formatRefreshCountdown(remainingMs)}
         </div>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">

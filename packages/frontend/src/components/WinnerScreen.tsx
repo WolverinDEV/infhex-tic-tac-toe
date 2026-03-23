@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import type { SessionInfo } from '@ih3t/shared'
+import { getWinnerResultMessage } from '../utils/sessionResult'
 import FinishedPlayerScreen from './FinishedPlayerScreen'
-import { getWinnerResultMessage } from './sessionResultCopy'
 
 type FinishedSessionInfo = Extract<SessionInfo, { state: 'finished' }>
 

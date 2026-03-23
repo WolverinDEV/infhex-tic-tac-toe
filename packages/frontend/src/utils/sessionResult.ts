@@ -20,6 +20,26 @@ export function getSessionFinishReasonLabel(reason: SessionFinishReason | null |
   return 'Terminated'
 }
 
+export function getSessionFinishReasonSentenceLabel(reason: SessionFinishReason | null | undefined) {
+  if (reason === 'six-in-a-row') {
+    return 'Six in a row'
+  }
+
+  if (reason === 'timeout') {
+    return 'Timeout'
+  }
+
+  if (reason === 'surrender') {
+    return 'Surrender'
+  }
+
+  if (reason === 'disconnect') {
+    return 'Disconnect'
+  }
+
+  return 'Terminated'
+}
+
 export function getWinnerResultMessage(reason: SessionFinishReason | null | undefined) {
   if (reason === 'timeout') {
     return 'The other player ran out of time.'

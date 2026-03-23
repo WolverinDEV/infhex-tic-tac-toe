@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent } from 'react'
 import type { SessionInfo } from '@ih3t/shared'
+import { formatEloChange } from '../utils/elo'
 
 type FinishedPlayerScreenVariant = 'win' | 'lose'
 type FinishedSessionInfo = Extract<SessionInfo, { state: 'finished' }>
@@ -14,10 +15,6 @@ interface FinishedPlayerScreenProps {
   reviewGameHref?: string
   onReviewGame?: (event: MouseEvent<HTMLAnchorElement>) => void
   onRequestRematch?: () => void
-}
-
-function formatEloChange(eloChange: number) {
-  return `${eloChange >= 0 ? '+' : ''}${eloChange}`
 }
 
 function easeOutCubic(progress: number) {

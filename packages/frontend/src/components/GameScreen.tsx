@@ -2,10 +2,10 @@ import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 import type { GameState, LobbyOptions, SessionParticipant, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
 import { playTilePlacedSound } from '../soundEffects'
+import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard'
 import GameBoardCanvas from './game-screen/GameBoardCanvas'
 import GameScreenHud, { HudPlayerInfo } from './game-screen/GameScreenHud'
 import TurnTimerHud from './game-screen/TurnTimerHud'
-import { getPlayerLabel, getPlayerTileColor } from './game-screen/gameBoardUtils'
 import useGameBoard from './game-screen/useGameBoard'
 
 interface GameScreenProps {

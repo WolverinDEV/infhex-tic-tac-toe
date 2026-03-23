@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyVisibility } from '@ih3t/shared'
+import { formatGameTimeSeconds } from '../utils/gameTimeControl'
 
 interface CreateLobbyDialogProps {
   isOpen: boolean
@@ -55,14 +56,6 @@ const MATCH_TIME_DEFAULT = 5
 
 const INCREMENT_STEP_SECONDS = [0, 1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300] as const
 const INCREMENT_DEFAULT = 5
-
-function formatStepSeconds(value: number) {
-  if (value >= 60 && value % 60 === 0) {
-    return `${value / 60}m`
-  }
-
-  return `${value}s`
-}
 
 function SelectableOptions({ onClick, selected, title, description, disabled = false }: Readonly<{ onClick: () => void, selected: boolean, title: string, description: string, disabled?: boolean }>) {
   return (
@@ -267,7 +260,7 @@ function CreateLobbyDialog({
                         <div className="space-y-2.5">
                           <div>
                             <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Turn Time</div>
-                            <div className="mt-0.5 text-lg font-bold text-white">{formatStepSeconds(turnTimeSeconds)}</div>
+                            <div className="mt-0.5 text-lg font-bold text-white">{formatGameTimeSeconds(turnTimeSeconds)}</div>
                           </div>
                           <input
                             type="range"
@@ -308,7 +301,7 @@ function CreateLobbyDialog({
                           <div className="space-y-2.5">
                             <div>
                               <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Increment</div>
-                              <div className="mt-0.5 text-lg font-bold text-white">{formatStepSeconds(incrementSeconds)}</div>
+                              <div className="mt-0.5 text-lg font-bold text-white">{formatGameTimeSeconds(incrementSeconds)}</div>
                             </div>
                             <input
                               type="range"

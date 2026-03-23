@@ -16,7 +16,8 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { formatDateTime } from './LeaderboardPanel'
+import { formatChartDateTime, formatDateTime } from '../utils/dateTime'
+import { formatBucketSize, formatLongDuration } from '../utils/duration'
 import PageCorpus from './PageCorpus'
 
 interface AdminStatsScreenProps {
@@ -26,28 +27,6 @@ interface AdminStatsScreenProps {
   onOpenControls: () => void
   onRefresh: () => void
   onOpenGame: (gameId: string) => void
-}
-
-function formatDuration(durationMs: number) {
-  const totalSeconds = Math.max(0, Math.round(durationMs / 1000))
-  const days = Math.floor(totalSeconds / 86_400)
-  const hours = Math.floor((totalSeconds % 86_400) / 3_600)
-  const minutes = Math.floor((totalSeconds % 3_600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`
-  }
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${seconds}s`
-  }
-
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`
-  }
-
-  return `${seconds}s`
 }
 
 function SummaryCard({
@@ -85,19 +64,6 @@ function StatStripItem({
       <div className="mt-1 text-lg font-bold leading-none text-white">{value}</div>
     </div>
   )
-}
-
-function formatChartTimestamp(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric'
-  }).format(timestamp)
-}
-
-function formatBucketSize(bucketSizeMs: number) {
-  const totalMinutes = Math.round(bucketSizeMs / 60_000)
-  return `${totalMinutes}-minute`
 }
 
 function LongestGameCard({
@@ -189,7 +155,7 @@ function ActiveGamesChartSection({
               stroke="#94a3b8"
               tickLine={false}
               axisLine={false}
-              tickFormatter={formatChartTimestamp}
+              tickFormatter={formatChartDateTime}
             />
             <YAxis
               allowDecimals={false}
@@ -214,7 +180,7 @@ function ActiveGamesChartSection({
               height={28}
               stroke="#7dd3fc"
               travellerWidth={10}
-              tickFormatter={formatChartTimestamp}
+              tickFormatter={formatChartDateTime}
               fill="rgba(15,23,42,0.92)"
             />
             <Line
@@ -255,7 +221,7 @@ function IntervalSection({
       <div className="mt-4 grid grid-cols-3 gap-2">
         <StatStripItem label="Games" value={windowStats.gamesPlayed} />
         <StatStripItem label="Visits" value={windowStats.siteVisits} />
-        <StatStripItem label="Played" value={formatDuration(windowStats.timePlayedMs)} />
+        <StatStripItem label="Played" value={formatLongDuration(windowStats.timePlayedMs)} />
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -270,7 +236,7 @@ function IntervalSection({
           label="Longest Game In Duration"
           emptyLabel="No completed timed results in this interval yet."
           game={windowStats.longestGameInDuration}
-          value={windowStats.longestGameInDuration ? formatDuration(windowStats.longestGameInDuration.durationMs) : null}
+          value={windowStats.longestGameInDuration ? formatLongDuration(windowStats.longestGameInDuration.durationMs) : null}
           onOpenGame={onOpenGame}
         />
       </div>

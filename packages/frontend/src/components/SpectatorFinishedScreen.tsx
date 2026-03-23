@@ -4,7 +4,7 @@ import {
   getSessionFinishReasonLabel,
   getSpectatorResultMessage,
   getSpectatorResultTitle
-} from './sessionResultCopy'
+} from '../utils/sessionResult'
 
 type FinishedSessionInfo = Extract<SessionInfo, { state: 'finished' }>
 

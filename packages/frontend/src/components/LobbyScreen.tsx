@@ -1,7 +1,8 @@
-import type { AccountProfile, CreateSessionRequest, LobbyInfo, LobbyListParticipant, ShutdownState } from '@ih3t/shared'
+import type { AccountProfile, CreateSessionRequest, LobbyInfo, ShutdownState } from '@ih3t/shared'
 import { useEffect, useState } from 'react'
+import { formatTimeControl } from '../utils/gameTimeControl'
+import { formatLobbyLiveDuration, formatLobbyPlayers } from '../utils/lobby'
 import CreateLobbyDialog from './CreateLobbyDialog'
-import { formatTimeControl } from '../lobbyOptions'
 import { getInitialRenderTimestamp } from '../ssrState'
 import ScreenFooter from './ScreenFooter'
 import { useHydratedDelay } from '../useHydratedDelay'
@@ -21,29 +22,6 @@ interface LobbyScreenProps {
   onViewChangelog: () => void
   onViewOwnFinishedGames: () => void
   onViewAdmin: () => void
-}
-
-function formatLiveDuration(startedAt: number | null, now: number) {
-  if (!startedAt) {
-    return null
-  }
-
-  const totalSeconds = Math.max(0, Math.round((now - startedAt) / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
-
-function formatLobbyPlayers(players: LobbyListParticipant[], rated: boolean) {
-  if (players.length === 0) {
-    return 'Waiting for first player'
-  }
-
-  return players
-    .map((player) => rated && player.elo !== null
-      ? `${player.displayName} (${player.elo})`
-      : player.displayName)
-    .join(' vs ')
 }
 
 function ClockBadgeIcon() {
@@ -268,7 +246,7 @@ function LobbyScreen({
                           </div>
                           {!canJoin && session.startedAt && (
                             <div className="text-sm text-slate-400">
-                              In game for {formatLiveDuration(session.startedAt, now)}
+                              In game for {formatLobbyLiveDuration(session.startedAt, now)}
                             </div>
                           )}
                         </div>

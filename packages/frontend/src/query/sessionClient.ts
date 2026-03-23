@@ -1,7 +1,8 @@
 import type { CreateSessionRequest, CreateSessionResponse, LobbyInfo } from '@ih3t/shared'
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from './apiClient'
-import { queryKeys, sortLobbySessions } from './queryDefinitions'
+import { sortLobbySessions } from '../utils/lobby'
+import { queryKeys } from './queryDefinitions'
 
 async function fetchAvailableSessions() {
   const sessions = await fetchJson<LobbyInfo[]>('/api/sessions')

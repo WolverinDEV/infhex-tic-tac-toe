@@ -9,8 +9,9 @@ import { getActiveSessionId, useLiveGameStore } from './liveGameStore'
 import { invalidateFinishedGames } from './query/finishedGamesClient'
 import { getDeviceId, getSocketUrl } from './query/apiClient'
 import { queryClient } from './query/queryClient'
-import { queryKeys, sortLobbySessions } from './query/queryDefinitions'
 import { buildSessionPath } from './routes/archiveRouteState'
+import { sortLobbySessions } from './utils/lobby'
+import { queryKeys } from './query/queryDefinitions'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true

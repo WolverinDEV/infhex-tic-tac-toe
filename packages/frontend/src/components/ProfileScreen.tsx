@@ -2,46 +2,18 @@ import type { AccountStatistics, PublicAccountProfile } from '@ih3t/shared'
 import type { ReactNode } from 'react'
 import { toast } from 'react-toastify'
 import { signInWithDiscord } from '../query/authClient'
+import { formatDetailedDuration } from '../utils/duration'
+import {
+  formatStreakDetail,
+  formatWinSummary,
+  formatWorldRank
+} from '../utils/profileStats'
 import PageCorpus from './PageCorpus'
 
 function showErrorToast(message: string) {
   toast.error(message, {
     toastId: `error:${message}`
   })
-}
-
-function formatWorldRank(worldRank: number | null) {
-  return worldRank === null ? '--' : `#${worldRank}`
-}
-
-function formatWinSummary(won: number, played: number) {
-  if (played <= 0) {
-    return 'No finished games yet.'
-  }
-
-  const winRate = Math.round((won / played) * 100)
-  return `${won} won · ${winRate}% win rate`
-}
-
-function formatStreakDetail(streak: number) {
-  return streak === 1 ? '1 consecutive rated win.' : `${streak} consecutive rated wins.`
-}
-
-function formatDuration(durationMs: number) {
-  const totalSeconds = Math.max(0, Math.round(durationMs / 1000))
-  const hours = Math.floor(totalSeconds / 3_600)
-  const minutes = Math.floor((totalSeconds % 3_600) / 60)
-  const seconds = totalSeconds % 60
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${seconds}s`
-  }
-
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`
-  }
-
-  return `${seconds}s`
 }
 
 interface ProfileScreenProps {
@@ -353,7 +325,7 @@ function ProfileScreen({
                   >
                     <SecondaryStatCard
                       label="Longest Game"
-                      value={formatDuration(statistics.longestGamePlayedMs)}
+                      value={formatDetailedDuration(statistics.longestGamePlayedMs)}
                       detail="Your longest finished game by duration."
                     />
                     <SecondaryStatCard

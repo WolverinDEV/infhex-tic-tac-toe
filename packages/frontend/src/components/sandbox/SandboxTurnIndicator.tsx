@@ -1,5 +1,5 @@
 import type { GameState, SessionParticipant } from '@ih3t/shared'
-import { getPlayerLabel, getPlayerTileColor } from '../game-screen/gameBoardUtils'
+import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard'
 
 interface SandboxTurnIndicatorProps {
   players: SessionParticipant[]

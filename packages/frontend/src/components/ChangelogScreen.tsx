@@ -1,8 +1,17 @@
 import type { AccountPreferences, AccountProfile, ChangelogDay, ChangelogEntryKind } from '@ih3t/shared'
 import { useState } from 'react'
 import { toast } from 'react-toastify'
-import { countUnreadChangelogEntries, getLatestChangelogCommitAt, isUnreadChangelogEntry } from '../changelogState'
 import { updateAccountPreferences } from '../query/accountClient'
+import {
+  countBreakingChanges,
+  countUnreadChangelogEntries,
+  formatChangelogDate,
+  formatChangelogGeneratedAt,
+  getLatestChangelogCommitAt,
+  isUnreadChangelogEntry,
+  sortChangelogEntries
+} from '../utils/changelog'
+import { formatDateTime } from '../utils/dateTime'
 import PageCorpus from './PageCorpus'
 
 const CHANGELOG_KIND_LABELS: Record<ChangelogEntryKind, string> = {
@@ -17,26 +26,6 @@ const CHANGELOG_KIND_CLASSES: Record<ChangelogEntryKind, string> = {
   fix: 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100',
   maintenance: 'border-amber-300/25 bg-amber-300/10 text-amber-100',
   other: 'border-white/15 bg-white/8 text-slate-100',
-}
-
-function formatChangelogDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1))
-
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
-}
-
-function formatGeneratedAt(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
 }
 
 interface ChangelogScreenProps {
@@ -58,48 +47,6 @@ function showErrorToast(message: string) {
 function showSuccessToast(message: string) {
   toast.success(message, {
     toastId: `success:${message}`
-  })
-}
-
-function formatTimestamp(value: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function countBreakingChanges(changelogDays: ChangelogDay[]) {
-  return changelogDays.reduce(
-    (total, day) => total + day.entries.filter((entry) => entry.isBreakingChange).length,
-    0
-  )
-}
-
-function sortDayEntries(
-  entries: ChangelogDay['entries'],
-  changelogReadAt: number | null,
-  hasTrackedReadState: boolean
-) {
-  const kindOrder: Record<ChangelogEntryKind, number> = {
-    feature: 0,
-    fix: 1,
-    maintenance: 2,
-    other: 3
-  }
-
-  return [...entries].sort((leftEntry, rightEntry) => {
-    const leftIsNew = hasTrackedReadState && isUnreadChangelogEntry(leftEntry.committedAt, changelogReadAt)
-    const rightIsNew = hasTrackedReadState && isUnreadChangelogEntry(rightEntry.committedAt, changelogReadAt)
-    if (leftIsNew !== rightIsNew) {
-      return leftIsNew ? -1 : 1
-    }
-
-    const kindDifference = kindOrder[leftEntry.kind] - kindOrder[rightEntry.kind]
-    if (kindDifference !== 0) {
-      return kindDifference
-    }
-
-    return rightEntry.committedAt - leftEntry.committedAt
   })
 }
 
@@ -157,7 +104,7 @@ function ChangelogScreen({
     <PageCorpus
       category="Project History"
       title="Changelog"
-      description={`Generated from ${commitCount} commits in git history.${totalBreakingChangeCount > 0 ? ` ${totalBreakingChangeCount} breaking change${totalBreakingChangeCount === 1 ? '' : 's'} flagged.` : ''}`}
+      description={`Generated from ${commitCount} commits in git history on ${formatChangelogGeneratedAt(generatedAt)}.${totalBreakingChangeCount > 0 ? ` ${totalBreakingChangeCount} breaking change${totalBreakingChangeCount === 1 ? '' : 's'} flagged.` : ''}`}
     >
       <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex flex-col gap-4 overflow-auto overscroll-contain">
         {account ? (
@@ -180,7 +127,7 @@ function ChangelogScreen({
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-amber-50/85 sm:text-base">
                     {changelogReadAt === null
                       ? 'No changelog visit has been recorded yet, so all current entries are marked as new.'
-                      : `Your last read marker was saved on ${formatTimestamp(changelogReadAt)}.`}
+                      : `Your last read marker was saved on ${formatDateTime(changelogReadAt)}.`}
                   </p>
                 </div>
 
@@ -201,7 +148,7 @@ function ChangelogScreen({
         ) : null}
 
         {changelogDays.map((day) => {
-          const sortedEntries = sortDayEntries(day.entries, changelogReadAt, Boolean(account && preferences))
+          const sortedEntries = sortChangelogEntries(day.entries, changelogReadAt, Boolean(account && preferences))
           const dayNewEntryCount = account && preferences
             ? sortedEntries.filter((entry) => isUnreadChangelogEntry(entry.committedAt, changelogReadAt)).length
             : 0

@@ -16,7 +16,7 @@ import {
   pixelToAxial,
   sameCell,
   traceHexPath
-} from './gameBoardUtils'
+} from '../../utils/gameBoard'
 
 const DRAG_THRESHOLD_PX = 6
 const MOUSE_AFTER_TOUCH_IGNORE_MS = 500

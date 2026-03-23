@@ -9,10 +9,14 @@ import {
 } from '@ih3t/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { formatDateTimeWithSeconds } from '../../utils/dateTime'
+import { formatMinutesSeconds } from '../../utils/duration'
+import { formatEloChange } from '../../utils/elo'
+import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard'
+import { formatTimeControl } from '../../utils/gameTimeControl'
+import { getSessionFinishReasonSentenceLabel } from '../../utils/sessionResult'
 import GameBoardCanvas from '../game-screen/GameBoardCanvas'
 import useGameBoard from '../game-screen/useGameBoard'
-import { getPlayerLabel, getPlayerTileColor } from '../game-screen/gameBoardUtils'
-import { formatTimeControl } from '../../lobbyOptions'
 import FinishedGameReviewLayout from './FinishedGameReviewLayout'
 import type { SandboxRouteInitialPosition, SandboxRouteState } from '../../routes/sandboxRouteState'
 
@@ -77,44 +81,6 @@ function EndIcon() {
       <path d="M14.2 5.2H16v9.6h-1.8zM4 5.2 12 10l-8 4.8z" />
     </svg>
   )
-}
-
-function formatDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'medium'
-  }).format(new Date(timestamp))
-}
-
-function formatElapsed(milliseconds: number) {
-  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function getFinishReasonLabel(reason: NonNullable<FinishedGameRecord['gameResult']>['reason'] | null | undefined) {
-  if (reason === 'six-in-a-row') {
-    return 'Six in a row'
-  }
-
-  if (reason === 'timeout') {
-    return 'Timeout'
-  }
-
-  if (reason === 'surrender') {
-    return 'Surrender'
-  }
-
-  if (reason === 'disconnect') {
-    return 'Disconnect'
-  }
-
-  return 'Terminated'
-}
-
-function formatEloChange(eloChange: number) {
-  return `${eloChange >= 0 ? '+' : ''}${eloChange}`
 }
 
 function buildReplayBoardState(game: FinishedGameRecord, visibleMoveCount: number): BoardState {
@@ -321,8 +287,8 @@ function FinishedGameReplayView({
                     </div>
                     <div className="mt-1 break-words text-xs text-slate-300 sm:text-sm">
                       {activeMove
-                        ? `${formatDateTime(activeMove.timestamp)} • +${formatElapsed(activeMove.timestamp - game.startedAt)}`
-                        : `Started ${formatDateTime(game.startedAt)}`}
+                        ? `${formatDateTimeWithSeconds(activeMove.timestamp)} • +${formatMinutesSeconds(activeMove.timestamp - game.startedAt)}`
+                        : `Started ${formatDateTimeWithSeconds(game.startedAt)}`}
                     </div>
                   </div>
 
@@ -412,10 +378,10 @@ function FinishedGameReplayView({
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Finished</div>
                 <div className="mt-1 text-sm text-white">
-                  {formatDateTime(game.finishedAt ?? game.startedAt)}
+                  {formatDateTimeWithSeconds(game.finishedAt ?? game.startedAt)}
                 </div>
                 <div className="mt-1 text-sm text-white">
-                  Duration {formatElapsed(gameResult?.durationMs ?? 0)}
+                  Duration {formatMinutesSeconds(gameResult?.durationMs ?? 0)}
                 </div>
               </div>
 
@@ -436,7 +402,7 @@ function FinishedGameReplayView({
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Finish Reason</div>
                 <div className="mt-1 text-sm text-white">
-                  {getFinishReasonLabel(gameResult?.reason)}
+                  {getSessionFinishReasonSentenceLabel(gameResult?.reason)}
                 </div>
               </div>
 
@@ -528,7 +494,7 @@ function FinishedGameReplayView({
                       {getPlayerLabel(game.players, move.playerId)} placed at ({move.x}, {move.y})
                     </div>
                     <div className="mt-1 break-words text-sm text-slate-300">
-                      {formatDateTime(move.timestamp)} • +{formatElapsed(move.timestamp - game.startedAt)}
+                      {formatDateTimeWithSeconds(move.timestamp)} • +{formatMinutesSeconds(move.timestamp - game.startedAt)}
                     </div>
                   </button>
                 )

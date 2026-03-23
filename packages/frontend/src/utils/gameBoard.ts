@@ -23,11 +23,9 @@ interface CubeCell {
 
 export interface RenderableCell extends HexCell {
   key: string
-
   pointX: number
   pointY: number
-
-  color: string | null,
+  color: string | null
 }
 
 export type TilePieceMarker = 'X' | 'O'
@@ -147,17 +145,6 @@ export function buildHexLine(start: HexCell, end: HexCell): HexCell[] {
   return cells
 }
 
-export function formatCountdown(milliseconds: number | null): string {
-  if (milliseconds === null) {
-    return '--:--'
-  }
-
-  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
 export function clampScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
 }
@@ -192,61 +179,35 @@ export function getTouchCenter(touches: React.TouchList) {
 }
 
 export function buildRenderableCells(cells: BoardCell[], tileConfigs: Record<string, PlayerTileConfig>): Map<string, RenderableCell> {
-  const renderableCells = new Map<string, RenderableCell>()
-
-  if (cells.length === 0) {
-    const origin = axialToUnitPoint(0, 0)
-    renderableCells.set(getCellKey(0, 0), {
-      key: getCellKey(0, 0),
-
-      x: 0,
-      y: 0,
-
-      pointX: origin.x,
-      pointY: origin.y,
-
-      color: null
-    })
-    return renderableCells
-  }
-
-  for (const cell of cells) {
-    for (let x = cell.x - HEX_RADIUS; x <= cell.x + HEX_RADIUS; x += 1) {
-      for (let y = cell.y - HEX_RADIUS; y <= cell.y + HEX_RADIUS; y += 1) {
-        if (hexDistance(cell, { x, y }) <= HEX_RADIUS) {
-          const key = getCellKey(x, y)
-          if (!renderableCells.has(key)) {
-            const point = axialToUnitPoint(x, y)
-            renderableCells.set(key, { key, x, y, pointX: point.x, pointY: point.y, color: null })
-          }
-        }
-      }
-    }
-
-    const key = getCellKey(cell.x, cell.y)
+  return new Map(cells.map((cell) => {
     const point = axialToUnitPoint(cell.x, cell.y)
-    renderableCells.set(key, { key, x: cell.x, y: cell.y, pointX: point.x, pointY: point.y, color: tileConfigs[cell.occupiedBy]?.color ?? null })
-  }
+    const color = cell.occupiedBy ? tileConfigs[cell.occupiedBy]?.color ?? '#7dd3fc' : null
 
-  return renderableCells
+    return [cell.key, {
+      key: cell.key,
+      x: cell.x,
+      y: cell.y,
+      pointX: point.x,
+      pointY: point.y,
+      color
+    }]
+  }))
 }
 
 export function buildTilePieceMarkerMap(cells: readonly BoardCell[]): Map<string, TilePieceMarker> {
-  const tilePieceMarkers = new Map<string, TilePieceMarker>()
-  const xPlayerId = cells.find((cell) => cell.x === 0 && cell.y === 0)?.occupiedBy ?? null
-  if (!xPlayerId) {
-    return tilePieceMarkers
-  }
+  const markerMap = new Map<string, TilePieceMarker>()
 
   for (const cell of cells) {
-    tilePieceMarkers.set(getCellKey(cell.x, cell.y), cell.occupiedBy === xPlayerId ? 'X' : 'O')
+    if (cell.tilePiece) {
+      markerMap.set(cell.key, cell.tilePiece)
+    }
   }
 
-  return tilePieceMarkers
+  return markerMap
 }
 
 function hexDistance(a: HexCell, b: HexCell): number {
-  return getHexDistance(a, b)
+  return getHexDistance(a.x, a.y, b.x, b.y)
 }
 
 function axialToCube(cell: HexCell): CubeCell {
@@ -262,8 +223,16 @@ function lerp(start: number, end: number, progress: number): number {
 }
 
 function roundAxial(x: number, y: number): HexCell {
-  const cube = roundCube({ x, y: -x - y, z: y })
-  return { x: cube.x, y: cube.z }
+  const roundedCube = roundCube({
+    x,
+    y: -x - y,
+    z: y
+  })
+
+  return {
+    x: roundedCube.x,
+    y: roundedCube.z
+  }
 }
 
 function roundCube(cube: CubeCell): CubeCell {
@@ -271,17 +240,21 @@ function roundCube(cube: CubeCell): CubeCell {
   let roundedY = Math.round(cube.y)
   let roundedZ = Math.round(cube.z)
 
-  const deltaX = Math.abs(roundedX - cube.x)
-  const deltaY = Math.abs(roundedY - cube.y)
-  const deltaZ = Math.abs(roundedZ - cube.z)
+  const xDiff = Math.abs(roundedX - cube.x)
+  const yDiff = Math.abs(roundedY - cube.y)
+  const zDiff = Math.abs(roundedZ - cube.z)
 
-  if (deltaX > deltaY && deltaX > deltaZ) {
+  if (xDiff > yDiff && xDiff > zDiff) {
     roundedX = -roundedY - roundedZ
-  } else if (deltaY > deltaZ) {
+  } else if (yDiff > zDiff) {
     roundedY = -roundedX - roundedZ
   } else {
     roundedZ = -roundedX - roundedY
   }
 
-  return { x: roundedX, y: roundedY, z: roundedZ }
+  return {
+    x: roundedX,
+    y: roundedY,
+    z: roundedZ
+  }
 }

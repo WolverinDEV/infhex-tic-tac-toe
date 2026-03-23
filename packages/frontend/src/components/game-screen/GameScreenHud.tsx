@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ShutdownState } from '@ih3t/shared'
+import { formatMinutesSeconds } from '../../utils/duration'
 
 export type HudPlayerInfo = {
   playerId: string,
@@ -20,14 +21,6 @@ interface GameScreenHudProps {
   leaveLabel?: string
   onLeave: () => void
   onResetView: () => void
-}
-
-function formatRemainingTime(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function GameScreenHud({
@@ -70,7 +63,7 @@ function GameScreenHud({
         <div className="pointer-events-auto absolute bottom-3 right-3 z-10 flex flex-col items-end gap-2 md:bottom-4 md:left-4 md:right-auto md:items-start">
           {shutdown && shutdownCountdownMs !== null && (
             <div className="rounded-full border border-amber-200/30 bg-slate-950/92 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg">
-              Restarting {formatRemainingTime(shutdownCountdownMs)}
+              Restarting {formatMinutesSeconds(shutdownCountdownMs)}
             </div>
           )}
           <button
@@ -121,7 +114,7 @@ function GameScreenHud({
           {shutdown && shutdownCountdownMs !== null && (
             <div className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200">Shutdown Scheduled</div>
-              <div className="mt-1">New games are disabled. This server restarts in {formatRemainingTime(shutdownCountdownMs)}.</div>
+              <div className="mt-1">New games are disabled. This server restarts in {formatMinutesSeconds(shutdownCountdownMs)}.</div>
             </div>
           )}
 
