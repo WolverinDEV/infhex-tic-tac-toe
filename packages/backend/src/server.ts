@@ -2,10 +2,8 @@ import './env';
 import 'reflect-metadata';
 import { createAppContainer } from './di/createAppContainer';
 import { createRootLogger } from './logger';
-import { SocketServerGateway } from './network/createSocketServer';
+import { ServerShutdownService } from './admin/serverShutdownService';
 import { ApplicationServer } from './serverRuntime';
-import { SessionManager } from './session/sessionManager';
-import { startTerminalCommandHandler } from './terminal/startTerminalCommandHandler';
 
 const bootstrapLogger = createRootLogger();
 const DEFAULT_SCHEDULED_SHUTDOWN_MS = 10 * 60 * 1000;
@@ -15,8 +13,7 @@ const FORCED_SHUTDOWN_SIGNAL_COUNT = 5;
 async function main() {
     const appContainer = createAppContainer();
     const applicationServer = appContainer.resolve(ApplicationServer);
-    const sessionManager = appContainer.resolve(SessionManager);
-    const socketServerGateway = appContainer.resolve(SocketServerGateway);
+    const serverShutdownService = appContainer.resolve(ServerShutdownService);
 
     await applicationServer.start().catch((error: unknown) => {
         bootstrapLogger.fatal({
@@ -26,23 +23,11 @@ async function main() {
         process.exit(1);
     });
 
-    const stopTerminalShutdownScheduler = startTerminalCommandHandler({
-        logger: bootstrapLogger,
-        sessionManager,
-        socketServerGateway,
-        shutdownDelayMs: DEFAULT_SCHEDULED_SHUTDOWN_MS
-    });
     const shutdownCompleted = new Promise<void>(resolve => {
-        let shutdownPromise: Promise<void> | null = null;
         let signalCount = 0;
 
-        const runApplicationShutdown = () => {
-            stopTerminalShutdownScheduler();
-            if (shutdownPromise) {
-                return shutdownPromise;
-            }
-
-            shutdownPromise = applicationServer.shutdown()
+        serverShutdownService.setShutdownHandler(() => {
+            void applicationServer.shutdown()
                 .then(() => {
                     resolve();
                 })
@@ -54,12 +39,6 @@ async function main() {
                     }, 'Scheduled shutdown failed');
                     process.exit(1);
                 });
-
-            return shutdownPromise;
-        };
-
-        sessionManager.setShutdownHandler(() => {
-            void runApplicationShutdown();
         });
 
         for (const signal of ['SIGINT', 'SIGTERM'] as const) {
@@ -67,33 +46,42 @@ async function main() {
                 signalCount += 1;
 
                 if (signalCount >= FORCED_SHUTDOWN_SIGNAL_COUNT) {
-                    bootstrapLogger.warn({
-                        event: 'server.shutdown.signal-forced',
-                        signal,
-                        signalCount
-                    }, 'Received fith shutdown signal; force exiting');
+                    bootstrapLogger.warn(
+                        {
+                            event: 'server.shutdown.signal-forced',
+                            signal,
+                            signalCount
+                        },
+                        'Received fith shutdown signal; force exiting'
+                    );
                     process.exit(0);
                 } else if (signalCount >= IMMEDIATE_SHUTDOWN_SIGNAL_COUNT) {
-                    bootstrapLogger.warn({
-                        event: 'server.shutdown.signal-immediate',
-                        signal,
-                        signalCount
-                    }, 'Received third shutdown signal; exiting without waiting');
-                    runApplicationShutdown();
+                    bootstrapLogger.warn(
+                        {
+                            event: 'server.shutdown.signal-immediate',
+                            signal,
+                            signalCount
+                        },
+                        'Received third shutdown signal; exiting without waiting'
+                    );
+                    serverShutdownService.requestImmediateShutdown();
                     return;
                 }
 
-                const existingShutdown = sessionManager.getShutdownState();
-                const shutdown = sessionManager.scheduleShutdown(DEFAULT_SCHEDULED_SHUTDOWN_MS);
-                bootstrapLogger.info({
-                    event: existingShutdown ? 'server.shutdown.signal-repeat' : 'server.shutdown.signal',
-                    signal,
-                    signalCount,
-                    shutdownAt: new Date(shutdown.shutdownAt).toISOString(),
-                    timeoutMs: shutdown.shutdownAt - shutdown.scheduledAt
-                }, existingShutdown
-                    ? `Received shutdown signal ${signalCount}/${FORCED_SHUTDOWN_SIGNAL_COUNT}; graceful shutdown already scheduled`
-                    : 'Received shutdown signal; scheduled graceful shutdown');
+                const existingShutdown = serverShutdownService.getShutdownState();
+                const shutdown = serverShutdownService.requestShutdown(DEFAULT_SCHEDULED_SHUTDOWN_MS);
+                bootstrapLogger.info(
+                    {
+                        event: existingShutdown ? 'server.shutdown.signal-repeat' : 'server.shutdown.signal',
+                        signal,
+                        signalCount,
+                        shutdownAt: new Date(shutdown.gracefulTimeout).toISOString(),
+                        timeoutMs: shutdown.gracefulTimeout - shutdown.scheduledAt
+                    },
+                    existingShutdown
+                        ? `Received shutdown signal ${signalCount}/${FORCED_SHUTDOWN_SIGNAL_COUNT}; graceful shutdown already scheduled`
+                        : 'Received shutdown signal; scheduled graceful shutdown'
+                );
             });
         }
     });

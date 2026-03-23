@@ -46,7 +46,7 @@ function GameScreenHud({
 }: Readonly<GameScreenHudProps>) {
   const [isHudOpen, setIsHudOpen] = useState(true)
   const [shutdownCountdownMs, setShutdownCountdownMs] = useState<number | null>(
-    shutdown ? Math.max(0, shutdown.shutdownAt - Date.now()) : null
+    shutdown ? Math.max(0, shutdown.gracefulTimeout - Date.now()) : null
   )
 
   useEffect(() => {
@@ -56,7 +56,7 @@ function GameScreenHud({
     }
 
     const updateCountdown = () => {
-      setShutdownCountdownMs(Math.max(0, shutdown.shutdownAt - Date.now()))
+      setShutdownCountdownMs(Math.max(0, shutdown.gracefulTimeout - Date.now()))
     }
 
     updateCountdown()

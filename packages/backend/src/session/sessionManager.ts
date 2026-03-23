@@ -5,12 +5,12 @@ import type {
     SessionFinishReason,
     SessionInfo,
     SessionParticipantRole,
-    ShutdownState
 } from '@ih3t/shared';
 import { buildPlayerTileConfigMap } from '@ih3t/shared';
 import assert from 'node:assert';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+import { ServerShutdownService, type ShutdownHook } from '../admin/serverShutdownService';
 import { EloHandler } from '../elo/eloHandler';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
@@ -72,22 +72,18 @@ export interface RematchCreateResult {
     socketMapping: Record<string, string>,
 }
 
-const DEFAULT_SHUTDOWN_DELAY_MS = 10 * 60 * 1000;
 const MAX_PLAYERS_PER_SESSION = 2;
-type ShutdownTrigger = 'all-sessions-finished' | 'deadline-reached';
 
 @injectable()
 export class SessionManager {
     private eventHandlers: SessionManagerEventHandlers = {};
     private readonly logger: Logger;
     private readonly sessions = new Map<string, ServerGameSession>();
-    private scheduledShutdown: ShutdownState | null = null;
-    private scheduledShutdownTimer: ReturnType<typeof setTimeout> | null = null;
-    private shutdownRequested = false;
-    private shutdownHandler: (() => void) | null = null;
+    private readonly shutdownHook: ShutdownHook;
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
+        @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(GameSimulation) private readonly simulation: GameSimulation,
         @inject(GameTimeControlManager) private readonly timeControl: GameTimeControlManager,
         @inject(EloHandler) private readonly eloHandler: EloHandler,
@@ -96,14 +92,9 @@ export class SessionManager {
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService
     ) {
         this.logger = rootLogger.child({ component: 'session-manager' });
-    }
-
-    setEventHandlers(eventHandlers: SessionManagerEventHandlers): void {
-        this.eventHandlers = eventHandlers;
-    }
-
-    setShutdownHandler(handler: () => void): void {
-        this.shutdownHandler = handler;
+        this.shutdownHook = this.serverShutdownService.createShutdownHook(
+            () => this.shouldBlockShutdown()
+        );
     }
 
     listLobbyInfo(): LobbyInfo[] {
@@ -176,66 +167,8 @@ export class SessionManager {
         return counts;
     }
 
-    getShutdownState(): ShutdownState | null {
-        if (!this.scheduledShutdown) {
-            return null;
-        }
-
-        return { ...this.scheduledShutdown };
-    }
-
-    scheduleShutdown(delayMs = DEFAULT_SHUTDOWN_DELAY_MS): ShutdownState {
-        if (this.scheduledShutdown) {
-            return { ...this.scheduledShutdown };
-        }
-
-        const scheduledAt = Date.now();
-        this.scheduledShutdown = {
-            scheduledAt,
-            shutdownAt: scheduledAt + delayMs
-        };
-        this.shutdownRequested = false;
-
-        this.clearScheduledShutdownTimer();
-        this.scheduledShutdownTimer = setTimeout(() => {
-            this.handleScheduledShutdownDeadline();
-        }, delayMs);
-
-        this.emitShutdownUpdated();
-        this.logger.info({
-            event: 'shutdown.scheduled',
-            scheduledAt,
-            shutdownAt: this.scheduledShutdown.shutdownAt,
-            activeSessionCount: this.sessions.size
-        }, 'Scheduled server shutdown');
-
-        if (this.sessions.size === 0) {
-            setTimeout(() => {
-                this.requestApplicationShutdown('all-sessions-finished');
-            }, 0);
-        }
-
-        return { ...this.scheduledShutdown };
-    }
-
-    cancelShutdown(): boolean {
-        if (!this.scheduledShutdown) {
-            return false;
-        }
-
-        const cancelledShutdown = { ...this.scheduledShutdown };
-        this.scheduledShutdown = null;
-        this.shutdownRequested = false;
-        this.clearScheduledShutdownTimer();
-        this.emitShutdownUpdated();
-        this.logger.info({
-            event: 'shutdown.cancelled',
-            scheduledAt: cancelledShutdown.scheduledAt,
-            shutdownAt: cancelledShutdown.shutdownAt,
-            activeSessionCount: this.sessions.size
-        }, 'Cancelled scheduled server shutdown');
-
-        return true;
+    setEventHandlers(eventHandlers: SessionManagerEventHandlers): void {
+        this.eventHandlers = eventHandlers;
     }
 
     createSession(params: CreateSessionParams): CreateSessionResponse {
@@ -440,8 +373,8 @@ export class SessionManager {
     }
 
     requestRematch(session: ServerGameSession, participantId: string): RematchRequestResult {
-        if (this.scheduledShutdown) {
-            throw new SessionError('Server shutdown is scheduled. Rematches are unavailable.');
+        if (this.serverShutdownService.isShutdownPending()) {
+            throw new SessionError('Server shutdown pending. Rematches are unavailable.');
         }
 
         if (session.state !== 'finished') {
@@ -580,31 +513,11 @@ export class SessionManager {
         void this.finishSession(session, 'timeout', winningPlayerId);
     };
 
-    private handleScheduledShutdownDeadline(): void {
-        const shutdown = this.scheduledShutdown;
-        if (!shutdown) {
-            return;
-        }
-
-        this.clearScheduledShutdownTimer();
-        this.logger.info({
-            event: 'shutdown.deadline-reached',
-            shutdownAt: shutdown.shutdownAt,
-            activeSessionCount: this.sessions.size
-        }, 'Shutdown deadline reached; closing remaining sessions');
-
-        for (const session of [...this.listStoredSessions()]) {
-            void this.finishSession(session, 'terminated', null);
-        }
-
-        this.requestApplicationShutdown('deadline-reached');
-    }
-
     private assertNewGameCreationAllowed(source: 'lobby' | 'rematch'): void {
-        if (this.scheduledShutdown) {
+        if (this.serverShutdownService.isShutdownPending()) {
             throw new SessionError(source === 'rematch'
-                ? 'Server shutdown is scheduled. Rematches are unavailable.'
-                : 'Server shutdown is scheduled. New games cannot be created.');
+                ? 'Server restart pending. Rematches are unavailable.'
+                : 'Server restart pending. New games cannot be created.');
         }
 
         const maxConcurrentGames = this.serverSettingsService.getSettings().maxConcurrentGames;
@@ -652,7 +565,7 @@ export class SessionManager {
             this.timeControl.clearSession(session.id);
             this.sessions.delete(session.id);
             this.emitLobbyListUpdated();
-            this.maybeShutdownAfterSessionFinished();
+            this.shutdownHook.tryShutdown();
             return;
         }
 
@@ -779,7 +692,8 @@ export class SessionManager {
         this.timeControl.clearSession(session.id);
         this.emitLobbyListUpdated();
         this.emitSessionUpdated(session);
-        this.maybeShutdownAfterSessionFinished();
+        this.shutdownHook.tryShutdown();
+
         await this.applyRatedGameResult(session, winningPlayerId);
         this.logger.info({
             event: 'session.finished',
@@ -929,10 +843,6 @@ export class SessionManager {
 
     private emitLobbyListUpdated(): void {
         this.eventHandlers.lobbyListUpdated?.(this.listLobbyInfo());
-    }
-
-    private emitShutdownUpdated(): void {
-        this.eventHandlers.shutdownUpdated?.(this.getShutdownState());
     }
 
     private emitSessionUpdated(session: ServerGameSession): void {
@@ -1290,40 +1200,11 @@ export class SessionManager {
         }
     }
 
-    private maybeShutdownAfterSessionFinished(): void {
-        if (!this.scheduledShutdown || this.shutdownRequested || this.listStoredSessions().some((session) => session.state !== 'finished')) {
-            return;
-        }
-
-        this.requestApplicationShutdown('all-sessions-finished');
-    }
-
-    private requestApplicationShutdown(trigger: ShutdownTrigger): void {
-        if (this.shutdownRequested) {
-            return;
-        }
-
-        this.shutdownRequested = true;
-        this.clearScheduledShutdownTimer();
-        this.logger.info({
-            event: 'shutdown.requested',
-            trigger,
-            shutdownAt: this.scheduledShutdown?.shutdownAt ?? null
-        }, 'Requesting application shutdown');
-
-        this.shutdownHandler?.();
-    }
-
-    private clearScheduledShutdownTimer(): void {
-        if (!this.scheduledShutdownTimer) {
-            return;
-        }
-
-        clearTimeout(this.scheduledShutdownTimer);
-        this.scheduledShutdownTimer = null;
-    }
-
     private listStoredSessions(): ServerGameSession[] {
         return Array.from(this.sessions.values());
+    }
+
+    private shouldBlockShutdown(): boolean {
+        return this.listStoredSessions().some(session => session.state === 'in-game');
     }
 }

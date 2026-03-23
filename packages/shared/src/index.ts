@@ -111,7 +111,7 @@ export const DEFAULT_LOBBY_OPTIONS: LobbyOptions = zLobbyOptions.parse({
 
 export const zShutdownState = z.object({
     scheduledAt: zTimestamp,
-    shutdownAt: zTimestamp
+    gracefulTimeout: zTimestamp
 });
 export type ShutdownState = z.infer<typeof zShutdownState>;
 

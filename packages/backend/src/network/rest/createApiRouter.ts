@@ -28,6 +28,7 @@ import {
     zUpdateAccountProfileRequest,
 } from '@ih3t/shared';
 import { ServerSettingsService } from '../../admin/serverSettingsService';
+import { ServerShutdownService } from '../../admin/serverShutdownService';
 import { AdminStatsService } from '../../admin/adminStatsService';
 import { AuthRepository, type AccountUserProfile } from '../../auth/authRepository';
 import { AuthService } from '../../auth/authService';
@@ -85,6 +86,7 @@ export class ApiRouter {
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
+        @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(AdminStatsService) private readonly adminStatsService: AdminStatsService,
         @inject(LeaderboardService) private readonly leaderboardService: LeaderboardService,
         @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
@@ -316,7 +318,7 @@ export class ApiRouter {
             }
 
             const request = zAdminScheduleShutdownRequest.parse(req.body ?? {});
-            const shutdown = this.sessionManager.scheduleShutdown(request.delayMinutes * 60 * 1000);
+            const shutdown = this.serverShutdownService.requestShutdown(request.delayMinutes * 60 * 1000);
             const response: AdminShutdownControlResponse = { shutdown };
             res.json(response);
         });
@@ -327,9 +329,9 @@ export class ApiRouter {
                 return;
             }
 
-            this.sessionManager.cancelShutdown();
+            this.serverShutdownService.cancelShutdown();
             const response: AdminShutdownControlResponse = {
-                shutdown: this.sessionManager.getShutdownState()
+                shutdown: this.serverShutdownService.getShutdownState()
             };
             res.json(response);
         });

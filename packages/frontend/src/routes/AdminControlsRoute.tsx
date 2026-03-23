@@ -69,7 +69,7 @@ function AdminControlsRoute() {
     try {
       const response = await scheduleShutdown(Math.floor(parsedMinutes))
       const scheduledMinutes = response.shutdown
-        ? Math.max(1, Math.round((response.shutdown.shutdownAt - response.shutdown.scheduledAt) / 60_000))
+        ? Math.max(1, Math.round((response.shutdown.gracefulTimeout - response.shutdown.scheduledAt) / 60_000))
         : Math.floor(parsedMinutes)
       showSuccessToast(`Shutdown scheduled in ${scheduledMinutes} minute${scheduledMinutes === 1 ? '' : 's'}.`)
     } catch (error) {

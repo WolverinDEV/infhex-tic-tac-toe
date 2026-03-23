@@ -1,5 +1,6 @@
 import { container, type DependencyContainer } from 'tsyringe';
 import { ServerSettingsService } from '../admin/serverSettingsService';
+import { ServerShutdownService } from '../admin/serverShutdownService';
 import { AdminStatsService } from '../admin/adminStatsService';
 import { AuthRepository } from '../auth/authRepository';
 import { AuthService } from '../auth/authService';
@@ -44,6 +45,7 @@ export function createAppContainer(): DependencyContainer {
     appContainer.registerSingleton(EloHandler);
     appContainer.registerSingleton(ServerSettingsRepository);
     appContainer.registerSingleton(ServerSettingsService);
+    appContainer.registerSingleton(ServerShutdownService);
     appContainer.registerSingleton(AdminStatsService);
     appContainer.registerSingleton(LeaderboardService);
     appContainer.registerSingleton(GameHistoryRepository);

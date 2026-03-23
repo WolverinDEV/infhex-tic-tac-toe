@@ -110,10 +110,10 @@ function ShutdownSummary({ shutdown }: { shutdown: ShutdownState | null }) {
     <div className="rounded-[1.35rem] border border-amber-300/25 bg-amber-300/10 px-5 py-5">
       <div className="text-xs uppercase tracking-[0.24em] text-amber-100">Scheduled Restart</div>
       <div className="mt-2 text-2xl font-black text-white">
-        {formatRemainingTime(Math.max(0, shutdown.shutdownAt - now))}
+        {formatRemainingTime(Math.max(0, shutdown.gracefulTimeout - now))}
       </div>
       <div className="mt-3 text-sm text-amber-50/90">
-        Goes down at {formatDateTime(shutdown.shutdownAt)}
+        Goes down at {formatDateTime(shutdown.gracefulTimeout)}
       </div>
       <div className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-100/75">
         Scheduled {formatDateTime(shutdown.scheduledAt)}

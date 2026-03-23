@@ -11,6 +11,7 @@ import {
     zPlaceCellRequest,
 } from '@ih3t/shared';
 import { z, ZodError } from 'zod';
+import { ServerShutdownService } from '../admin/serverShutdownService';
 import { AuthService } from '../auth/authService';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
@@ -47,6 +48,7 @@ export class SocketServerGateway {
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
         @inject(AuthService) private readonly authService: AuthService,
+        @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
         @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration
@@ -72,9 +74,6 @@ export class SocketServerGateway {
             lobbyListUpdated: (lobbies) => {
                 this.scheduleLobbyListBroadcast(io, lobbies);
             },
-            shutdownUpdated(shutdown) {
-                io.emit('shutdown-updated', shutdown);
-            },
             sessionUpdated(event: SessionUpdatedEvent) {
                 io.to(event.sessionId).emit('session-updated', event);
             },
@@ -86,6 +85,11 @@ export class SocketServerGateway {
             },
             participantLeft(event: ParticipantLeftEvent) {
                 io.to(event.sessionId).emit('participant-left', event);
+            }
+        });
+        this.serverShutdownService.setEventHandlers({
+            shutdownUpdated(shutdown) {
+                io.emit('shutdown-updated', shutdown);
             }
         });
 
@@ -135,7 +139,7 @@ export class SocketServerGateway {
 
         this.metricsTracker.track('site-visited', { client: clientInfo });
         socket.emit('lobby-list', this.sessionManager.listLobbyInfo());
-        socket.emit('shutdown-updated', this.sessionManager.getShutdownState());
+        socket.emit('shutdown-updated', this.serverShutdownService.getShutdownState());
 
         const participationMutex = new Mutex();
         this.bindSocketHandler(socket, "join-session", zJoinSessionRequest, async request => {

@@ -9,7 +9,6 @@ import {
     type SessionInfo,
     type SessionParticipant,
     type SessionParticipantRole,
-    type ShutdownState,
 } from '@ih3t/shared';
 import type { RequestClientInfo } from '../network/clientInfo';
 import type { AccountUserProfile } from '../auth/authRepository';
@@ -93,7 +92,6 @@ export interface SessionUpdatedEvent {
 
 export interface SessionManagerEventHandlers {
     lobbyListUpdated?: (lobbies: LobbyInfo[]) => void;
-    shutdownUpdated?: (shutdown: ShutdownState | null) => void;
     sessionUpdated?: (event: SessionUpdatedEvent) => void;
     gameStateUpdated?: (payload: PublicGameStatePayload) => void;
     participantJoined?: (event: ParticipantJoinedEvent) => void;
