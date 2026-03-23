@@ -90,6 +90,20 @@ export class SandboxPositionRepository {
         };
     }
 
+    async getPosition(id: string): Promise<LoadedSandboxPositionRecord | null> {
+        const collection = await this.getCollection();
+        const document = await collection.findOne({ id });
+        if (!document) {
+            return null;
+        }
+
+        const parsedDocument = zSandboxPositionDocument.parse(document);
+        return {
+            name: parsedDocument.name,
+            gamePosition: parsedDocument.gamePosition
+        };
+    }
+
     private async getCollection(): Promise<Collection<SandboxPositionDocument>> {
         if (this.collectionPromise !== null) {
             return this.collectionPromise;

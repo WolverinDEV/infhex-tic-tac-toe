@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { GameTimeControl, SessionParticipant } from '@ih3t/shared';
+import type { GameTimeControl, SandboxPlayerSlot, SessionParticipant } from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
@@ -13,6 +13,7 @@ import { ServerConfig } from '../config/serverConfig';
 import { LeaderboardService } from '../leaderboard/leaderboardService';
 import { ROOT_LOGGER } from '../logger';
 import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
+import { SandboxPositionService } from '../sandbox/sandboxPositionService';
 import { SessionManager } from '../session/sessionManager';
 import { CorsConfiguration } from './cors';
 import { FrontendSsrRenderer } from './frontendSsr';
@@ -186,6 +187,14 @@ function describePlayersInMatch(players: SessionParticipant[], visibility: strin
     return `A ${visibility} ${modeLabel} Infinity Hexagonal Tic-Tac-Toe match is underway`;
 }
 
+function formatSandboxPlayerLabel(player: SandboxPlayerSlot): string {
+    return player === 'player-1' ? 'Player 1' : 'Player 2';
+}
+
+function formatPlacementSummary(placementsRemaining: number): string {
+    return placementsRemaining === 1 ? '1 placement remaining' : `${placementsRemaining} placements remaining`;
+}
+
 @injectable()
 export class HttpApplication {
     readonly app: express.Application;
@@ -202,7 +211,8 @@ export class HttpApplication {
         @inject(ServerConfig) serverConfig: ServerConfig,
         @inject(LeaderboardService) leaderboardService: LeaderboardService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
-        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository
+        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
+        @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService
     ) {
         const app = express();
         const logger = rootLogger.child({ component: 'http-application' });
@@ -215,6 +225,7 @@ export class HttpApplication {
             frontendDistPath,
             gameHistoryRepository: this.gameHistoryRepository,
             leaderboardService,
+            sandboxPositionService: this.sandboxPositionService,
             sessionManager: this.sessionManager
         });
 
@@ -412,6 +423,14 @@ export class HttpApplication {
             };
         }
 
+        if (req.path === '/sandbox') {
+            return {
+                ...defaultMetadata,
+                title: `Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
+                description: 'Play Infinity Hexagonal Tic-Tac-Toe locally with no clock, control both sides, import shared positions, and explore custom boards.'
+            };
+        }
+
         const finishedGameMatch = req.path.match(/^\/games\/([^/]+)$/);
         if (finishedGameMatch) {
             const finishedGame = await this.gameHistoryRepository.getFinishedGame(decodeURIComponent(finishedGameMatch[1]));
@@ -452,6 +471,31 @@ export class HttpApplication {
                 description: `Review your finished match ${finishedGame.sessionId}: ${finishedGame.moveCount} moves, ${finishedGame.players.length} players, ended ${this.formatFinishReason(finishedGame.gameResult?.reason)}.`,
                 ogType: 'article',
                 robots: 'noindex, nofollow'
+            };
+        }
+
+        const sandboxPositionMatch = req.path.match(/^\/sandbox\/([^/]+)$/);
+        if (sandboxPositionMatch) {
+            const positionId = decodeURIComponent(sandboxPositionMatch[1]);
+            const sandboxPosition = await this.sandboxPositionService.getPosition(positionId);
+            if (!sandboxPosition) {
+                return {
+                    ...defaultMetadata,
+                    title: `Sandbox Position Not Found • ${DEFAULT_PAGE_TITLE}`,
+                    description: 'The requested sandbox position could not be found. Open sandbox mode to start from a clean board or import another shared position.',
+                    ogType: 'article',
+                    robots: 'noindex, nofollow'
+                };
+            }
+
+            const occupiedCellCount = sandboxPosition.gamePosition.cells.length;
+            const turnLabel = formatSandboxPlayerLabel(sandboxPosition.gamePosition.currentTurnPlayer);
+            const placementSummary = formatPlacementSummary(sandboxPosition.gamePosition.placementsRemaining);
+            return {
+                ...defaultMetadata,
+                title: `${sandboxPosition.name} • Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
+                description: `Open the "${sandboxPosition.name}" sandbox position with ${occupiedCellCount} placed ${occupiedCellCount === 1 ? 'cell' : 'cells'}. ${turnLabel} to move with ${placementSummary}.`,
+                ogType: 'article'
             };
         }
 

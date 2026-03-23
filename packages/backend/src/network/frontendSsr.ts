@@ -5,7 +5,8 @@ import type {
   FinishedGameRecord,
   FinishedGamesPage,
   Leaderboard,
-  LobbyInfo
+  LobbyInfo,
+  SandboxPositionResponse
 } from '@ih3t/shared'
 import type express from 'express'
 import { join } from 'node:path'
@@ -13,6 +14,7 @@ import { pathToFileURL } from 'node:url'
 import type { AuthService } from '../auth/authService'
 import type { LeaderboardService } from '../leaderboard/leaderboardService'
 import type { GameHistoryRepository } from '../persistence/gameHistoryRepository'
+import type { SandboxPositionService } from '../sandbox/sandboxPositionService'
 import type { SessionManager } from '../session/sessionManager'
 
 interface FrontendSsrDependencies {
@@ -20,6 +22,7 @@ interface FrontendSsrDependencies {
   frontendDistPath: string
   gameHistoryRepository: GameHistoryRepository
   leaderboardService: LeaderboardService
+  sandboxPositionService: SandboxPositionService
   sessionManager: SessionManager
 }
 
@@ -152,6 +155,23 @@ export class FrontendSsrRenderer {
         queryClient.setQueryData(
           ['finished-games', gameId],
           finishedGameRecord
+        )
+      }
+    }
+
+    const sandboxPositionMatch = path.match(/^\/sandbox\/([^/]+)$/)
+    if (sandboxPositionMatch) {
+      const positionId = decodeURIComponent(sandboxPositionMatch[1])
+      const sandboxPosition = await this.dependencies.sandboxPositionService.loadPosition(positionId)
+      if (sandboxPosition) {
+        const sandboxPositionResponse: SandboxPositionResponse = {
+          id: positionId,
+          name: sandboxPosition.name,
+          gamePosition: sandboxPosition.gamePosition
+        }
+        queryClient.setQueryData(
+          ['sandbox-position', positionId],
+          sandboxPositionResponse
         )
       }
     }

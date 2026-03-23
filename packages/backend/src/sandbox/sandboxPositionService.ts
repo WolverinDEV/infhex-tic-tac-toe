@@ -48,6 +48,10 @@ export class SandboxPositionService {
         return await this.sandboxPositionRepository.getPositionAndIncrementLoadCount(id);
     }
 
+    async getPosition(id: string): Promise<LoadedSandboxPositionRecord | null> {
+        return await this.sandboxPositionRepository.getPosition(id);
+    }
+
     private generateShortId(): string {
         let id = '';
         for (let characterIndex = 0; characterIndex < SHORT_ID_LENGTH; characterIndex += 1) {
