@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/experimental-ct-react';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
+import tailwindcss from '@tailwindcss/vite'
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -32,6 +33,11 @@ export default defineConfig({
         ctPort: 3100,
         ctViteConfig: {
             define: {},
+            plugins: [
+                tailwindcss(),
+                react(),
+                babel({ presets: [reactCompilerPreset()] }),
+            ]
         },
     },
 

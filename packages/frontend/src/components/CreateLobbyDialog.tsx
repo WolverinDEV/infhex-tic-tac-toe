@@ -157,7 +157,7 @@ function CreateLobbyDialog({
               </div>
             </div>
 
-            <div className="mt-3 space-y-2.5">
+            <div className="mt-3 flex flex-col gap-4 sm:gap-6">
               <section className="p-0">
                 <div className="flex items-center justify-between gap-3">
                   <div>

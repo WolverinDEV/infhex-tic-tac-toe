@@ -42,7 +42,7 @@ function GameHudShell({
                 type="button"
                 onClick={onOpen}
                 title={openTitle}
-                className="relative pointer-events-auto self-end flex mr-3 mb-3 h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 text-white shadow-lg transition hover:bg-slate-600"
+                className="relative cursor-pointer pointer-events-auto self-end flex mr-3 mb-3 h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 text-white shadow-lg transition hover:bg-slate-600"
             >
                 {openIcon}
                 {openButtonBadge}
@@ -55,7 +55,7 @@ function GameHudShell({
         <div
             ref={panelRef}
             className={cn(
-                "pointer-events-auto z-[20]",
+                "pointer-events-auto z-20",
                 "w-auto md:w-full md:max-w-sm",
                 "overflow-hidden",
                 "bg-slate-800",
@@ -66,8 +66,8 @@ function GameHudShell({
                 "absolute",
                 "bottom-0 left-0 right-0",
                 "md:relative",
-                "md:rounded-tl-[1.5rem] md:rounded-tr-none",
-                side === "right" && "md:rounded-bl-[1.5rem] md:mb-4"
+                "md:rounded-tl-3xl md:rounded-tr-none",
+                side === "right" && "md:rounded-bl-3xl md:mb-4"
             )}
         >
             <div className="pointer-events-auto absolute right-3 top-3 z-10">
@@ -75,7 +75,7 @@ function GameHudShell({
                     type="button"
                     onClick={onClose}
                     title={closeTitle}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 shadow-lg transition hover:bg-slate-600"
+                    className="flex cursor-pointer h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 shadow-lg transition hover:bg-slate-600"
                 >
                     <CloseIcon />
                 </button>

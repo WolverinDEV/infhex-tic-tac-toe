@@ -667,7 +667,6 @@ function useGameBoard({
         viewRef.current = { offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE }
         lineHighlightsRef.current = []
         rightPointerStateRef.current = null
-        syncLineHighlightCount()
         scheduleDraw()
     }
 

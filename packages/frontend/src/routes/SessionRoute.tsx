@@ -132,7 +132,7 @@ function ConfirmLeaveSessionModal({ onStay, onLeave }: Readonly<{
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-session-title"
-        className="w-full max-w-lg rounded-[2rem] border border-rose-300/20 bg-slate-950/95 p-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.55)] sm:p-10"
+        className="w-full max-w-xl rounded-4xl border border-rose-300/20 bg-slate-950/95 p-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.55)] sm:p-10"
       >
         <div className="inline-flex rounded-full border border-rose-300/35 bg-rose-300/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-rose-100">
           Match In Progress
@@ -146,15 +146,15 @@ function ConfirmLeaveSessionModal({ onStay, onLeave }: Readonly<{
         <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             onClick={onStay}
-            className="rounded-full border border-white/15 bg-white/8 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:-translate-y-0.5 hover:bg-white/14"
+            className="rounded-full cursor-pointer border border-white/15 bg-white/8 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:-translate-y-0.5 hover:bg-white/14"
           >
             Stay In Match
           </button>
           <button
             onClick={onLeave}
-            className="rounded-full bg-rose-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:-translate-y-0.5 hover:bg-rose-400"
+            className="rounded-full cursor-pointer bg-rose-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:-translate-y-0.5 hover:bg-rose-400"
           >
-            Surrender And Leave
+            Surrender <span className={"hidden sm:inline"}>And Leave</span>
           </button>
         </div>
       </div>

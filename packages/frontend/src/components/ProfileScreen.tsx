@@ -25,6 +25,7 @@ import {
 } from '../utils/profileStats'
 import PageCorpus from './PageCorpus'
 import React from 'react'
+import AccountPicture from './AccountPicture'
 
 const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
 const defaultPlayerElo = 1000
@@ -337,7 +338,7 @@ function ProfileScreen({
         ? 'Public profile details and competitive standing for this Infinity Hexagonal Tic-Tac-Toe player.'
         : 'Account details and competitive standing for your Infinity Hexagonal Tic-Tac-Toe profile.'}
     >
-      <div className="min-h-0 flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
+      <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
         {isLoading ? (
           <div className="flex h-full items-center justify-center rounded-[1.75rem] border border-white/10 bg-white/6 px-6 py-10 text-center text-slate-300">
             {isPublicView ? 'Loading profile...' : 'Loading your account...'}
@@ -353,7 +354,7 @@ function ProfileScreen({
             </section>
           </div>
         ) : errorMessage ? (
-          <div className="rounded-[1.5rem] border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-100">
+          <div className="rounded-3xl border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-100">
             {errorMessage}
           </div>
         ) : !account ? (
@@ -386,22 +387,12 @@ function ProfileScreen({
           )
         ) : (
           <div className="space-y-6">
-            <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_30%),rgba(255,255,255,0.05)] p-6 shadow-[0_24px_100px_rgba(15,23,42,0.34)] sm:p-8">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-200/50 to-transparent" />
-              <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr),minmax(22rem,0.85fr)] xl:items-end">
+            <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_30%),rgba(255,255,255,0.05)] p-6 shadow-[0_24px_100px_rgba(15,23,42,0.34)] sm:p-8">
+              <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-sky-200/50 to-transparent" />
+              <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-end">
                 <div className="min-w-0 flex items-center my-auto">
                   <div className="flex min-w-0 items-start gap-4">
-                    {account.image ? (
-                      <img
-                        src={account.image}
-                        alt={account.username}
-                        className="h-20 w-20 flex-shrink-0 rounded-[1.5rem] object-cover ring-1 ring-white/10 sm:h-24 sm:w-24"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-[1.5rem] border border-white/10 bg-white/10 text-3xl font-black text-white sm:h-24 sm:w-24">
-                        {account.username.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
+                    <AccountPicture username={account.username} image={account.image} className={"h-20 w-20 sm:h-24 sm:w-24 mr-4"} />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -490,7 +481,7 @@ function ProfileScreen({
                     </div>
                   </section>
 
-                  <div className="mt-4 grid gap-4 xl:grid-cols-[1.05fr,1.2fr,0.95fr]">
+                  <div className="mt-4 grid gap-4 xl:grid-cols-[1.05fr_1.2fr_0.95fr]">
                     <StatisticsGroup
                       eyebrow="Overview"
                       title="Overall Games"

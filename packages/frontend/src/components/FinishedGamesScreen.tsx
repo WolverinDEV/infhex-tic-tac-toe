@@ -94,8 +94,6 @@ function FinishedGamesScreen({
       description={isOwnArchive
         ? 'Review the finished matches you played while signed in and open any replay move by move.'
         : 'Browse completed matches and open any game to step through every move on the board.'}
-
-      onRefresh={onRefresh}
     >
       <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-[auto_auto_1fr] px-4 sm:px-6">
         <div className="inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-slate-200 sm:px-4 sm:py-2 sm:text-sm">

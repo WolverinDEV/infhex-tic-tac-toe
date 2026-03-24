@@ -123,7 +123,7 @@ function GameChatBox({
         className="h-72 overflow-y-auto rounded-2xl mt-2 mr-[-1em] pr-[1em]"
       >
         {messages.length === 0 ? (
-          <div className="rounded-[1rem] border border-dashed border-white/10 bg-slate-950/20 px-4 py-5 text-sm leading-6 text-slate-300/70">
+          <div className="px-2 py-5 text-sm leading-6 text-slate-300">
             No messages yet. Say something to your opponent while the match is live.
           </div>
         ) : messages.map((message, index) => {

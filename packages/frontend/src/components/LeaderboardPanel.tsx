@@ -5,6 +5,7 @@ import { useQueryAccount } from '../query/accountClient'
 import { getInitialRenderTimestamp } from '../ssrState'
 import { formatDateTime } from '../utils/dateTime'
 import { formatRefreshCountdown } from '../utils/duration'
+import { cn } from '../utils/cn'
 
 function LeaderboardAvatar({ player }: Readonly<{ player: LeaderboardPlayer }>) {
   if (player.image) {
@@ -12,13 +13,13 @@ function LeaderboardAvatar({ player }: Readonly<{ player: LeaderboardPlayer }>) 
       <img
         src={player.image}
         alt={player.displayName}
-        className="h-10 w-10 flex-shrink-0 rounded-full object-cover sm:h-11 sm:w-11"
+        className="h-10 w-10 shrink-0 rounded-full object-cover sm:h-11 sm:w-11"
       />
     )
   }
 
   return (
-    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8 text-xs font-black text-white sm:h-11 sm:w-11 sm:text-sm">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/8 text-xs font-black text-white sm:h-11 sm:w-11 sm:text-sm">
       {player.displayName.slice(0, 2).toUpperCase()}
     </div>
   )
@@ -31,16 +32,16 @@ function getProfileHref(profileId: string) {
 function LeaderboardMetric({
   label,
   value,
-  minWidth,
+  className,
 }: Readonly<{
   label: string
   value: string | number
-  minWidth: string
+  className: string
 }>) {
   return (
-    <div className="flex items-baseline gap-1.5 whitespace-nowrap justify-end" style={{ minWidth }}>
-      <div className="text-sm font-bold text-white sm:text-base text-right">{value}</div>
-      <div className="text-[0.58rem] uppercase tracking-[0.16em] text-slate-500 sm:text-[0.62rem]">{label}</div>
+    <div className={cn("flex items-baseline gap-1.5 whitespace-nowrap justify-end  min-w-0", className)}>
+      <div className="text-sm font-bold text-white sm:text-base text-right flex-0">{value}</div>
+      <div className="text-[0.58rem] uppercase tracking-[0.16em] text-slate-500 sm:text-[0.62rem] min-w-0 text-ellipsis overflow-hidden">{label}</div>
     </div >
   )
 }
@@ -118,13 +119,13 @@ function LeaderboardCard({
   return (
     <div
       key={`${player.profileId}:${rank}`}
-      className={`rounded-[1rem] border px-3 py-2.5 sm:rounded-[1.15rem] sm:px-3.5 sm:py-3 ${kRankTones[`rank-${rank}`] ?? kRankTones[display]}`}
+      className={`@container rounded-2xl border px-3 py-2.5 sm:rounded-[1.15rem] sm:px-3.5 sm:py-3 ${kRankTones[`rank-${rank}`] ?? kRankTones[display]}`}
     >
       {display === "self" && (
         <div className="text-[0.68rem] mb-3 font-semibold uppercase tracking-[0.24em] text-sky-200">Your Place</div>
       )}
       <div className="grid grid-cols-[min-content_1fr] sm:grid-cols-[min-content_auto_1fr] gap-x-3 gap-y-2 sm:gap-3.5">
-        <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border text-xs font-black sm:h-10 sm:w-10 sm:text-sm ${getRankTone(rank)}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-xs font-black sm:h-10 sm:w-10 sm:text-sm ${getRankTone(rank)}`}>
           {rank}
         </div>
 
@@ -140,10 +141,16 @@ function LeaderboardCard({
           </Link>
         </div>
 
-        <div className="col-start-2 justify-end sm:col-span-1 flex-row-reverse sm:flex-row items-center flex w-full gap-x-4 gap-y-1.5 pt-0.5 text-left sm:w-auto sm:flex-nowrap sm:gap-x-5 sm:pt-0">
-          <LeaderboardMetric label="Won" minWidth={"4em"} value={player.gamesWon} />
-          <LeaderboardMetric label="Played" minWidth={"4em"} value={player.gamesPlayed} />
-          <LeaderboardMetric label="ELO" minWidth={"4em"} value={player.elo} />
+        <div className={cn(
+          "col-start-auto col-span-2",
+          "@min-[17em]:col-span-1 @min-[17em]:col-start-2",
+          "sm:col-start-auto! sm:flex-row sm:w-auto sm:flex-nowrap sm:gap-x-5 sm:pt-0",
+          "flex flex-row-reverse justify-end items-center w-full gap-x-2 sm:gap-x-4 gap-y-1.5 pt-0.5 text-left",
+          "overflow-hidden overscroll-contain"
+        )}>
+          <LeaderboardMetric label="Won" className={"w-[5.5em]"} value={player.gamesWon} />
+          <LeaderboardMetric label="Played" className={"w-[5.5em]"} value={player.gamesPlayed} />
+          <LeaderboardMetric label="ELO" className={"w-[5.5em]"} value={player.elo} />
         </div>
       </div>
     </div>
@@ -152,43 +159,17 @@ function LeaderboardCard({
 
 export function LeaderboardSection({
   leaderboard,
-  isLoading,
-  title = 'Top 10 Players',
-  eyebrow = 'ELO Leaderboard',
-  description = 'Ranked by ELO rating from rated games. Ties fall back to rated games played, then account age.',
-  showSnapshot = true
+  isUpdating,
 }: Readonly<{
   leaderboard: Leaderboard,
-  isLoading: boolean,
-  currentUsername?: string | null
-  title?: string
-  eyebrow?: string
-  description?: string
-  showSnapshot?: boolean
+  isUpdating: boolean,
 }>) {
   const isOnLeaderboard = leaderboard.ownPlacement && leaderboard.players.some(player => player.profileId === leaderboard.ownPlacement!.profileId);
 
   return (
-    <section className="rounded-[1.75rem] border border-white/10 bg-white/6 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.35)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-amber-200/80">{eyebrow}</div>
-          <h2 className="mt-3 text-2xl font-black uppercase tracking-[0.08em] text-white sm:text-3xl">
-            {title}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-            {description}
-          </p>
-        </div>
-        {showSnapshot && (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300">
-            Snapshot {formatDateTime(leaderboard.generatedAt)}
-          </div>
-        )}
-      </div>
-
+    <section className="px-4 sm:px-6 pb-4 sm:pb-6 flex flex-col">
       {leaderboard.players.length === 0 ? (
-        <div className="mt-6 rounded-[1.5rem] border border-dashed border-white/10 bg-slate-950/35 px-5 py-10 text-center text-sm text-slate-400">
+        <div className="mt-6 rounded-3xl border border-dashed border-white/10 bg-slate-950/35 px-5 py-10 text-center text-sm text-slate-400">
           No rated games yet, so the leaderboard is still empty.
         </div>
       ) : (
@@ -208,7 +189,7 @@ export function LeaderboardSection({
         <PersonalLeaderboardCard placement={leaderboard.ownPlacement} />
       )}
 
-      <LeaderboardRefreshIndicator leaderboard={leaderboard} isRefreshing={isLoading} />
+      <LeaderboardRefreshIndicator leaderboard={leaderboard} isRefreshing={isUpdating} />
     </section>
   )
 }
@@ -237,7 +218,7 @@ export function LeaderboardRefreshIndicator({
   const remainingMs = Math.max(0, leaderboard.nextRefreshAt - now)
 
   return (
-    <div className="mt-5 min-w-[10em] w-full rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/10 p-4">
+    <div className="mt-5 min-w-[10em] w-full rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-emerald-100">
           <span className={`h-2.5 w-2.5 rounded-full ${isRefreshing ? 'animate-pulse bg-amber-300' : 'bg-emerald-300'}`} />
@@ -249,7 +230,7 @@ export function LeaderboardRefreshIndicator({
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-300 via-emerald-300 to-amber-200 transition-[width] duration-700"
+          className="h-full rounded-full bg-linear-to-r from-sky-300 via-emerald-300 to-amber-200 transition-[width] duration-700"
           style={{ width: `${elapsedRatio * 100}%` }}
         />
       </div>

@@ -113,7 +113,7 @@ function LobbyScreen({
         onCreateLobby={onHostGame}
       />
       <div className="mx-auto gap-4 lg:gap-8 lg:min-h-0 h-full flex-1 mt-4 lg:mt-[8vh] flex flex-col lg:grid lg:grid-cols-2">
-        <section className="max-w-xl relative flex rounded-[1.75rem] border-white/10 bg-white/6 p-6 sm:min-h-[34rem] sm:rounded-[2rem] sm:p-8 md:p-10 sm:h-[34rem]">
+        <section className="max-w-xl relative flex rounded-[1.75rem]p-6 sm:min-h-[34rem] sm:rounded-[2rem] sm:p-8 md:p-10 sm:h-[34rem]">
           <div className="relative flex flex-1 flex-col justify-center">
             <div className="self-start inline-flex rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-amber-100 sm:px-4 sm:text-xs sm:tracking-[0.35em]">
               Two Players
@@ -134,7 +134,7 @@ function LobbyScreen({
                 onClick={() => setIsCreateLobbyDialogOpen(true)}
                 disabled={isPlayingDisabled}
                 className={`sm:col-span-2 rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition sm:px-7 sm:text-base sm:tracking-[0.18em] ${!isPlayingDisabled
-                  ? 'bg-amber-300 text-slate-900 shadow-[0_10px_35px_rgba(251,191,36,0.35)] hover:-translate-y-0.5 hover:bg-amber-200'
+                  ? 'cursor-pointer bg-amber-300 text-slate-900 shadow-[0_10px_35px_rgba(251,191,36,0.35)] hover:-translate-y-0.5 hover:bg-amber-200'
                   : 'cursor-not-allowed bg-slate-500/60 text-slate-200'
                   }`}
               >
@@ -143,13 +143,13 @@ function LobbyScreen({
               <div className={"flex flex-col sm:flex-row gap-4 lg:hidden"}>
                 <button
                   onClick={onOpenSandbox}
-                  className="w-full rounded-full border border-emerald-300/25 bg-emerald-400/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-100 transition hover:-translate-y-0.5 hover:bg-emerald-400/18 sm:px-7 sm:text-base sm:tracking-[0.18em]"
+                  className="w-full cursor-pointer rounded-full border border-emerald-300/25 bg-emerald-400/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-100 transition hover:-translate-y-0.5 hover:bg-emerald-400/18 sm:px-7 sm:text-base sm:tracking-[0.18em]"
                 >
                   Sandbox Mode
                 </button>
                 <button
                   onClick={onViewLeaderboard}
-                  className="w-full block rounded-full border border-sky-300/25 bg-sky-400/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-400/20 sm:px-7 sm:text-base sm:tracking-[0.18em]"
+                  className="w-full cursor-pointer block rounded-full border border-sky-300/25 bg-sky-400/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-400/20 sm:px-7 sm:text-base sm:tracking-[0.18em]"
                 >
                   Leaderboard
                 </button>

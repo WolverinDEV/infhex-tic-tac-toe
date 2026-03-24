@@ -58,31 +58,6 @@ function MenuLink({
   )
 }
 
-function MobileNavLink({
-  to,
-  label,
-  end = false,
-  onSelect
-}: Readonly<{
-  to: string
-  label: string
-  end?: boolean
-  onSelect: () => void
-}>) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      onClick={onSelect}
-      className={({ isActive }) => `block rounded-xl px-3 py-2.5 text-sm transition ${isActive
-        ? 'bg-amber-300/14 text-amber-100'
-        : 'text-slate-300 hover:bg-amber-300/8 hover:text-amber-50'
-        }`}
-    >
-      {label}
-    </NavLink>
-  )
-}
 
 function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
   const location = useLocation()
@@ -144,9 +119,9 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
   }
 
   return (
-    <div className="absolute inset-0 overflow-auto flex min-h-dvh flex-col bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.12),_transparent_24%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
+    <div className="absolute inset-0 overflow-auto flex min-h-dvh flex-col bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_24%),linear-gradient(135deg,#020617,#0f172a_45%,#111827)] text-white">
       <header ref={headerRef} className="sticky top-0 z-40 border-b border-sky-300/10 bg-slate-950/85 backdrop-blur-xl">
-        <div className="mx-auto flex flex-row w-full max-w-[92rem] gap-4 px-2 py-2 lg:py-4 lg:px-6 items-center justify-between">
+        <div className="mx-auto flex flex-row w-full max-w-368 gap-4 px-2 py-2 lg:py-4 lg:px-6 items-center justify-between">
           <NavLink
             to="/"
             end
@@ -156,7 +131,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
               src="/favicon.png"
               alt=""
               aria-hidden="true"
-              className="h-9 w-9 flex-shrink-0 rounded-lg"
+              className="h-9 w-9 shrink-0 rounded-lg"
             />
             <span className="min-w-0 text-left leading-tight">
               <span className="block text-[11px] font-semibold text-sky-100 sm:hidden">
@@ -189,7 +164,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                   aria-haspopup="menu"
                   aria-expanded={isAccountMenuOpen}
                   onClick={() => { setIsAccountMenuOpen((open) => !open); setIsMobileMenuOpen(false) }}
-                  className="inline-flex items-center gap-3 rounded-lg bg-sky-400/8 px-3 py-2 text-left transition hover:bg-sky-400/12"
+                  className="inline-flex items-center gap-3 rounded-lg p-3 text-left transition cursor-pointer hover:bg-sky-400/8"
                 >
                   <AccountPicture username={account.username} image={account.image} />
 
@@ -215,10 +190,9 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                 </button>
                 {isAccountMenuOpen && (
                   <div className="border-t mt-2 lg:mt-4 border-white/10 px-4 py-4 sm:px-6 absolute bg-slate-950 lg:p-0 lg:border-none lg:bg-transparent right-0 left-0 lg:left-auto lg:w-[18em] lg:text-right z-50">
-                    {/* <div className="px-4 pb-4 sm:px-6 lg:max-w-sm w-full"> */}
                     <div
                       role="menu"
-                      className=" bg-slate-950 mx-auto w-full max-w-[92rem] rounded-2xl lg:border border-sky-300/10 bg-slate-950/96 p-2 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl"
+                      className=" bg-slate-950 mx-auto w-full max-w-368 rounded-2xl lg:border border-sky-300/10 p-2 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl"
                     >
                       <div className="space-y-1">
                         <MenuLink to="/account/games" label="Match History" onSelect={() => setIsAccountMenuOpen(false)} />
@@ -229,6 +203,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                       {account.role === 'admin' && (
                         <div className="mt-2 border-t border-amber-300/10 pt-2">
                           <MenuLink to="/admin" label="Admin Controls" onSelect={() => setIsAccountMenuOpen(false)} />
+                          <MenuLink to="/admin/stats" label="Admin Statistics" onSelect={() => setIsAccountMenuOpen(false)} />
                         </div>
                       )}
 
@@ -239,7 +214,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                             setIsAccountMenuOpen(false)
                             void handleSignOut()
                           }}
-                          className="block w-full rounded-xl px-3 py-2.5 text-left lg:text-right text-sm text-rose-100 transition hover:bg-rose-500/10"
+                          className="block cursor-pointer w-full rounded-xl px-3 py-2.5 text-left lg:text-right text-sm text-rose-100 transition hover:bg-rose-500/10"
                         >
                           Logout
                         </button>
@@ -255,7 +230,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                 onClick={() => void handleSignIn()}
                 className="inline-flex self-start items-center gap-2 rounded-lg bg-[#5865F2] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#6f7cff] sm:px-4 sm:text-sm lg:self-auto"
               >
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current sm:h-[18px] sm:w-[18px]">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current sm:h-4.5 sm:w-4.5">
                   <path d="M20.32 4.37A18.13 18.13 0 0 0 15.8 3a12.2 12.2 0 0 0-.58 1.18 16.56 16.56 0 0 0-6.43 0A12.2 12.2 0 0 0 8.21 3a18.05 18.05 0 0 0-4.53 1.37C.81 8.65.03 12.83.42 16.96A18.24 18.24 0 0 0 5.98 19.8c.45-.61.85-1.26 1.2-1.95-.66-.25-1.3-.56-1.9-.92.16-.12.31-.25.46-.38 3.67 1.69 7.65 1.69 11.27 0 .15.13.3.26.46.38-.61.36-1.25.67-1.91.92.35.69.75 1.34 1.2 1.95a18.17 18.17 0 0 0 5.57-2.84c.45-4.79-.77-8.93-3.66-12.59ZM8.68 14.46c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Zm6.64 0c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Z" />
                 </svg>
                 <span className="sm:hidden">Sign In</span>
@@ -272,7 +247,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
               setIsAccountMenuOpen(false)
               setIsMobileMenuOpen((open) => !open)
             }}
-            className="lg:hidden inline-flex items-center justify-center rounded-lg bg-amber-300/8 p-2.5 text-amber-50 transition hover:bg-amber-300/12"
+            className="lg:hidden cursor-pointer h-15 w-15 inline-flex items-center justify-center rounded-lg text-amber-50 transition hover:bg-sky-400/8"
           >
             <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5">
               {isMobileMenuOpen ? (
@@ -298,16 +273,16 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
 
         {isMobileMenuOpen && (
           <div className="border-t border-white/10 px-4 py-4 sm:px-6 lg:hidden absolute bg-slate-950 right-0 left-0 z-50 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl">
-            <div className="mx-auto w-full max-w-[92rem] space-y-2 rounded-2xl p-2 shadow-[0_18px_50px_rgba(2,6,23,0.4)]">
-              <MobileNavLink to="/games" label="Match History" onSelect={() => setIsMobileMenuOpen(false)} />
-              <MobileNavLink to="/sandbox" label="Sandbox" onSelect={() => setIsMobileMenuOpen(false)} />
-              <MobileNavLink to="/leaderboard" label="Leaderboard" onSelect={() => setIsMobileMenuOpen(false)} />
+            <div className="mx-auto w-full max-w-368 space-y-2 rounded-2xl p-2 shadow-[0_18px_50px_rgba(2,6,23,0.4)]">
+              <MenuLink to="/games" label="Match History" onSelect={() => setIsMobileMenuOpen(false)} />
+              <MenuLink to="/sandbox" label="Sandbox" onSelect={() => setIsMobileMenuOpen(false)} />
+              <MenuLink to="/leaderboard" label="Leaderboard" onSelect={() => setIsMobileMenuOpen(false)} />
             </div>
           </div>
         )}
       </header>
 
-      <main className={`mx-auto flex w-full ${limitWidth ? "max-w-[92rem]" : ""} min-h-0 flex-1 flex-col`}>
+      <main className={`mx-auto flex w-full ${limitWidth ? "max-w-368" : ""} min-h-0 flex-1 flex-col`}>
         <AppErrorBoundary>
           <Outlet />
         </AppErrorBoundary>

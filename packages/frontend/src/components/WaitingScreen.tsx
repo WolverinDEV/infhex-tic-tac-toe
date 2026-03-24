@@ -17,7 +17,7 @@ function WaitingScreen({ sessionId, playerCount, playerNames, lobbyOptions, onIn
   return (
     <div className="max-w-[92rem] mx-auto flex flex-1 flex-col px-4 py-4 text-white sm:px-6 sm:py-6">
       <div className="mx-auto flex gap-4 flex-col lg:flex-row lg:gap-8 lg:min-h-0 h-full flex-1 mt-4 lg:mt-[8vh]">
-        <section className="hidden w-full xl:flex relative rounded-[1.75rem] border-white/10 bg-white/6 p-6 sm:min-h-[34rem] sm:rounded-[2rem] sm:p-8 md:p-10 sm:h-[34rem]">
+        <section className="hidden w-full xl:flex relative rounded-[1.75rem] p-6 sm:min-h-[34rem] sm:rounded-[2rem] sm:p-8 md:p-10 sm:h-[34rem]">
           <div className="relative flex flex-1 flex-col justify-center">
             <div className="self-start inline-flex rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-amber-100 sm:px-4 sm:text-xs sm:tracking-[0.35em]">
               Two Players
