@@ -69,6 +69,8 @@ type StoredAdapterUser = AdapterUser & {
     lastActiveAt: number;
 };
 
+const DEFAULT_PLAYER_ELO = 1000;
+
 export interface AdminUserWindowStats {
     newUsers: number;
     activeUsers: number;
@@ -106,6 +108,7 @@ export class AuthRepository implements Adapter {
         const document: AuthUserDocument = {
             _id: new ObjectId(),
             role: 'user',
+            highestElo: DEFAULT_PLAYER_ELO,
             preferences: {
                 ...DEFAULT_ACCOUNT_PREFERENCES,
                 changelogReadAt: Date.now()

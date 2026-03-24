@@ -8,7 +8,8 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["src/*"],
+            "@ih3t/shared": ["../shared/src/index.ts"]
         }
     },
     "exclude": ["node_modules", "dist"],

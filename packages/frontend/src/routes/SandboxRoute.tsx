@@ -10,7 +10,7 @@ import {
     type SessionParticipant
 } from '@ih3t/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'react-toastify'
 import GameBoardCanvas from '../components/game-screen/GameBoardCanvas'
@@ -38,16 +38,16 @@ const SANDBOX_PLAYERS: SessionParticipant[] = [
         id: 'sandbox-player-1',
         displayName: 'Player 1',
         profileId: null,
-        elo: null,
-        eloChange: null,
+        rating: { eloScore: 0, gameCount: 0 },
+        ratingAdjustment: null,
         connection: { status: 'connected' }
     },
     {
         id: 'sandbox-player-2',
         displayName: 'Player 2',
         profileId: null,
-        elo: null,
-        eloChange: null,
+        rating: { eloScore: 0, gameCount: 0 },
+        ratingAdjustment: null,
         connection: { status: 'connected' }
     }
 ]

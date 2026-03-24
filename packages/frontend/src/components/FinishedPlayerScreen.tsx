@@ -86,11 +86,14 @@ function FinishedPlayerScreen({
 }: Readonly<FinishedPlayerScreenProps>) {
   const isWin = variant === 'win'
   const currentPlayer = session.players.find((player) => player.id === currentPlayerId) ?? null
-  const eloSummary = currentPlayer && currentPlayer.elo !== null && currentPlayer.eloChange !== null
+  const eloAdjustment = currentPlayer && currentPlayer.ratingAdjustment ?
+    isWin ? currentPlayer.ratingAdjustment.eloGain : currentPlayer.ratingAdjustment.eloLoss : 0;
+
+  const eloSummary = currentPlayer && currentPlayer.rating !== null && currentPlayer.ratingAdjustment !== null
     ? {
-      currentElo: currentPlayer.elo,
-      previousElo: currentPlayer.elo - currentPlayer.eloChange,
-      eloChange: currentPlayer.eloChange
+      currentElo: currentPlayer.rating.eloScore + eloAdjustment,
+      previousElo: currentPlayer.rating.eloScore,
+      eloChange: eloAdjustment
     }
     : null
   const animatedElo = useAnimatedElo(

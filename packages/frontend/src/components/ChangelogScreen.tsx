@@ -60,7 +60,6 @@ function ChangelogScreen({
   preferencesErrorMessage,
 }: Readonly<ChangelogScreenProps>) {
   const [isMarkingRead, setIsMarkingRead] = useState(false)
-  const latestDate = changelogDays[0]?.date ?? null
   const latestCommitAt = getLatestChangelogCommitAt(changelogDays)
   const changelogReadAt = preferences?.changelogReadAt ?? null
   const newEntryCount = account && preferences
@@ -68,14 +67,6 @@ function ChangelogScreen({
     : 0
   const hasNewEntries = newEntryCount > 0
   const totalBreakingChangeCount = countBreakingChanges(changelogDays)
-  const unreadBreakingChangeCount = account && preferences
-    ? changelogDays.reduce(
-      (total, day) => total + day.entries.filter(
-        (entry) => entry.isBreakingChange && isUnreadChangelogEntry(entry.committedAt, changelogReadAt)
-      ).length,
-      0
-    )
-    : 0
 
   async function handleMarkNewChangesAsRead() {
     if (!account || !preferences || latestCommitAt <= 0) {

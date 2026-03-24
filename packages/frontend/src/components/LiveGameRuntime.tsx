@@ -41,7 +41,7 @@ function LiveGameRuntime() {
       playMatchStartSound()
     }
 
-    if (previousState === 'in-game' && nextState === 'finished' && isPlayer) {
+    if (previousState === 'in-game' && nextState === 'finished' && liveScreen.kind === 'session' && liveScreen.session.state === "finished" && isPlayer) {
       if (liveScreen.session.winningPlayerId === currentPlayerId) {
         playGameWinSound()
       } else {

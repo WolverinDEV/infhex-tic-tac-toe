@@ -226,7 +226,7 @@ export class SessionManager {
          * Optimistically load the player ELO even only used in lobby state
          * but we do not want a state change while registering the player
          */
-        const rating = await this.eloHandler.getPlayerRating(profileId);
+        const playerRating = profileId ? await this.eloHandler.getPlayerRating(profileId) : { eloScore: 0, gameCount: 0 };
 
         let participantRole: SessionParticipantRole;
         let participant: ServerSessionParticipant;
@@ -265,8 +265,9 @@ export class SessionManager {
                     profileId: params.profile?.id ?? null,
                     displayName,
 
-                    elo: rating?.elo ?? null,
-                    eloChange: null,
+                    rating: playerRating,
+                    ratingAdjustment: null,
+                    ratingAdjusted: null,
 
                     connection: { status: "disconnected", timestamp: Date.now() },
                 });
@@ -281,8 +282,9 @@ export class SessionManager {
                     profileId: params.profile?.id ?? null,
                     displayName: params.displayName,
 
-                    elo: null,
-                    eloChange: null,
+                    rating: playerRating,
+                    ratingAdjustment: null,
+                    ratingAdjusted: null,
 
                     connection: { status: "disconnected", timestamp: Date.now() },
                 });
@@ -470,8 +472,9 @@ export class SessionManager {
                 connection: { status: "disconnected", timestamp: Date.now() },
                 displayName: player.displayName,
 
-                elo: player.elo,
-                eloChange: null,
+                rating: player.ratingAdjusted ?? player.rating,
+                ratingAdjustment: null,
+                ratingAdjusted: null,
 
                 profileId: player.profileId,
             };
@@ -489,8 +492,9 @@ export class SessionManager {
                 connection: { status: "disconnected", timestamp: Date.now() },
                 displayName: player.displayName,
 
-                elo: null,
-                eloChange: null,
+                rating: player.ratingAdjusted ?? player.rating,
+                ratingAdjustment: null,
+                ratingAdjusted: null,
 
                 profileId: player.profileId,
             }
@@ -654,7 +658,14 @@ export class SessionManager {
                 session.rematchAcceptedPlayerIds = [];
                 session.isRatedGame = this.isRatedGameEnabled(session);
 
-                /* FIXME: calculate ELO changes here */
+                for (const player of session.players) {
+                    player.ratingAdjustment = null;
+                    player.ratingAdjusted = null;
+                }
+
+                if (session.isRatedGame) {
+                    this.calculateRatingAdjustments(session);
+                }
 
                 this.simulation.startSession(session.gameState, session.players.map((player) => player.id));
                 this.timeControl.startSession(session, this.handleTurnExpired, session.startedAt);
@@ -662,12 +673,15 @@ export class SessionManager {
                 this.emitGameState(session);
                 this.emitLobbyListUpdated();
                 this.emitSessionUpdated(session);
-                this.logger.info({
-                    event: 'session.started',
-                    sessionId: session.id,
-                    players: session.players.map(({ id }) => id),
-                    startedAt: session.startedAt
-                }, 'Session started');
+                this.logger.info(
+                    {
+                        event: 'session.started',
+                        sessionId: session.id,
+                        players: session.players.map(({ id }) => id),
+                        startedAt: session.startedAt
+                    },
+                    'Session started'
+                );
                 break;
             }
 
@@ -711,6 +725,8 @@ export class SessionManager {
             this.updateParticipantConnection(participant, { status: "disconnected", timestamp: Date.now() });
         }
 
+        await this.applyRatingAdjustments(session, winningPlayerId);
+
         const gameDurationMs = session.startedAt === null ? null : finishedAt - session.startedAt;
         void this.ensureGameHistory(session).then((gameId) => this.gameHistoryRepository.finishGame(gameId, {
             winningPlayerId,
@@ -737,15 +753,17 @@ export class SessionManager {
         this.emitSessionUpdated(session);
         this.shutdownHook.tryShutdown();
 
-        await this.applyRatedGameResult(session, winningPlayerId);
-        this.logger.info({
-            event: 'session.finished',
-            sessionId: session.id,
-            reason,
-            winningPlayerId,
-            players: session.players.map(({ id }) => id),
-            finishedAt
-        }, 'Session finished');
+        this.logger.info(
+            {
+                event: 'session.finished',
+                sessionId: session.id,
+                reason,
+                winningPlayerId,
+                players: session.players.map(({ id }) => id),
+                finishedAt
+            },
+            'Session finished'
+        );
     }
 
     private updateParticipantConnection(participant: ServerSessionParticipant, connection: ServerParticipantConnection) {
@@ -1121,7 +1139,7 @@ export class SessionManager {
             players: session.players.map((player) => ({
                 displayName: player.displayName,
                 profileId: player.profileId,
-                elo: player.elo
+                elo: player.rating?.eloScore ?? null
             })),
             timeControl: { ...session.gameOptions.timeControl },
             rated: session.gameOptions.rated,
@@ -1149,8 +1167,8 @@ export class SessionManager {
             playerId: player.id,
             displayName: player.displayName || `Player ${playerIndex + 1}`,
             profileId: player.profileId ?? player.id,
-            elo: player.elo ?? null,
-            eloChange: player.eloChange ?? null
+            elo: player.rating?.eloScore ?? null,
+            eloChange: null
         }));
     }
 
@@ -1178,70 +1196,66 @@ export class SessionManager {
         return true;
     }
 
-    private async applyRatedGameResult(session: ServerGameSession, winningPlayerId: string | null): Promise<void> {
+    private async applyRatingAdjustments(session: ServerGameSession, winningPlayerId: string | null): Promise<void> {
         if (!session.isRatedGame || !winningPlayerId) {
             return;
         }
 
-        const ratedPlayers = session.players.filter((player): player is ServerSessionParticipant & { profileId: string } => player.profileId !== null);
-        if (ratedPlayers.length !== MAX_PLAYERS_PER_SESSION) {
-            return;
-        }
-
-        const winner = ratedPlayers.find((player) => player.id === winningPlayerId);
-        const loser = ratedPlayers.find((player) => player.id !== winningPlayerId);
-        if (!winner || !loser) {
-            return;
-        }
-
         try {
-            const updatedRatings = await this.eloHandler.applyRatedGameResult([
-                { profileId: winner.profileId, score: 1 },
-                { profileId: loser.profileId, score: 0 }
-            ]);
+            const eloAdjustments = new Map<string, number>();
+            for (const player of session.players) {
+                if (!player.profileId || !player.ratingAdjustment) {
+                    continue
+                }
 
-            if (updatedRatings.size !== MAX_PLAYERS_PER_SESSION) {
-                return;
+                if (player.ratingAdjusted) {
+                    /* rating has already been adjusted */
+                    continue
+                }
+
+                const adjustment = player.ratingAdjustment;
+                player.ratingAdjusted = await this.eloHandler.applyGameResult(
+                    player.profileId,
+                    adjustment,
+                    player.id === winningPlayerId ? "win" : "loss"
+                );
+
+                const eloAdjustment = player.id === winningPlayerId ? adjustment.eloGain : adjustment.eloLoss;
+                eloAdjustments.set(player.profileId, eloAdjustment)
             }
 
-            this.applyUpdatedRatings(session.players, updatedRatings);
-            this.applyUpdatedRatings(session.spectators, updatedRatings);
             const gameId = await this.ensureGameHistory(session);
             await this.gameHistoryRepository.updatePlayerEloChanges(
                 gameId,
-                new Map(Array.from(updatedRatings.entries()).flatMap(([profileId, updatedRating]) => {
-                    const gamePlayer = session.players.find((player) => player.profileId === profileId);
-                    return gamePlayer ? [[gamePlayer.id, updatedRating.eloChange] as const] : [];
-                }))
+                eloAdjustments
             );
+
             this.emitSessionUpdated(session);
         } catch (error: unknown) {
-            this.logger.error({
-                err: error,
-                event: 'session.elo-update.failed',
-                sessionId: session.id,
-                winningPlayerId
-            }, 'Failed to apply rated game result');
+            this.logger.error(
+                {
+                    err: error,
+                    event: 'session.elo-update.failed',
+                    sessionId: session.id,
+                    winningPlayerId
+                },
+                'Failed to apply rated game result'
+            );
         }
     }
 
-    private applyUpdatedRatings(
-        participants: ServerSessionParticipant[],
-        updatedRatings: Map<string, { elo: number; eloChange: number }>
-    ): void {
-        for (const participant of participants) {
-            if (!participant.profileId) {
-                continue;
-            }
-
-            const updatedRating = updatedRatings.get(participant.profileId);
-            if (!updatedRating) {
-                continue;
-            }
-
-            participant.elo = updatedRating.elo;
-            participant.eloChange = updatedRating.eloChange;
+    private calculateRatingAdjustments(session: ServerGameSession) {
+        const ratedPlayers = session.players.filter(
+            (player): player is ServerSessionParticipant & { profileId: string } => player.profileId !== null
+        );
+        if (ratedPlayers.length !== 2) {
+            return false;
         }
+
+        const [playerOne, playerTwo] = ratedPlayers;
+
+        playerOne.ratingAdjustment = this.eloHandler.calculateEloAdjustments(playerOne.rating, playerTwo.rating);
+        playerTwo.ratingAdjustment = this.eloHandler.calculateEloAdjustments(playerTwo.rating, playerOne.rating);
     }
 
     private listStoredSessions(): ServerGameSession[] {

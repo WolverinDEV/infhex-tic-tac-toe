@@ -4,6 +4,7 @@ import { inject, injectable } from 'tsyringe';
 import { ROOT_LOGGER } from '../logger';
 import { AUTH_USERS_COLLECTION_NAME } from '../persistence/mongoCollections';
 import { MongoDatabase } from '../persistence/mongoClient';
+import { PlayerRating } from '@ih3t/shared';
 
 interface EloUserDocument extends Document {
     _id: ObjectId;
@@ -11,14 +12,11 @@ interface EloUserDocument extends Document {
     ratedGamesPlayed?: number;
 }
 
-export interface EloPlayerRating {
-    elo: number;
-    ratedGamesPlayed: number;
-}
 
-export interface StoredEloPlayerRating extends EloPlayerRating {
+export interface StoredEloPlayerRating extends PlayerRating {
     profileId: string;
 }
+
 
 export interface EloLeaderboardPlayer extends StoredEloPlayerRating { }
 
@@ -26,7 +24,7 @@ export interface EloLeaderboardPlacement extends EloLeaderboardPlayer {
     rank: number;
 }
 
-const DEFAULT_PLAYER_ELO = 1000;
+export const DEFAULT_PLAYER_ELO = 1000;
 const MINIMUM_PLAYER_ELO = 100;
 
 @injectable()
@@ -45,7 +43,7 @@ export class EloRepository {
         await this.getUsersCollection();
     }
 
-    async getPlayerRating(profileId: string): Promise<EloPlayerRating | null> {
+    async getPlayerRating(profileId: string): Promise<PlayerRating | null> {
         const collection = await this.getUsersCollection();
         const objectId = this.parseObjectId(profileId);
         if (!objectId) {
@@ -60,7 +58,7 @@ export class EloRepository {
         return this.mapRating(document);
     }
 
-    async getPlayerRatings(profileIds: string[]): Promise<Map<string, EloPlayerRating>> {
+    async getPlayerRatings(profileIds: string[]): Promise<Map<string, PlayerRating>> {
         const validEntries = profileIds.flatMap((profileId) => {
             const objectId = this.parseObjectId(profileId);
             return objectId ? [{ profileId, objectId }] : [];
@@ -85,35 +83,34 @@ export class EloRepository {
         );
     }
 
-    async updatePlayerRatings(playerRatings: readonly StoredEloPlayerRating[]): Promise<void> {
-        if (playerRatings.length === 0) {
-            return;
+    async performEloAdjustment(profileId: string, delta: number): Promise<PlayerRating> {
+        const collection = await this.getUsersCollection();
+        const objectId = this.parseObjectId(profileId);
+        if (!objectId) {
+            throw Error(`invalid profile id`)
         }
 
-        const updates = playerRatings.flatMap((playerRating) => {
-            const objectId = this.parseObjectId(playerRating.profileId);
-            if (!objectId) {
-                return [];
-            }
-
-            return [{
-                updateOne: {
-                    filter: { _id: objectId },
-                    update: {
-                        $set: {
-                            elo: playerRating.elo,
-                            ratedGamesPlayed: playerRating.ratedGamesPlayed
-                        }
-                    }
+        const document = await collection.findOneAndUpdate(
+            { _id: objectId },
+            {
+                $inc: {
+                    elo: delta,
+                    ratedGamesPlayed: 1
+                },
+            },
+            {
+                returnDocument: "after",
+                projection: {
+                    elo: 1,
+                    ratedGamesPlayed: 1
                 }
-            }];
-        });
-
-        if (updates.length === 0) {
-            return;
+            }
+        );
+        if (!document) {
+            throw Error(`invalid profile id`)
         }
 
-        await (await this.getUsersCollection()).bulkWrite(updates, { ordered: true });
+        return this.mapRating(document!);
     }
 
     async getTopLeaderboardPlayers(limit: number): Promise<EloLeaderboardPlayer[]> {
@@ -149,21 +146,21 @@ export class EloRepository {
         }
 
         const rating = this.mapRating(document);
-        if (rating.ratedGamesPlayed <= 0) {
+        if (rating.gameCount <= 0) {
             return null;
         }
 
         const higherRankedPlayers = await collection.countDocuments({
             ratedGamesPlayed: { $gt: 0 },
             $or: [
-                { elo: { $gt: rating.elo } },
+                { elo: { $gt: rating.eloScore } },
                 {
-                    elo: rating.elo,
-                    ratedGamesPlayed: { $gt: rating.ratedGamesPlayed }
+                    elo: rating.eloScore,
+                    ratedGamesPlayed: { $gt: rating.gameCount }
                 },
                 {
-                    elo: rating.elo,
-                    ratedGamesPlayed: rating.ratedGamesPlayed,
+                    elo: rating.eloScore,
+                    ratedGamesPlayed: rating.gameCount,
                     _id: { $lt: objectId }
                 }
             ]
@@ -201,10 +198,11 @@ export class EloRepository {
         return new ObjectId(value);
     }
 
-    private mapRating(document: EloUserDocument): EloPlayerRating {
+    private mapRating(document: EloUserDocument): PlayerRating {
+        const normalizedElo = this.normalizeStoredElo(document.elo);
         return {
-            elo: this.normalizeStoredElo(document.elo),
-            ratedGamesPlayed: this.normalizeStoredRatedGamesPlayed(document.ratedGamesPlayed)
+            eloScore: normalizedElo,
+            gameCount: this.normalizeStoredRatedGamesPlayed(document.ratedGamesPlayed)
         };
     }
 

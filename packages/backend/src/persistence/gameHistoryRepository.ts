@@ -213,13 +213,16 @@ export class GameHistoryRepository {
                 this.logMissingHistory('game-history-elo-update-error', gameId);
             }
         } catch (error: unknown) {
-            this.logger.error({
-                err: error,
-                type: 'game-history',
-                event: 'game-history-elo-update-error',
-                storage: 'mongodb',
-                gameId
-            }, 'Failed to update stored player elo changes');
+            this.logger.error(
+                {
+                    err: error,
+                    type: 'game-history',
+                    event: 'game-history-elo-update-error',
+                    storage: 'mongodb',
+                    gameId
+                },
+                'Failed to update stored player elo changes'
+            );
         }
     }
 

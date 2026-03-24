@@ -458,13 +458,27 @@ function selectWinningLineSegment(line: readonly HexCoordinate[], pivotIndex: nu
     return line.slice(startIndex, startIndex + WINNING_LINE_LENGTH);
 }
 
+export const zPlayerRating = z.object({
+    eloScore: z.number(),
+    gameCount: z.number().nonnegative()
+})
+export type PlayerRating = z.infer<typeof zPlayerRating>;
+
+export const zPlayerRatingAdjustment = z.object({
+    eloGain: z.number(),
+    eloLoss: z.number(),
+})
+export type PlayerRatingAdjustment = z.infer<typeof zPlayerRatingAdjustment>;
+
 export const zSessionParticipant = z.object({
     id: zIdentifier,
+    connection: zParticipantConnection,
+
     displayName: z.string(),
     profileId: zIdentifier.nullable(),
-    elo: z.number().int().nullable().default(null),
-    eloChange: z.number().int().nullable().default(null),
-    connection: zParticipantConnection
+
+    rating: zPlayerRating,
+    ratingAdjustment: zPlayerRatingAdjustment.nullable().default(null)
 });
 export type SessionParticipant = z.infer<typeof zSessionParticipant>;
 

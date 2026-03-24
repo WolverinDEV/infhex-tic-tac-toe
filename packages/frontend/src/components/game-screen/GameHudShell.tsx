@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import type { ReactNode, Ref } from 'react'
 import { cn } from '../../utils/cn'
 

@@ -6,7 +6,6 @@ import { getInitialRenderTimestamp } from '../ssrState'
 import { formatCalendarDate, formatRelativeTimeFrom } from '../utils/dateTime'
 import { formatDetailedDuration } from '../utils/duration'
 import {
-  formatStreakDetail,
   formatWinSummary,
   formatWorldRank
 } from '../utils/profileStats'

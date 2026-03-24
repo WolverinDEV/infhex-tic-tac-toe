@@ -452,7 +452,7 @@ export class ApiRouter {
             longestGamePlayedMs: gameStats.longestGamePlayedMs,
             longestGameByMoves: gameStats.longestGameByMoves,
             totalMovesMade: gameStats.totalMovesMade,
-            elo: leaderboardPlacement?.elo ?? playerRating?.elo ?? 1000,
+            elo: leaderboardPlacement?.eloScore ?? playerRating?.eloScore ?? 1000,
             worldRank: leaderboardPlacement?.rank ?? null
         };
     }

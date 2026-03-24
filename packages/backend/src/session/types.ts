@@ -1,6 +1,7 @@
 import {
     cloneGameState,
     createEmptyGameState,
+    PlayerRating,
     type GameState,
     type LobbyInfo,
     type LobbyOptions,
@@ -27,6 +28,8 @@ export type ServerParticipantConnection = ParticipantConnection & ({
 
 export interface ServerSessionParticipant extends SessionParticipant {
     deviceId: string
+
+    ratingAdjusted: PlayerRating | null,
 
     connection: ServerParticipantConnection
 }
@@ -131,10 +134,13 @@ export function toPublicParticipantConnection(connection: ServerParticipantConne
 export function cloneSessionParticipant(participant: ServerSessionParticipant): SessionParticipant {
     return {
         id: participant.id,
+
         displayName: participant.displayName,
         profileId: participant.profileId,
-        elo: participant.elo,
-        eloChange: participant.eloChange,
+
+        rating: participant.rating,
+        ratingAdjustment: participant.ratingAdjustment,
+
         connection: toPublicParticipantConnection(participant.connection)
     };
 }

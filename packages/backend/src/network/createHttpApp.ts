@@ -151,9 +151,7 @@ function formatTimeControl(timeControl: GameTimeControl): string {
 function getNormalizedPlayerLabels(players: SessionParticipant[]): string[] {
     return players.map((player) => {
         const normalizedName = player.displayName.trim() || 'A player';
-        return player.elo === null
-            ? normalizedName
-            : `${normalizedName} (${player.elo} ELO)`;
+        return player.rating === null ? normalizedName : `${normalizedName} (${player.rating.eloScore} ELO)`;
     });
 }
 

@@ -1,7 +1,6 @@
 import type { MouseEvent } from 'react'
 import type { SessionInfo } from '@ih3t/shared'
 import {
-  getSessionFinishReasonLabel,
   getSpectatorResultMessage,
   getSpectatorResultTitle
 } from '../utils/sessionResult'
@@ -81,7 +80,6 @@ function SpectatorFinishedScreen({
 }: Readonly<SpectatorFinishedScreenProps>) {
   const winningPlayer = session.players.find((player) => player.id === session.winningPlayerId) ?? null
   const winnerName = winningPlayer?.displayName?.trim() || null
-  const finishReasonLabel = getSessionFinishReasonLabel(session.finishReason)
   const title = getSpectatorResultTitle(winnerName)
   const message = getSpectatorResultMessage(session.finishReason, winnerName)
   const rematchStatus = getSpectatorRematchStatus(session)

@@ -107,7 +107,7 @@ export class LeaderboardService {
             profileId: player.profileId,
             displayName: profile?.username?.trim() || 'Player',
             image: profile?.image ?? null,
-            elo: player.elo,
+            elo: player.eloScore,
             gamesPlayed: stats?.gamesPlayed ?? 0,
             gamesWon: stats?.gamesWon ?? 0
         };

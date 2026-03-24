@@ -1,4 +1,4 @@
-import type { ChangelogDay, ChangelogEntryKind } from '@ih3t/shared'
+import type { ChangelogDay, ChangelogEntry, ChangelogEntryKind } from '@ih3t/shared'
 import { formatDateTime, formatUtcCalendarDate } from './dateTime'
 
 export function formatChangelogDate(value: string) {
@@ -22,14 +22,14 @@ export function isUnreadChangelogEntry(entryCommittedAt: number, changelogReadAt
 
 export function countUnreadChangelogEntries(changelogDays: ChangelogDay[], changelogReadAt: number | null) {
   return changelogDays.reduce(
-    (total, day) => total + day.entries.filter((entry) => isUnreadChangelogEntry(entry.committedAt, changelogReadAt)).length,
+    (total, day) => total + day.entries.filter((entry: ChangelogEntry) => isUnreadChangelogEntry(entry.committedAt, changelogReadAt)).length,
     0
   )
 }
 
 export function countBreakingChanges(changelogDays: ChangelogDay[]) {
   return changelogDays.reduce(
-    (total, day) => total + day.entries.filter((entry) => entry.isBreakingChange).length,
+    (total, day) => total + day.entries.filter((entry: ChangelogEntry) => entry.isBreakingChange).length,
     0
   )
 }
