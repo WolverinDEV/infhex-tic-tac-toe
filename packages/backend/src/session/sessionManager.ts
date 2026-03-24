@@ -897,9 +897,10 @@ export class SessionManager {
                 }
             );
         } else {
-            this.updateParticipantConnection(
-                participation.participant,
-                { status: "disconnected", timestamp: Date.now() }
+            this.leaveSession(
+                participation.session,
+                participation.participant.id,
+                "disconnect"
             );
         }
 
