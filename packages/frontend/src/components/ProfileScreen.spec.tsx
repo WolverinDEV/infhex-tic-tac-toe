@@ -50,7 +50,7 @@ const statistics: AccountStatistics = {
 
 async function setRenderTimestamp(page: { addInitScript: (callback: (value: number) => void, value: number) => Promise<void> }) {
   await page.addInitScript((value) => {
-    ;(window as typeof window & { __IH3T_RENDERED_AT__?: number }).__IH3T_RENDERED_AT__ = value
+    ; (window as typeof window & { __IH3T_RENDERED_AT__?: number }).__IH3T_RENDERED_AT__ = value
   }, renderTimestamp)
 }
 
@@ -70,17 +70,17 @@ test('starts the Discord sign-in flow for private account access', async ({ moun
   await page.evaluate(() => {
     const originalSubmit = HTMLFormElement.prototype.submit
 
-    ;(window as typeof window & {
-      __profileSignInSubmission: {
-        action: string
-        method: string
-        values: Record<string, string>
-      } | null
-      __restoreProfileFormSubmit?: () => void
-    }).__profileSignInSubmission = null
+      ; (window as typeof window & {
+        __profileSignInSubmission: {
+          action: string
+          method: string
+          values: Record<string, string>
+        } | null
+        __restoreProfileFormSubmit?: () => void
+      }).__profileSignInSubmission = null
 
     HTMLFormElement.prototype.submit = function submit() {
-      ;(window as typeof window & {
+      ; (window as typeof window & {
         __profileSignInSubmission: {
           action: string
           method: string
@@ -97,11 +97,11 @@ test('starts the Discord sign-in flow for private account access', async ({ moun
       }
     }
 
-    ;(window as typeof window & {
-      __restoreProfileFormSubmit?: () => void
-    }).__restoreProfileFormSubmit = () => {
-      HTMLFormElement.prototype.submit = originalSubmit
-    }
+      ; (window as typeof window & {
+        __restoreProfileFormSubmit?: () => void
+      }).__restoreProfileFormSubmit = () => {
+        HTMLFormElement.prototype.submit = originalSubmit
+      }
   })
 
   const component = await mount(
@@ -147,7 +147,7 @@ test('starts the Discord sign-in flow for private account access', async ({ moun
   expect(submission?.values.callbackUrl).toBe(page.url())
 
   await page.evaluate(() => {
-    ;(window as typeof window & {
+    ; (window as typeof window & {
       __restoreProfileFormSubmit?: () => void
     }).__restoreProfileFormSubmit?.()
   })

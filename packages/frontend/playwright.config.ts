@@ -31,9 +31,7 @@ export default defineConfig({
         /* Port to use for Playwright component endpoint. */
         ctPort: 3100,
         ctViteConfig: {
-            define: {
-                __APP_VERSION_HASH__: JSON.stringify('ct-test-build'),
-            },
+            define: {},
         },
     },
 

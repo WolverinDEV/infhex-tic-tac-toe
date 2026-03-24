@@ -137,13 +137,12 @@ function CreateLobbyDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 px-4 py-6 backdrop-blur-md">
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 px-4 py-6 backdrop-blur-md flex flex-col">
       <div
         className="absolute inset-0"
-        aria-hidden="true"
         onClick={onClose}
       />
-      <div className="relative z-10 flex min-h-full items-center justify-center">
+      <div className="relative my-auto z-10 flex self-center items-center justify-center">
         <section className="relative my-auto w-full max-w-2xl overflow-hidden rounded-[1.25rem] border border-white/10 bg-[linear-gradient(155deg,_rgba(15,23,42,0.97),_rgba(17,24,39,0.95)_55%,_rgba(30,41,59,0.92))] p-3.5 text-white shadow-[0_24px_80px_rgba(2,6,23,0.55)] sm:p-4">
           <div className="absolute -right-10 -top-14 h-20 w-20 rounded-full bg-sky-400/16 blur-3xl" />
           <div className="absolute -left-8 bottom-0 h-16 w-16 rounded-full bg-amber-300/12 blur-3xl" />
@@ -156,12 +155,6 @@ function CreateLobbyDialog({
                   Lobby Setup
                 </h2>
               </div>
-              <button
-                onClick={onClose}
-                className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200 transition hover:bg-white/12"
-              >
-                Close
-              </button>
             </div>
 
             <div className="mt-3 space-y-2.5">
