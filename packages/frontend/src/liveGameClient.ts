@@ -12,6 +12,7 @@ import { queryClient } from './query/queryClient'
 import { buildSessionPath } from './routes/archiveRouteState'
 import { sortLobbySessions } from './utils/lobby'
 import { queryKeys } from './query/queryDefinitions'
+import { EarlyWebSocket } from './earlySocketTransport'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
 let shouldHandleDisconnect = true
@@ -58,7 +59,7 @@ export function startLiveGameClient() {
       versionHash: APP_VERSION_HASH
     },
     withCredentials: true,
-    transports: ["websocket"]
+    transports: [EarlyWebSocket],
   })
 
   socket.on('connect_error', (error) => {

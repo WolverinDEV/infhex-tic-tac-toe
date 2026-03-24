@@ -15,7 +15,7 @@ export function getApiBaseUrl() {
   return 'http://localhost:3001'
 }
 
-export function getSocketUrl() {
+export function getSocketUrl(): string {
   return import.meta.env.VITE_SOCKET_URL ?? getApiBaseUrl()
 }
 

@@ -1,6 +1,7 @@
 import './index.css'
 import 'react-toastify/dist/ReactToastify.css'
 import { installSoundEffects } from './soundEffects'
+import "./earlySocketConnection";
 
 installSoundEffects()
 
