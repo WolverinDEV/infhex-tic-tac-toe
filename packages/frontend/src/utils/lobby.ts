@@ -35,7 +35,7 @@ export function formatActiveSessionDuration(startedAt: number, now: number) {
 }
 
 export function sortLobbySessions(sessions: LobbyInfo[]) {
-  return [...sessions].sort((leftSession, rightSession) => {
+  return sessions.sort((leftSession, rightSession) => {
     const leftCanJoin = leftSession.startedAt === null && leftSession.players.length < 2
     const rightCanJoin = rightSession.startedAt === null && rightSession.players.length < 2
 

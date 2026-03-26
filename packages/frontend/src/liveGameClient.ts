@@ -1,5 +1,6 @@
 import type {
     ClientToServerEvents,
+    LobbyInfo,
     ServerToClientEvents
 } from '@ih3t/shared'
 import { io, type Socket } from 'socket.io-client'
@@ -166,6 +167,25 @@ export function startLiveGameClient() {
         queryClient.setQueryData(
             queryKeys.availableSessions,
             sortLobbySessions(lobbies)
+        )
+    })
+
+    socket.on('lobby-updated', (lobby) => {
+        const lobbies: LobbyInfo[] = queryClient.getQueryData(queryKeys.availableSessions) ?? [];
+        const newLobbies = lobbies.filter(entry => entry.id !== lobby.id);
+        newLobbies.push(lobby);
+
+        queryClient.setQueryData(
+            queryKeys.availableSessions,
+            sortLobbySessions(newLobbies)
+        )
+    })
+
+    socket.on('lobby-removed', ({ id }) => {
+        const lobbies: LobbyInfo[] = queryClient.getQueryData(queryKeys.availableSessions) ?? [];
+        queryClient.setQueryData(
+            queryKeys.availableSessions,
+            sortLobbySessions(lobbies.filter(lobby => lobby.id !== id))
         )
     })
 

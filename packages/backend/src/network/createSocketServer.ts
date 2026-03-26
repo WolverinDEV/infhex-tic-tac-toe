@@ -31,14 +31,66 @@ type Participation = {
 
 type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+const LOBBY_LIST_DEBOUNCE_MS = 1_000;
+
+const kEmptyValue = Symbol()
+class UpdateDebouncer<T> {
+    private pendingTimer: ReturnType<typeof setTimeout> | null = null
+    private pendingValue: T | typeof kEmptyValue = kEmptyValue;
+
+    constructor(private readonly callback: (payload: T) => void) { }
+
+    private pushPendingValue() {
+        const value = this.pendingValue;
+        if (value === kEmptyValue) {
+            return;
+        }
+
+        this.pendingValue = kEmptyValue;
+        this.callback(value)
+    }
+
+    notify(value: T) {
+        const wasNull = this.pendingValue === kEmptyValue;
+        this.pendingValue = value;
+
+        if (this.pendingTimer) {
+            /* update already pending */
+            return;
+        } else if (wasNull) {
+            /*
+             * Send update now but aggregate instantanious updates.
+             * Set the timer to wait LOBBY_LIST_DEBOUNCE_MS until the next update.
+             */
+            setTimeout(() => this.pushPendingValue(), 0);
+        }
+
+        this.pendingTimer = setTimeout(
+            () => {
+                this.pendingTimer = null
+                this.pushPendingValue()
+            },
+            LOBBY_LIST_DEBOUNCE_MS
+        );
+    }
+
+    cancel() {
+        if (this.pendingTimer) {
+            clearTimeout(this.pendingTimer);
+            this.pendingTimer = null;
+        }
+
+        this.pendingValue = kEmptyValue;
+    }
+}
+
 @injectable()
 export class SocketServerGateway {
-    private static readonly LOBBY_LIST_DEBOUNCE_MS = 1_000;
     private readonly logger: Logger;
     private readonly socketParticipations = new Map<string, Participation>();
     private readonly connections = new Map<string, ClientSocket>();
-    private pendingLobbyList: LobbyInfo[] | null = null;
-    private lobbyListBroadcastTimer: ReturnType<typeof setTimeout> | null = null;
+    private lobbyPendingUpdates = new Map<string, UpdateDebouncer<LobbyInfo>>();
+
     private io?: Server<ClientToServerEvents, ServerToClientEvents>;
 
     constructor(
@@ -67,9 +119,21 @@ export class SocketServerGateway {
         });
 
         this.sessionManager.setEventHandlers({
-            lobbyListUpdated: (lobbies) => {
-                this.scheduleLobbyListBroadcast(io, lobbies);
+            lobbyUpdated: (event) => {
+                let debouncer = this.lobbyPendingUpdates.get(event.id);
+                if (!debouncer) {
+                    debouncer = new UpdateDebouncer(event => io.emit('lobby-updated', event));
+                    this.lobbyPendingUpdates.set(event.id, debouncer)
+                }
+
+                debouncer.notify(event);
             },
+            lobbyRemoved: (event) => {
+                this.lobbyPendingUpdates.get(event.id)?.cancel();
+                this.lobbyPendingUpdates.delete(event.id);
+                io.emit('lobby-removed', event)
+            },
+
             sessionUpdated(event) {
                 io.to(event.sessionId).emit('session-updated', event);
             },
@@ -387,56 +451,13 @@ export class SocketServerGateway {
     }
 
     public async shutdownConnections() {
-        this.clearLobbyListBroadcastTimer();
+        for (const updater of this.lobbyPendingUpdates.values()) {
+            updater.cancel()
+        }
+        this.lobbyPendingUpdates.clear()
+
         this.io?.emit('error', 'Server shutdown');
         await this.io?.close();
-    }
-
-    private scheduleLobbyListBroadcast(
-        io: Server<ClientToServerEvents, ServerToClientEvents>,
-        lobbies: LobbyInfo[]
-    ): void {
-        const wasNull = this.pendingLobbyList === null;
-        this.pendingLobbyList = lobbies;
-
-        if (this.lobbyListBroadcastTimer) {
-            /* update already pending */
-            return;
-        } else if (wasNull) {
-            /*
-             * Send update now but aggregate instantanious updates.
-             * Set the lobbyListBroadcastTimer to wait LOBBY_LIST_DEBOUNCE_MS until the next update
-             */
-            setTimeout(() => {
-                if (!this.pendingLobbyList) {
-                    return;
-                }
-
-                io.emit('lobby-list', this.pendingLobbyList)
-                this.pendingLobbyList = null;
-            }, 0);
-        }
-
-        this.lobbyListBroadcastTimer = setTimeout(() => {
-            this.lobbyListBroadcastTimer = null;
-            if (!this.pendingLobbyList) {
-                /* no update needed */
-                return;
-            }
-
-            io.emit('lobby-list', this.pendingLobbyList);
-            this.pendingLobbyList = null;
-        }, SocketServerGateway.LOBBY_LIST_DEBOUNCE_MS);
-    }
-
-    private clearLobbyListBroadcastTimer(): void {
-        if (!this.lobbyListBroadcastTimer) {
-            return;
-        }
-
-        clearTimeout(this.lobbyListBroadcastTimer);
-        this.lobbyListBroadcastTimer = null;
-        this.pendingLobbyList = null;
     }
 
     private putClientInGameState(socket: ClientSocket, participation: ClientGameParticipation) {

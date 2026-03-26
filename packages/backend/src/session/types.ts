@@ -1,6 +1,8 @@
 import {
     cloneGameState,
     createEmptyGameState,
+    EventLobbyRemoved,
+    EventLobbyUpdated,
     GameCellPlaceEvent,
     GameStateEvent,
     PlayerRating,
@@ -8,7 +10,6 @@ import {
     SessionChatSenderId,
     SessionUpdatedEvent,
     type GameState,
-    type LobbyInfo,
     type LobbyOptions,
     type ParticipantConnection,
     type SessionChatMessage,
@@ -97,7 +98,9 @@ export interface ParticipantJoinedEvent {
 }
 
 export interface SessionManagerEventHandlers {
-    lobbyListUpdated?: (lobbies: LobbyInfo[]) => void;
+    lobbyUpdated?: (lobby: EventLobbyUpdated) => void,
+    lobbyRemoved?: (event: EventLobbyRemoved) => void;
+
     sessionUpdated?: (event: SessionUpdatedEvent) => void;
     sessionChat?: (event: SessionChatEvent) => void;
     gameStateUpdated?: (payload: GameStateEvent) => void;

@@ -679,9 +679,19 @@ export const zPlaceCellRequest = z.object({
 });
 export type PlaceCellRequest = z.infer<typeof zPlaceCellRequest>;
 
+export const zEventLobbyUpdated = zLobbyInfo
+export type EventLobbyUpdated = z.infer<typeof zEventLobbyUpdated>;
+
+export const zEventLobbyRemoved = z.object({ id: z.string() })
+export type EventLobbyRemoved = z.infer<typeof zEventLobbyRemoved>;
+
 export const zServerToClientEvents = z.custom<{
     'initialized': () => void;
+
     'lobby-list': (lobbies: LobbyInfo[]) => void;
+    'lobby-updated': (event: EventLobbyUpdated) => void;
+    'lobby-removed': (event: EventLobbyRemoved) => void;
+
     'shutdown-updated': (shutdown: ShutdownState | null) => void;
     'admin-message': (broadcast: AdminBroadcastMessage) => void;
     'server-pong': () => void;

@@ -305,7 +305,7 @@ export class SessionManager {
             session,
             [participantRole === "player" ? "players" : "spectators"]
         );
-        this.emitLobbyListUpdated();
+        this.emitLobbyUpdated(session);
 
         return {
             participant,
@@ -542,7 +542,12 @@ export class SessionManager {
 
                 this.sessions.delete(originalSession.id);
                 this.sessions.set(rematchSession.id, rematchSession);
-                this.emitLobbyListUpdated();
+
+                if (originalSession.id !== rematchSession.id) {
+                    /* remove the original session */
+                    this.eventHandlers.lobbyRemoved?.({ id: originalSession.id });
+                }
+                this.emitLobbyUpdated(rematchSession)
             });
 
             void this.tickSession(rematchSession);
@@ -650,7 +655,7 @@ export class SessionManager {
 
         this.timeControl.clearSession(session.id);
         this.sessions.delete(session.id);
-        this.emitLobbyListUpdated();
+        this.eventHandlers.lobbyRemoved?.({ id: session.id });
         this.shutdownHook.tryShutdown();
     }
 
@@ -688,7 +693,7 @@ export class SessionManager {
                 })
 
                 if (playersUpdated) {
-                    this.emitLobbyListUpdated()
+                    this.emitLobbyUpdated(session);
                     this.emitSessionUpdated(session, ["players"])
                 }
 
@@ -725,7 +730,7 @@ export class SessionManager {
                 this.timeControl.startSession(session, this.handleTurnExpired, session.startedAt);
 
                 this.emitGameState(session);
-                this.emitLobbyListUpdated();
+                this.emitLobbyUpdated(session);
                 this.emitSessionUpdated(session, ["state", "players"]);
                 this.logger.info(
                     {
@@ -809,7 +814,10 @@ export class SessionManager {
         });
 
         this.timeControl.clearSession(session.id);
-        this.emitLobbyListUpdated();
+
+        /* finished sessions are removed from the list */
+        this.eventHandlers.lobbyRemoved?.({ id: session.id });
+
         this.emitSessionUpdated(session, ["players", "state"]);
         this.shutdownHook.tryShutdown();
 
@@ -872,7 +880,11 @@ export class SessionManager {
 
         session.rematchAcceptedPlayerIds = [];
         this.emitSessionUpdated(session, ["players", "state"]);
-        this.emitLobbyListUpdated();
+
+        if (session.state !== "finished") {
+            this.emitLobbyUpdated(session);
+        }
+
         void this.tickSession(session);
     }
 
@@ -956,8 +968,9 @@ export class SessionManager {
         void this.tickSession(participation.session);
     }
 
-    private emitLobbyListUpdated(): void {
-        this.eventHandlers.lobbyListUpdated?.(this.listLobbyInfo());
+    private emitLobbyUpdated(session: ServerGameSession): void {
+        const lobbyInfo = this.toLobbyInfo(session);
+        this.eventHandlers.lobbyUpdated?.(lobbyInfo);
     }
 
     private emitSessionUpdated(session: ServerGameSession, keys?: (keyof SessionInfo)[]): void {
