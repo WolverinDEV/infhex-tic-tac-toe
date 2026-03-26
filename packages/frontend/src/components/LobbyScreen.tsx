@@ -192,7 +192,7 @@ function LobbyScreen({
 
                 </section>
 
-                <section className="max-w-xl rounded-4xl border border-white/10 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:min-h-136 sm:h-136 sm:bg-slate-950/55 md:p-8 lg:flex lg:flex-col">
+                <section className="max-w-xl rounded-4xl border border-white/10 p-6 shadow-[0_20px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:min-h-136 sm:h-136 sm:bg-slate-950/55 md:p-8 sm:flex sm:flex-col">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className="text-sm uppercase tracking-[0.3em] text-sky-200/80">Live Sessions</p>
