@@ -24,7 +24,6 @@ interface AdminStatsScreenProps {
   stats: AdminStatsResponse | null
   isLoading: boolean
   errorMessage: string | null
-  onOpenControls: () => void
   onRefresh: () => void
   onOpenGame: (gameId: string) => void
 }

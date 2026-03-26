@@ -55,7 +55,7 @@ export function createAppRoutes() {
           <Route path="/account/games/:gameId" element={<FinishedGameRoute />} />
           <Route path="/profile/:profileId" element={<ProfileRoute />} />
           <Route path="/leaderboard" element={<LeaderboardRoute />} />
-          <Route path="/admin" element={<AdminControlsRoute />} />
+          <Route path="/admin/controls" element={<AdminControlsRoute />} />
           <Route path="/admin/stats" element={<AdminRoute />} />
         </Route>
         <Route element={<CommonPageLayout limitWidth={false} />}>

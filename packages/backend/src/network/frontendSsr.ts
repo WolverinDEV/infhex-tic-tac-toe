@@ -130,7 +130,7 @@ export class FrontendSsrRenderer {
     ): Promise<void> {
         const path = requestUrl.pathname
 
-        if (path === '/' || path === '/admin' || path === '/account/profile' || path.startsWith("/profile/")) {
+        if (path === '/' || path.startsWith('/admin') || path === '/account/profile' || path.startsWith("/profile/")) {
             queryClient.setQueryData(queryKeys.availableSessions, sortLobbySessions(this.dependencies.sessionManager.listLobbyInfo()))
         }
 

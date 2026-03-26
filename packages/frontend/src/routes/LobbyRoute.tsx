@@ -73,7 +73,6 @@ function LobbyRoute() {
             onViewLeaderboard={() => void navigate('/leaderboard')}
             onViewChangelog={() => void navigate('/changelog')}
             onViewOwnFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now(), 'mine'))}
-            onViewAdmin={() => void navigate('/admin')}
             unreadChangelogEntries={unreadChangelogEntries}
         />
     )

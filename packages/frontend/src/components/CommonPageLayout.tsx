@@ -203,7 +203,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
 
                       {account.role === 'admin' && (
                         <div className="mt-2 border-t border-amber-300/10 pt-2">
-                          <MenuLink to="/admin" label="Admin Controls" onSelect={() => setIsAccountMenuOpen(false)} />
+                          <MenuLink to="/admin/controls" label="Admin Controls" onSelect={() => setIsAccountMenuOpen(false)} />
                           <MenuLink to="/admin/stats" label="Admin Statistics" onSelect={() => setIsAccountMenuOpen(false)} />
                         </div>
                       )}

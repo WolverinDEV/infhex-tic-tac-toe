@@ -22,7 +22,6 @@ interface LobbyScreenProps {
     onViewLeaderboard: () => void
     onViewChangelog: () => void
     onViewOwnFinishedGames: () => void
-    onViewAdmin: () => void
 }
 
 function ClockBadgeIcon() {

@@ -456,7 +456,7 @@ export class HttpApplication {
             };
         }
 
-        if (req.path === '/admin') {
+        if (req.path.startsWith('/admin')) {
             return {
                 ...defaultMetadata,
                 title: `Admin Dashboard • ${DEFAULT_PAGE_TITLE}`,
