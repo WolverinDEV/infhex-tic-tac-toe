@@ -228,3 +228,11 @@ export function cancelRematch() {
 
     socket?.emit('cancel-rematch', session.id)
 }
+
+if (typeof window !== "undefined") {
+    /* 
+     * Instantly connect to the server and do not wait until the first render.
+     * This should speed up the initial connect process.
+     */
+    startLiveGameClient();
+}
