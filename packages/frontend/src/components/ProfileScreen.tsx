@@ -1,4 +1,4 @@
-import type { AccountEloHistory, AccountStatistics, PublicAccountProfile } from '@ih3t/shared'
+import type { AccountEloHistory, AccountStatistics, FinishedGameSummary, FinishedGamesPage, LobbyInfo, PublicAccountProfile } from '@ih3t/shared'
 import { type ReactNode, useState } from 'react'
 import {
     CartesianGrid,
@@ -9,17 +9,22 @@ import {
     XAxis,
     YAxis
 } from 'recharts'
+import { Link } from 'react-router'
 import { toast } from 'react-toastify'
 import { signInWithDiscord } from '../query/authClient'
+import { buildFinishedGamePath, buildSessionPath } from '../routes/archiveRouteState'
 import { getInitialRenderTimestamp } from '../ssrState'
 import {
     formatCalendarDate,
     formatChartDate,
-    formatChartDateTime,
     formatDateTime,
     formatRelativeTimeFrom
 } from '../utils/dateTime'
-import { formatDetailedDuration } from '../utils/duration'
+import { formatCompactDuration, formatDetailedDuration } from '../utils/duration'
+import { getPersonalResultLabel, type PersonalResultTone } from '../utils/finishedGames'
+import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard'
+import { formatTimeControl } from '../utils/gameTimeControl'
+import { formatLobbyPlayers } from '../utils/lobby'
 import {
     formatWinSummary,
     formatWorldRank
@@ -29,7 +34,6 @@ import React from 'react'
 import AccountPicture from './AccountPicture'
 
 const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
-const defaultPlayerElo = 1000
 
 function showErrorToast(message: string) {
     toast.error(message, {
@@ -40,10 +44,14 @@ function showErrorToast(message: string) {
 interface ProfileScreenProps {
     account: PublicAccountProfile | null
     statistics: AccountStatistics | null
+    recentGames: FinishedGamesPage | null
+    liveGame: LobbyInfo | null
     isLoading: boolean
     isStatisticsLoading: boolean
+    isRecentGamesLoading: boolean
     errorMessage: string | null
     statisticsErrorMessage: string | null
+    recentGamesErrorMessage: string | null
     isPublicView: boolean
 }
 
@@ -148,6 +156,187 @@ function StatisticsEmptyState({ message = 'Statistics will appear here once your
         <div className="rounded-3xl border border-white/10 bg-slate-950/45 px-5 py-10 text-center text-sm text-slate-300">
             {message}
         </div>
+    )
+}
+
+function LiveGameSection({
+    liveGame
+}: Readonly<{
+    liveGame: LobbyInfo
+}>) {
+    return (
+        <section className="rounded-[1.6rem] border border-emerald-300/20 bg-[linear-gradient(180deg,rgba(6,78,59,0.38),rgba(15,23,42,0.62))] p-5 shadow-[0_24px_80px_rgba(6,78,59,0.18)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
+                            Live Game
+                        </span>
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${liveGame.rated
+                            ? 'bg-amber-300/15 text-amber-100'
+                            : 'bg-white/8 text-slate-200'
+                            }`}>
+                            {liveGame.rated ? 'Rated' : 'Casual'}
+                        </span>
+                        <span className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-200">
+                            {formatTimeControl(liveGame.timeControl)}
+                        </span>
+                    </div>
+
+                    <h3 className="mt-3 text-xl font-black uppercase tracking-[0.08em] text-white">Currently Playing</h3>
+                    <div className="mt-2 text-sm leading-6 text-slate-300">
+                        {formatLobbyPlayers(liveGame.players, liveGame.rated, 'Waiting for players')}
+                    </div>
+                    {liveGame.startedAt && (
+                        <div className="mt-2 text-xs uppercase tracking-[0.18em] text-emerald-100/80">
+                            Started {formatDateTime(liveGame.startedAt)}
+                        </div>
+                    )}
+                </div>
+
+                <Link
+                    to={buildSessionPath(liveGame.id)}
+                    className="inline-flex items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-50 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 lg:shrink-0"
+                >
+                    Watch Live Game
+                </Link>
+            </div>
+        </section>
+    )
+}
+
+function getRecentGamesPresentation(
+    game: FinishedGameSummary,
+    profileId: string
+): {
+    label: string
+    tone: PersonalResultTone
+    cardClassName: string
+    titleClassName: string
+    sessionClassName: string
+} {
+    const result = getPersonalResultLabel(game, profileId)
+    const sharedCardClassName = 'border-white/10 bg-slate-950/55 hover:border-sky-300/30 hover:bg-slate-900/70'
+
+    if (result.tone === 'win') {
+        return {
+            ...result,
+            cardClassName: `${sharedCardClassName} pl-6 shadow-[inset_3px_0_0_rgba(16,185,129,1),inset_22px_0_28px_-24px_rgba(16,185,129,0.95)]`,
+            titleClassName: 'text-white',
+            sessionClassName: 'text-sky-200/75'
+        }
+    }
+
+    if (result.tone === 'loss') {
+        return {
+            ...result,
+            cardClassName: `${sharedCardClassName} pl-6 shadow-[inset_3px_0_0_rgba(244,63,94,1),inset_22px_0_28px_-24px_rgba(244,63,94,0.95)]`,
+            titleClassName: 'text-white',
+            sessionClassName: 'text-sky-200/75'
+        }
+    }
+
+    return {
+        ...result,
+        cardClassName: `${sharedCardClassName} pl-6`,
+        titleClassName: 'text-white',
+        sessionClassName: 'text-sky-200/75'
+    }
+}
+
+function RecentGamesSection({
+    profileId,
+    recentGames,
+    isLoading,
+    errorMessage,
+    isPublicView
+}: Readonly<{
+    profileId: string
+    recentGames: FinishedGamesPage | null
+    isLoading: boolean
+    errorMessage: string | null
+    isPublicView: boolean
+}>) {
+    const games = recentGames?.games ?? []
+    const archiveView = isPublicView ? 'all' : 'mine'
+
+    return (
+        <section className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.72),rgba(15,23,42,0.5))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+            <div>
+                <div className="text-xs uppercase tracking-[0.28em] text-violet-200/85">Match History</div>
+                <h3 className="mt-3 text-xl font-black uppercase tracking-[0.08em] text-white">Last 10 Games</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                    The most recent finished matches played on this profile.
+                </p>
+            </div>
+
+            {isLoading ? (
+                <div className="mt-5 rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-8 text-center text-sm text-slate-300">
+                    Loading recent games...
+                </div>
+            ) : errorMessage ? (
+                <div className="mt-5 rounded-[1.25rem] border border-rose-300/30 bg-rose-500/10 px-4 py-4 text-sm text-rose-100">
+                    {errorMessage}
+                </div>
+            ) : games.length === 0 ? (
+                <div className="mt-5 rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-8 text-center text-sm text-slate-300">
+                    No finished games have been recorded for this profile yet.
+                </div>
+            ) : (
+                <div className="mt-5 space-y-4">
+                    {games.map((game) => {
+                        const presentation = getRecentGamesPresentation(game, profileId)
+                        const gamePath = buildFinishedGamePath(game.id, archiveView)
+
+                        return (
+                            <Link
+                                key={game.id}
+                                to={gamePath}
+                                className={`block rounded-[1.2rem] border px-4 py-3.5 text-left transition hover:-translate-y-0.5 sm:rounded-3xl sm:px-4.5 sm:py-4 ${presentation.cardClassName}`}
+                            >
+                                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                                    <div className="min-w-0">
+                                        <div className={`break-all text-[11px] uppercase tracking-[0.24em] sm:text-xs sm:tracking-[0.28em] ${presentation.sessionClassName}`}>
+                                            Session {game.sessionId}
+                                        </div>
+                                        <div className={`mt-1.5 text-lg font-bold sm:text-[1.45rem] ${presentation.titleClassName}`}>{presentation.label}</div>
+                                        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-300 sm:text-xs">
+                                            <span className="rounded-full bg-slate-900/60 px-2.5 py-0.5">
+                                                {game.gameOptions.rated ? 'Rated' : 'Casual'}
+                                            </span>
+                                            <span className="rounded-full bg-slate-900/60 px-2.5 py-0.5">Moves: {game.moveCount}</span>
+                                            <span className="rounded-full bg-slate-900/60 px-2.5 py-0.5">
+                                                Duration: {formatCompactDuration(game.gameResult?.durationMs ?? 0)}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                                            {game.players.map((player) => (
+                                                <span
+                                                    key={player.playerId}
+                                                    className="inline-flex items-center gap-2 rounded-full bg-slate-900/60 px-3 py-1"
+                                                >
+                                                    <span
+                                                        className="h-2.5 w-2.5 rounded-full"
+                                                        style={{ backgroundColor: getPlayerTileColor(game.playerTiles, player.playerId) }}
+                                                    />
+                                                    <span>{getPlayerLabel(game.players, player.playerId)}</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-[11px] text-slate-300 sm:text-right sm:text-xs">
+                                        <div className="font-semibold text-white">
+                                            {formatDateTime(game.finishedAt ?? game.startedAt)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        )
+                    })}
+                </div>
+            )}
+        </section>
     )
 }
 
@@ -291,10 +480,14 @@ function EloHistoryChartSection({
 function ProfileScreen({
     account,
     statistics,
+    recentGames,
+    liveGame,
     isLoading,
     isStatisticsLoading,
+    isRecentGamesLoading,
     errorMessage,
     statisticsErrorMessage,
+    recentGamesErrorMessage,
     isPublicView
 }: Readonly<ProfileScreenProps>) {
     const [referenceTimestamp] = useState(() => getInitialRenderTimestamp())
@@ -427,6 +620,10 @@ function ProfileScreen({
                             </div>
                         </section>
 
+                        {liveGame ? (
+                            <LiveGameSection liveGame={liveGame} />
+                        ) : null}
+
                         <section className="">
                             {isStatisticsLoading ? (
                                 <div className="mt-6 rounded-[1.25rem] border border-white/10 bg-slate-950/45 px-4 py-8 text-center text-sm text-slate-300">
@@ -509,6 +706,14 @@ function ProfileScreen({
                                 </div>
                             )}
                         </section>
+
+                        <RecentGamesSection
+                            profileId={account.id}
+                            recentGames={recentGames}
+                            isLoading={isRecentGamesLoading}
+                            errorMessage={recentGamesErrorMessage}
+                            isPublicView={isPublicView}
+                        />
                     </div>
                 )}
             </div>

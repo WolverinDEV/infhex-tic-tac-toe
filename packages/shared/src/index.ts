@@ -801,20 +801,24 @@ export const zAccountResponse = z.object({
 });
 export type AccountResponse = z.infer<typeof zAccountResponse>;
 
-export const zPublicAccountResponse = z.object({
+export const zProfileResponse = z.object({
     user: zPublicAccountProfile.nullable()
 });
-export type PublicAccountResponse = z.infer<typeof zPublicAccountResponse>;
-
-export const zAccountStatisticsResponse = z.object({
-    statistics: zAccountStatistics
-});
-export type AccountStatisticsResponse = z.infer<typeof zAccountStatisticsResponse>;
 
 export const zAccountPreferencesResponse = z.object({
     preferences: zAccountPreferences
 });
 export type AccountPreferencesResponse = z.infer<typeof zAccountPreferencesResponse>;
+
+export type ProfileResponse = z.infer<typeof zProfileResponse>;
+
+export const zProfileStatisticsResponse = z.object({
+    statistics: zAccountStatistics
+});
+export type ProfileStatisticsResponse = z.infer<typeof zProfileStatisticsResponse>;
+
+export const zProfileGamesResponse = zFinishedGamesPage
+export type ProfileGamesResponse = z.infer<typeof zProfileGamesResponse>;
 
 export const zAdminStatGameBase = z.object({
     gameId: zIdentifier,

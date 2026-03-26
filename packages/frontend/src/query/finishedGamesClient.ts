@@ -8,6 +8,7 @@ import {
   queryKeys
 } from './queryDefinitions'
 
+
 async function fetchFinishedGames(
   page: number,
   pageSize: number,
@@ -28,6 +29,10 @@ async function fetchFinishedGames(
 
 async function fetchFinishedGame(gameId: string) {
   return await fetchJson<FinishedGameRecord>(`/api/finished-games/${encodeURIComponent(gameId)}`)
+}
+
+async function fetchPublicProfileGames(profileId: string) {
+  return await fetchJson<FinishedGamesPage>(`/api/profiles/${encodeURIComponent(profileId)}/games`)
 }
 
 export async function invalidateFinishedGames() {
@@ -61,5 +66,20 @@ export function useQueryFinishedGame(gameId: string | null, options?: { enabled?
     },
     enabled: Boolean(gameId) && options?.enabled,
     staleTime: 60 * 60 * 1000,
+  })
+}
+
+export function useQueryPublicProfileGames(profileId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.profileRecentGames(profileId),
+    queryFn: () => {
+      if (!profileId) {
+        throw new Error('Missing profile id.')
+      }
+
+      return fetchPublicProfileGames(profileId)
+    },
+    enabled: Boolean(profileId),
+    staleTime: 60 * 1000
   })
 }

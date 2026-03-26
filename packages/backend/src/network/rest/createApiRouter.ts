@@ -4,8 +4,8 @@ import { z } from 'zod';
 import {
     type AccountPreferencesResponse,
     type AccountResponse,
-    type PublicAccountResponse,
-    type AccountStatisticsResponse,
+    type ProfileResponse,
+    type ProfileStatisticsResponse,
     type AdminServerSettingsResponse,
     type AdminStatsResponse,
     type AdminBroadcastMessageResponse,
@@ -26,6 +26,7 @@ import {
     zSandboxPositionId,
     zUpdateAccountPreferencesRequest,
     zUpdateAccountProfileRequest,
+    ProfileGamesResponse,
 } from '@ih3t/shared';
 import { ServerSettingsService } from '../../admin/serverSettingsService';
 import { ServerShutdownService } from '../../admin/serverShutdownService';
@@ -109,7 +110,7 @@ export class ApiRouter {
                 return;
             }
 
-            const response: AccountStatisticsResponse = {
+            const response: ProfileStatisticsResponse = {
                 statistics: await this.buildAccountStatistics(user.id)
             };
             res.json(response);
@@ -122,7 +123,7 @@ export class ApiRouter {
                 return;
             }
 
-            const response: PublicAccountResponse = {
+            const response: ProfileResponse = {
                 user: this.toPublicAccountProfile(user)
             };
             res.json(response);
@@ -135,10 +136,25 @@ export class ApiRouter {
                 return;
             }
 
-            const response: AccountStatisticsResponse = {
+            const response: ProfileStatisticsResponse = {
                 statistics: await this.buildAccountStatistics(user.id)
             };
             res.json(response);
+        });
+
+        router.get('/profiles/:profileId/games', async (req, res) => {
+            const user = await this.authRepository.getUserProfileById(req.params.profileId);
+            if (!user) {
+                res.status(404).json({ error: 'Profile not found.' });
+                return;
+            }
+
+            const archivePage = await this.gameHistoryRepository.listFinishedGames({
+                page: 1,
+                pageSize: 10,
+                playerProfileId: user.id
+            });
+            res.json(archivePage satisfies ProfileGamesResponse);
         });
 
         router.get('/account/preferences', async (req, res) => {
@@ -440,7 +456,7 @@ export class ApiRouter {
         return zAdminUpdateServerSettingsRequest.parse(body ?? {}).settings;
     }
 
-    private async buildAccountStatistics(profileId: string): Promise<AccountStatisticsResponse['statistics']> {
+    private async buildAccountStatistics(profileId: string): Promise<ProfileStatisticsResponse['statistics']> {
         const [gameStats, eloHistory, playerRating, leaderboardPlacement] = await Promise.all([
             this.gameHistoryRepository.getPlayerProfileStatistics(profileId),
             this.gameHistoryRepository.getPlayerEloHistory(profileId),
@@ -468,7 +484,7 @@ export class ApiRouter {
         };
     }
 
-    private toPublicAccountProfile(user: AccountUserProfile): PublicAccountResponse['user'] {
+    private toPublicAccountProfile(user: AccountUserProfile): ProfileResponse['user'] {
         const { email: _email, ...publicProfile } = user;
         return publicProfile;
     }

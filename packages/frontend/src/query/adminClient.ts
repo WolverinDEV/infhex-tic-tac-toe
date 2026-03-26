@@ -30,7 +30,7 @@ export async function updateAdminServerSettings(maxConcurrentGames: number | nul
         } satisfies AdminUpdateServerSettingsRequest)
     })
 
-    queryClient.setQueryData(queryKeys.adminServerSettings, response)
+    queryClient.setQueryData(queryKeys.serverSettings, response)
     return response
 }
 
@@ -93,7 +93,7 @@ export function useQueryAdminStats(timezoneOffsetMinutes: number, options?: { en
 
 export function useQueryAdminServerSettings(options?: { enabled?: boolean }) {
     return useQuery({
-        queryKey: queryKeys.adminServerSettings,
+        queryKey: queryKeys.serverSettings,
         queryFn: fetchAdminServerSettings,
         enabled: options?.enabled,
         staleTime: 10_000

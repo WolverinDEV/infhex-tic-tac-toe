@@ -2,8 +2,8 @@ import type {
   AccountPreferences,
   AccountPreferencesResponse,
   AccountResponse,
-  AccountStatisticsResponse,
-  PublicAccountResponse,
+  ProfileStatisticsResponse,
+  ProfileResponse,
   UpdateAccountPreferencesRequest,
   UpdateAccountProfileRequest
 } from '@ih3t/shared'
@@ -17,7 +17,7 @@ async function fetchAccount() {
 }
 
 async function fetchPublicAccount(profileId: string) {
-  return await fetchJson<PublicAccountResponse>(`/api/profiles/${encodeURIComponent(profileId)}`)
+  return await fetchJson<ProfileResponse>(`/api/profiles/${encodeURIComponent(profileId)}`)
 }
 
 async function fetchAccountPreferences() {
@@ -25,11 +25,11 @@ async function fetchAccountPreferences() {
 }
 
 async function fetchAccountStatistics() {
-  return await fetchJson<AccountStatisticsResponse>('/api/account/statistics')
+  return await fetchJson<ProfileStatisticsResponse>('/api/account/statistics')
 }
 
 async function fetchPublicAccountStatistics(profileId: string) {
-  return await fetchJson<AccountStatisticsResponse>(`/api/profiles/${encodeURIComponent(profileId)}/statistics`)
+  return await fetchJson<ProfileStatisticsResponse>(`/api/profiles/${encodeURIComponent(profileId)}/statistics`)
 }
 
 export async function updateAccountProfile(update: UpdateAccountProfileRequest) {
@@ -83,7 +83,7 @@ export function useQueryAccount(options?: { enabled?: boolean }) {
 
 export function useQueryPublicAccount(profileId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.publicAccount(profileId),
+    queryKey: queryKeys.profile(profileId),
     queryFn: () => {
       if (!profileId) {
         throw new Error('Missing profile id.')
@@ -116,7 +116,7 @@ export function useQueryAccountStatistics(options?: { enabled?: boolean }) {
 
 export function useQueryPublicAccountStatistics(profileId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.publicAccountStatistics(profileId),
+    queryKey: queryKeys.profileStatistics(profileId),
     queryFn: () => {
       if (!profileId) {
         throw new Error('Missing profile id.')
