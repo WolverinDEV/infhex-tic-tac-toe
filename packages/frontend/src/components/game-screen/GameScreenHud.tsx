@@ -209,13 +209,13 @@ function GameScreenHud({
                 <div className="pointer-events-auto mt-4 grid grid-cols-2 gap-2">
                     <button
                         onClick={onLeave}
-                        className="min-w-[9rem] flex-1 rounded-full bg-red-500 px-4 py-2 font-medium shadow-lg hover:bg-red-400 md:flex-none"
+                        className="min-w-36 flex-1 rounded-full bg-red-500 px-4 py-2 font-medium shadow-lg hover:bg-red-400 md:flex-none"
                     >
                         {leaveLabel}
                     </button>
                     <button
                         onClick={onResetView}
-                        className="min-w-[9rem] flex-1 rounded-full bg-sky-600 px-4 py-2 font-medium shadow-lg hover:bg-sky-500 md:flex-none"
+                        className="min-w-36 flex-1 rounded-full bg-sky-600 px-4 py-2 font-medium shadow-lg hover:bg-sky-500 md:flex-none"
                     >
                         Reset View
                     </button>

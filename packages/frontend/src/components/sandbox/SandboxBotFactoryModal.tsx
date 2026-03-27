@@ -32,7 +32,7 @@ function SandboxBotFactoryModal({
                 onClick={onClose}
             />
 
-            <section className="relative flex flex-col z-10 w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-sky-300/18 bg-[linear-gradient(155deg,_rgba(15,23,42,0.97),_rgba(17,24,39,0.95)_55%,_rgba(30,41,59,0.92))] px-5 py-5 shadow-[0_30px_120px_rgba(2,6,23,0.58)]">
+            <section className="relative flex flex-col z-10 w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-sky-300/18 bg-[linear-gradient(155deg,rgba(15,23,42,0.97),rgba(17,24,39,0.95)_55%,rgba(30,41,59,0.92))] px-5 py-5 shadow-[0_30px_120px_rgba(2,6,23,0.58)]">
                 <div className="absolute -right-10 -top-14 h-24 w-24 rounded-full bg-sky-400/12 blur-3xl" />
                 <div className="absolute -left-8 bottom-0 h-20 w-20 rounded-full bg-emerald-300/10 blur-3xl" />
 

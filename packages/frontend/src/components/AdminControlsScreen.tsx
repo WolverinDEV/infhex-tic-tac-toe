@@ -191,7 +191,7 @@ function AdminControlsScreen({
               <ShutdownSummary shutdown={shutdown} />
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end mt-auto">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
               <label className="block flex-1">
                 <div className="text-xs uppercase tracking-[0.22em] text-slate-400">Grace Timeout</div>
                 <input
@@ -280,7 +280,7 @@ function AdminControlsScreen({
                   {activeGames.map((session) => (
                     <div
                       key={session.id}
-                      className="flex flex-col gap-4 rounded-[1.5rem] border border-white/10 bg-slate-950/35 p-4 lg:flex-row lg:items-center lg:justify-between"
+                      className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-slate-950/35 p-4 lg:flex-row lg:items-center lg:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">

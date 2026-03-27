@@ -24,7 +24,6 @@ import { z } from 'zod';
 import { ROOT_LOGGER } from '../logger';
 import { GAME_HISTORY_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
-import { inspect } from 'node:util';
 
 const zGameHistoryDocument = zDatabaseGame;
 type GameHistoryDocument = z.infer<typeof zGameHistoryDocument> & Document;

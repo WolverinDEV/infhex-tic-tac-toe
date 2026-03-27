@@ -55,7 +55,7 @@ function PreferenceSwitchCard({
   onToggle
 }: Readonly<PreferenceSwitchCardProps>) {
   return (
-    <div className="max-w-xl rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5">
+    <div className="max-w-xl rounded-3xl border border-white/10 bg-slate-950/45 p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white">{label}</h3>
@@ -72,7 +72,7 @@ function PreferenceSwitchCard({
           aria-label={label}
           disabled={disabled}
           onClick={() => onToggle(!checked)}
-          className={`relative inline-flex h-8 w-14 flex-shrink-0 items-center rounded-full border transition ${checked
+          className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition ${checked
             ? 'border-sky-300/50 bg-sky-400/80'
             : 'border-white/10 bg-slate-800/90'
             } ${disabled ? 'cursor-wait opacity-70' : 'cursor-pointer'}`}
@@ -145,7 +145,7 @@ function AccountPreferencesScreen({
             Loading your account...
           </div>
         ) : errorMessage ? (
-          <div className="rounded-[1.5rem] border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-100">
+          <div className="rounded-3xl border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-100">
             {errorMessage}
           </div>
         ) : !account ? (
