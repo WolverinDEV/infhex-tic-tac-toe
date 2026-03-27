@@ -4,38 +4,17 @@ import {
     queryKeys
 } from '@ih3t/shared'
 import type {
-    AccountPreferencesResponse,
-    AccountResponse,
-    ProfileStatisticsResponse,
     FinishedGamesArchiveView,
-    FinishedGameRecord,
-    FinishedGamesPage,
-    Leaderboard,
     LobbyInfo,
-    ProfileResponse,
-    SandboxPositionResponse,
-    ProfileGamesResponse
 } from '@ih3t/shared'
 import type express from 'express'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { AuthRepository } from '../auth/authRepository'
-import type { AuthService } from '../auth/authService'
-import type { EloRepository } from '../elo/eloRepository'
-import type { LeaderboardService } from '../leaderboard/leaderboardService'
-import type { GameHistoryRepository } from '../persistence/gameHistoryRepository'
-import type { SandboxPositionService } from '../sandbox/sandboxPositionService'
-import type { SessionManager } from '../session/sessionManager'
+import { ApiQueryService, ApiRequestError } from './rest/apiQueryService'
 
 interface FrontendSsrDependencies {
-    authRepository: AuthRepository
-    authService: AuthService
-    eloRepository: EloRepository
+    apiQueryService: ApiQueryService
     ssrDistPath: string
-    gameHistoryRepository: GameHistoryRepository
-    leaderboardService: LeaderboardService
-    sandboxPositionService: SandboxPositionService
-    sessionManager: SessionManager
 }
 
 interface RenderAppModule {
@@ -90,24 +69,28 @@ export class FrontendSsrRenderer {
     async render(req: express.Request): Promise<FrontendRenderResult> {
         const renderedAt = Date.now()
         const queryClient = createQueryClient()
-        const currentUser = await this.dependencies.authService.getUserFromRequest(req)
         const requestUrl = new URL(req.originalUrl || req.url, `${req.protocol}://${req.get('host')}`)
-        const accountResponse: AccountResponse = {
-            user: currentUser
-        }
+        const accountResponse = await this.dependencies.apiQueryService.getAccount(req)
+        const currentUser = accountResponse.user
 
         /* never assume shutdown in SSR */
         queryClient.setQueryData(queryKeys.serverShutdown, null)
 
         queryClient.setQueryData(queryKeys.account, accountResponse)
         if (currentUser) {
-            const accountPreferencesResponse: AccountPreferencesResponse = {
-                preferences: await this.dependencies.authService.getUserPreferences(currentUser.id)
+            try {
+                queryClient.setQueryData(
+                    queryKeys.accountPreferences,
+                    await this.dependencies.apiQueryService.getAccountPreferences(req)
+                )
+            } catch (error: unknown) {
+                if (!(error instanceof ApiRequestError)) {
+                    throw error
+                }
             }
-            queryClient.setQueryData(queryKeys.accountPreferences, accountPreferencesResponse)
         }
 
-        await this.prefetchRouteData(queryClient, requestUrl, currentUser?.id ?? null)
+        await this.prefetchRouteData(queryClient, req, requestUrl, currentUser?.id ?? null)
 
         const dehydratedState = dehydrate(queryClient)
         const renderApp = await this.getFrontendServerRenderer()
@@ -125,51 +108,43 @@ export class FrontendSsrRenderer {
 
     private async prefetchRouteData(
         queryClient: QueryClient,
+        req: express.Request,
         requestUrl: URL,
         currentUserId: string | null
     ): Promise<void> {
         const path = requestUrl.pathname
 
         if (path === '/' || path.startsWith('/admin') || path === '/account/profile' || path.startsWith("/profile/")) {
-            queryClient.setQueryData(queryKeys.availableSessions, sortLobbySessions(this.dependencies.sessionManager.listLobbyInfo()))
+            queryClient.setQueryData(queryKeys.availableSessions, sortLobbySessions(this.dependencies.apiQueryService.listSessions()))
         }
 
         if (path === '/leaderboard') {
-            const leaderboard: Leaderboard = await this.dependencies.leaderboardService.getLeaderboardSnapshot(currentUserId)
-            queryClient.setQueryData(queryKeys.leaderboard, leaderboard)
+            queryClient.setQueryData(queryKeys.leaderboard, await this.dependencies.apiQueryService.getLeaderboard(req))
         }
 
         const profileMatch = path.match(/^\/profile\/(?<id>[^/]+)|\/account\/profile$/)
         if (profileMatch) {
             const profileId = decodeURIComponent(profileMatch.groups?.["id"] ?? currentUserId ?? "")
-            const profile = await this.dependencies.authRepository.getUserProfileById(profileId)
+            if (!profileId) {
+                return
+            }
+
+            const [profile, statistics, recentGames] = await Promise.all([
+                this.dependencies.apiQueryService.getProfile(profileId),
+                this.dependencies.apiQueryService.getProfileStatistics(profileId),
+                this.dependencies.apiQueryService.getProfileGames(profileId)
+            ])
+
             if (profile) {
-                const { email: _email, ...publicProfile } = profile
+                queryClient.setQueryData(queryKeys.profile(profileId), profile)
+            }
 
-                const [
-                    accountStatistics,
-                    recentGames,
-                ] = await Promise.all([
-                    this.buildAccountStatistics(profileId),
-                    this.dependencies.gameHistoryRepository.listFinishedGames({
-                        page: 1,
-                        pageSize: 10,
-                        playerProfileId: profileId
-                    })
-                ])
+            if (statistics) {
+                queryClient.setQueryData(queryKeys.profileStatistics(profileId), statistics)
+            }
 
-                queryClient.setQueryData(
-                    queryKeys.profile(profileId),
-                    { user: publicProfile } satisfies ProfileResponse
-                )
-                queryClient.setQueryData(
-                    queryKeys.profileStatistics(profileId),
-                    { statistics: accountStatistics } satisfies ProfileStatisticsResponse
-                )
-                queryClient.setQueryData(
-                    queryKeys.profileRecentGames(profileId),
-                    recentGames satisfies ProfileGamesResponse
-                )
+            if (recentGames) {
+                queryClient.setQueryData(queryKeys.profileRecentGames(profileId), recentGames)
             }
         }
 
@@ -178,41 +153,40 @@ export class FrontendSsrRenderer {
             const page = parsePositiveInteger(requestUrl.searchParams.get('page')) ?? 1
             const baseTimestamp = parsePositiveInteger(requestUrl.searchParams.get('at'))
 
-            if (baseTimestamp !== null && (archiveView === 'all' || currentUserId)) {
-                const finishedGamesPage: FinishedGamesPage = await this.dependencies.gameHistoryRepository.listFinishedGames({
-                    page,
-                    pageSize: FINISHED_GAMES_PAGE_SIZE,
-                    baseTimestamp,
-                    playerProfileId: archiveView === 'mine' ? currentUserId ?? undefined : undefined
-                })
-                queryClient.setQueryData(
-                    queryKeys.finishedGamesPage(archiveView, page, FINISHED_GAMES_PAGE_SIZE, baseTimestamp),
-                    finishedGamesPage
-                )
+            if (baseTimestamp !== null) {
+                try {
+                    queryClient.setQueryData(
+                        queryKeys.finishedGamesPage(archiveView, page, FINISHED_GAMES_PAGE_SIZE, baseTimestamp),
+                        await this.dependencies.apiQueryService.getFinishedGames(req, {
+                            view: archiveView,
+                            page,
+                            pageSize: FINISHED_GAMES_PAGE_SIZE,
+                            baseTimestamp
+                        })
+                    )
+                } catch (error: unknown) {
+                    if (!(error instanceof ApiRequestError)) {
+                        throw error
+                    }
+                }
             }
         }
 
         const finishedGameMatch = path.match(/^\/(?:account\/)?games\/([^/]+)$/)
         if (finishedGameMatch) {
             const gameId = decodeURIComponent(finishedGameMatch[1])
-            const finishedGame = await this.dependencies.gameHistoryRepository.getFinishedGame(gameId)
+            const finishedGame = await this.dependencies.apiQueryService.getFinishedGame(gameId)
             if (finishedGame) {
-                const finishedGameRecord: FinishedGameRecord = finishedGame
-                queryClient.setQueryData(queryKeys.finishedGame(gameId), finishedGameRecord)
+                queryClient.setQueryData(queryKeys.finishedGame(gameId), finishedGame)
             }
         }
 
         const sandboxPositionMatch = path.match(/^\/sandbox\/([^/]+)$/)
         if (sandboxPositionMatch) {
             const positionId = decodeURIComponent(sandboxPositionMatch[1])
-            const sandboxPosition = await this.dependencies.sandboxPositionService.loadPosition(positionId)
+            const sandboxPosition = await this.dependencies.apiQueryService.getSandboxPosition(positionId)
             if (sandboxPosition) {
-                const sandboxPositionResponse: SandboxPositionResponse = {
-                    id: positionId,
-                    name: sandboxPosition.name,
-                    gamePosition: sandboxPosition.gamePosition
-                }
-                queryClient.setQueryData(queryKeys.sandboxPosition(positionId), sandboxPositionResponse)
+                queryClient.setQueryData(queryKeys.sandboxPosition(positionId), sandboxPosition)
             }
         }
     }
@@ -237,33 +211,5 @@ export class FrontendSsrRenderer {
         })
 
         return this.frontendServerRendererPromise
-    }
-
-    private async buildAccountStatistics(profileId: string): Promise<ProfileStatisticsResponse['statistics']> {
-        const [gameStats, eloHistory, playerRating, leaderboardPlacement] = await Promise.all([
-            this.dependencies.gameHistoryRepository.getPlayerProfileStatistics(profileId),
-            this.dependencies.gameHistoryRepository.getPlayerEloHistory(profileId),
-            this.dependencies.eloRepository.getPlayerRating(profileId),
-            this.dependencies.eloRepository.getLeaderboardPlacement(profileId)
-        ])
-
-        return {
-            totalGames: {
-                played: gameStats.totalGamesPlayed,
-                won: gameStats.totalGamesWon
-            },
-            rankedGames: {
-                played: gameStats.rankedGamesPlayed,
-                won: gameStats.rankedGamesWon,
-                currentWinStreak: gameStats.currentRankedWinStreak,
-                longestWinStreak: gameStats.longestRankedWinStreak
-            },
-            longestGamePlayedMs: gameStats.longestGamePlayedMs,
-            longestGameByMoves: gameStats.longestGameByMoves,
-            totalMovesMade: gameStats.totalMovesMade,
-            eloHistory,
-            elo: leaderboardPlacement?.eloScore ?? playerRating?.eloScore ?? 1000,
-            worldRank: leaderboardPlacement?.rank ?? null
-        }
     }
 }

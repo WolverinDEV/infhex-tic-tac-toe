@@ -13,6 +13,7 @@ import { MetricsTracker } from '../metrics/metricsTracker';
 import { CorsConfiguration } from '../network/cors';
 import { HttpApplication } from '../network/createHttpApp';
 import { SocketServerGateway } from '../network/createSocketServer';
+import { ApiQueryService } from '../network/rest/apiQueryService';
 import { ApiRouter } from '../network/rest/createApiRouter';
 import { ServerSettingsRepository } from '../persistence/serverSettingsRepository';
 import { DatabaseMigrationRunner } from '../persistence/databaseMigrationRunner';
@@ -55,6 +56,7 @@ export function createAppContainer(): DependencyContainer {
     appContainer.registerSingleton(SandboxPositionService);
     appContainer.registerSingleton(SessionManager);
     appContainer.registerSingleton(CorsConfiguration);
+    appContainer.registerSingleton(ApiQueryService);
     appContainer.registerSingleton(ApiRouter);
     appContainer.registerSingleton(HttpApplication);
     appContainer.registerSingleton(SocketServerGateway);

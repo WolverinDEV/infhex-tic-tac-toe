@@ -11,14 +11,13 @@ import { z } from 'zod';
 import { AuthRepository } from '../auth/authRepository';
 import { AuthService } from '../auth/authService';
 import { ServerConfig } from '../config/serverConfig';
-import { EloRepository } from '../elo/eloRepository';
-import { LeaderboardService } from '../leaderboard/leaderboardService';
 import { ROOT_LOGGER } from '../logger';
 import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
 import { SandboxPositionService } from '../sandbox/sandboxPositionService';
 import { SessionManager } from '../session/sessionManager';
 import { CorsConfiguration } from './cors';
 import { FrontendSsrRenderer } from './frontendSsr';
+import { ApiQueryService } from './rest/apiQueryService';
 import { ApiRouter } from './rest/createApiRouter';
 
 const DEFAULT_PAGE_TITLE = 'Infinity Hexagonal Tic-Tac-Toe';
@@ -207,11 +206,10 @@ export class HttpApplication {
         @inject(ROOT_LOGGER) rootLogger: Logger,
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
         @inject(AuthService) authService: AuthService,
+        @inject(ApiQueryService) apiQueryService: ApiQueryService,
         @inject(ApiRouter) apiRouter: ApiRouter,
         @inject(CorsConfiguration) corsConfiguration: CorsConfiguration,
-        @inject(EloRepository) eloRepository: EloRepository,
         @inject(ServerConfig) serverConfig: ServerConfig,
-        @inject(LeaderboardService) leaderboardService: LeaderboardService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService
@@ -222,14 +220,8 @@ export class HttpApplication {
         this.logger = logger;
         this.frontendDistPath = `${serverConfig.frontendDistPath}/client`;
         this.frontendSsrRenderer = new FrontendSsrRenderer({
-            authRepository: this.authRepository,
-            authService,
-            eloRepository,
+            apiQueryService,
             ssrDistPath: `${serverConfig.frontendDistPath}/ssr`,
-            gameHistoryRepository: this.gameHistoryRepository,
-            leaderboardService,
-            sandboxPositionService: this.sandboxPositionService,
-            sessionManager: this.sessionManager
         });
 
         app.set('trust proxy', true);

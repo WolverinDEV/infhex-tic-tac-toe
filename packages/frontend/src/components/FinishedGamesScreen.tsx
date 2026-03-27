@@ -132,7 +132,7 @@ function FinishedGamesScreen({
               </div>
             </div>
           ) : errorMessage ? (
-            <div className="flex flex-1 items-center justify-center rounded-3xl border border-rose-300/20 bg-rose-500/10 px-6 py-8 text-center text-rose-100">
+            <div className="flex flex-col flex-1 items-center justify-center rounded-3xl border border-rose-300/20 bg-rose-500/10 px-6 py-8 text-center text-rose-100">
               <p className="text-lg font-semibold">Could not load finished games.</p>
               <p className="mt-3 text-sm leading-6 text-rose-100/85">{errorMessage}</p>
             </div>

@@ -4,20 +4,16 @@ import { z } from 'zod';
 import {
     type AccountPreferencesResponse,
     type AccountResponse,
-    type ProfileResponse,
-    type ProfileStatisticsResponse,
     type AdminServerSettingsResponse,
     type AdminStatsResponse,
     type AdminBroadcastMessageResponse,
     type AdminShutdownControlResponse,
     type AdminTerminateSessionResponse,
     type ServerSettings,
-    type Leaderboard,
     DEFAULT_LOBBY_OPTIONS,
     type CreateSandboxPositionResponse,
     type CreateSessionResponse,
     type LobbyOptions,
-    type SandboxPositionResponse,
     zCreateSandboxPositionRequest,
     zAdminBroadcastMessageRequest,
     zAdminUpdateServerSettingsRequest,
@@ -26,20 +22,17 @@ import {
     zSandboxPositionId,
     zUpdateAccountPreferencesRequest,
     zUpdateAccountProfileRequest,
-    ProfileGamesResponse,
 } from '@ih3t/shared';
 import { ServerSettingsService } from '../../admin/serverSettingsService';
 import { ServerShutdownService } from '../../admin/serverShutdownService';
 import { AdminStatsService } from '../../admin/adminStatsService';
 import { AuthRepository, type AccountUserProfile } from '../../auth/authRepository';
 import { AuthService } from '../../auth/authService';
-import { EloRepository } from '../../elo/eloRepository';
-import { LeaderboardService } from '../../leaderboard/leaderboardService';
 import { getRequestClientInfo } from '../clientInfo';
 import { SocketServerGateway } from '../createSocketServer';
-import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
 import { SandboxPositionService } from '../../sandbox/sandboxPositionService';
 import { SessionError, SessionManager } from '../../session/sessionManager';
+import { ApiQueryService, ApiRequestError } from './apiQueryService';
 
 const zPositiveInteger = z.coerce.number().int().positive();
 const zPositiveIntegerQueryValue = z.preprocess((value) => Array.isArray(value) ? value[0] : value, zPositiveInteger);
@@ -83,41 +76,33 @@ export class ApiRouter {
     readonly router: express.Router;
 
     constructor(
+        @inject(ApiQueryService) private readonly apiQueryService: ApiQueryService,
         @inject(AuthService) private readonly authService: AuthService,
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
-        @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
         @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(AdminStatsService) private readonly adminStatsService: AdminStatsService,
-        @inject(LeaderboardService) private readonly leaderboardService: LeaderboardService,
         @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
-        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService
     ) {
         const router = express.Router();
 
         router.get('/account', async (req, res) => {
-            const user = await this.authService.getUserFromRequest(req);
-            const response: AccountResponse = { user };
-            res.json(response);
+            res.json(await this.apiQueryService.getAccount(req));
         });
 
         router.get('/account/preferences', async (req, res) => {
-            const user = await this.authService.getUserFromRequest(req);
-            if (!user) {
-                res.status(401).json({ error: 'Sign in with Discord to view your account preferences.' });
-                return;
-            }
+            try {
+                res.json(await this.apiQueryService.getAccountPreferences(req));
+            } catch (error: unknown) {
+                if (error instanceof ApiRequestError) {
+                    res.status(error.statusCode).json({ error: error.message });
+                    return;
+                }
 
-            const preferences = await this.authRepository.getAccountPreferences(user.id);
-            if (!preferences) {
-                res.status(404).json({ error: 'Account not found.' });
-                return;
+                throw error;
             }
-
-            const response: AccountPreferencesResponse = { preferences };
-            res.json(response);
         });
 
         router.patch('/account', express.json(), async (req, res) => {
@@ -170,78 +155,60 @@ export class ApiRouter {
         });
 
         router.get('/profiles/:profileId', async (req, res) => {
-            const user = await this.authRepository.getUserProfileById(req.params.profileId);
-            if (!user) {
+            const response = await this.apiQueryService.getProfile(req.params.profileId);
+            if (!response) {
                 res.status(404).json({ error: 'Profile not found.' });
                 return;
             }
 
-            const response: ProfileResponse = {
-                user: this.toPublicAccountProfile(user)
-            };
             res.json(response);
         });
 
         router.get('/profiles/:profileId/statistics', async (req, res) => {
-            const user = await this.authRepository.getUserProfileById(req.params.profileId);
-            if (!user) {
+            const response = await this.apiQueryService.getProfileStatistics(req.params.profileId);
+            if (!response) {
                 res.status(404).json({ error: 'Profile not found.' });
                 return;
             }
 
-            const response: ProfileStatisticsResponse = {
-                statistics: await this.buildAccountStatistics(user.id)
-            };
             res.json(response);
         });
 
         router.get('/profiles/:profileId/games', async (req, res) => {
-            const user = await this.authRepository.getUserProfileById(req.params.profileId);
-            if (!user) {
+            const response = await this.apiQueryService.getProfileGames(req.params.profileId);
+            if (!response) {
                 res.status(404).json({ error: 'Profile not found.' });
                 return;
             }
 
-            const archivePage = await this.gameHistoryRepository.listFinishedGames({
-                page: 1,
-                pageSize: 10,
-                playerProfileId: user.id
-            });
-            res.json(archivePage satisfies ProfileGamesResponse);
+            res.json(response);
         });
 
         router.get('/sessions', (_req, res) => {
-            res.json(this.sessionManager.listLobbyInfo());
+            res.json(this.apiQueryService.listSessions());
         });
 
         router.get('/finished-games', async (req, res) => {
-            const currentUser = await this.authService.getUserFromRequest(req);
             const query = zFinishedGamesQuery.parse(req.query);
-            const view = query.view ?? 'all';
+            try {
+                res.json(await this.apiQueryService.getFinishedGames(req, {
+                    view: query.view ?? 'all',
+                    page: query.page ?? 1,
+                    pageSize: query.pageSize ?? 20,
+                    baseTimestamp: query.baseTimestamp ?? Date.now()
+                }));
+            } catch (error: unknown) {
+                if (error instanceof ApiRequestError) {
+                    res.status(error.statusCode).json({ error: error.message });
+                    return;
+                }
 
-            if (view === 'mine' && !currentUser) {
-                res.status(401).json({ error: 'Sign in to view your own match history.' });
-                return;
+                throw error;
             }
-
-            const page = query.page ?? 1;
-            const pageSize = query.pageSize ?? 20;
-            if (view !== "mine" && page * pageSize >= 500 && currentUser?.role !== "admin") {
-                res.status(401).json({ error: 'Match history limited to 500 games' });
-                return;
-            }
-
-            const archivePage = await this.gameHistoryRepository.listFinishedGames({
-                page: query.page ?? 1,
-                pageSize: query.pageSize ?? 20,
-                baseTimestamp: query.baseTimestamp ?? Date.now(),
-                playerProfileId: view === "all" ? undefined : currentUser?.id
-            });
-            res.json(archivePage);
         });
 
         router.get('/finished-games/:id', async (req, res) => {
-            const game = await this.gameHistoryRepository.getFinishedGame(req.params.id);
+            const game = await this.apiQueryService.getFinishedGame(req.params.id);
             if (!game) {
                 res.status(404).json({ error: 'Finished game not found' });
                 return;
@@ -251,9 +218,7 @@ export class ApiRouter {
         });
 
         router.get('/leaderboard', async (req, res) => {
-            const currentUser = await this.authService.getUserFromRequest(req);
-            const response: Leaderboard = await this.leaderboardService.getLeaderboardSnapshot(currentUser?.id ?? null);
-            res.json(response);
+            res.json(await this.apiQueryService.getLeaderboard(req));
         });
 
         router.post('/sandbox-positions', express.json(), async (req, res) => {
@@ -274,18 +239,13 @@ export class ApiRouter {
 
         router.get('/sandbox-positions/:id', async (req, res) => {
             const id = zSandboxPositionId.parse(String(req.params.id ?? '').trim().toLowerCase());
-            const sandboxPosition = await this.sandboxPositionService.loadPosition(id);
+            const sandboxPosition = await this.apiQueryService.getSandboxPosition(id);
             if (!sandboxPosition) {
                 res.status(404).json({ error: 'Sandbox position not found.' });
                 return;
             }
 
-            const response: SandboxPositionResponse = {
-                id,
-                name: sandboxPosition.name,
-                gamePosition: sandboxPosition.gamePosition
-            };
-            res.json(response);
+            res.json(sandboxPosition);
         });
 
         router.get('/admin/stats', async (req, res) => {
@@ -441,39 +401,6 @@ export class ApiRouter {
 
     private parseAdminServerSettingsUpdate(body: unknown): ServerSettings {
         return zAdminUpdateServerSettingsRequest.parse(body ?? {}).settings;
-    }
-
-    private async buildAccountStatistics(profileId: string): Promise<ProfileStatisticsResponse['statistics']> {
-        const [gameStats, eloHistory, playerRating, leaderboardPlacement] = await Promise.all([
-            this.gameHistoryRepository.getPlayerProfileStatistics(profileId),
-            this.gameHistoryRepository.getPlayerEloHistory(profileId),
-            this.eloRepository.getPlayerRating(profileId),
-            this.eloRepository.getLeaderboardPlacement(profileId)
-        ]);
-
-        return {
-            totalGames: {
-                played: gameStats.totalGamesPlayed,
-                won: gameStats.totalGamesWon
-            },
-            rankedGames: {
-                played: gameStats.rankedGamesPlayed,
-                won: gameStats.rankedGamesWon,
-                currentWinStreak: gameStats.currentRankedWinStreak,
-                longestWinStreak: gameStats.longestRankedWinStreak
-            },
-            longestGamePlayedMs: gameStats.longestGamePlayedMs,
-            longestGameByMoves: gameStats.longestGameByMoves,
-            totalMovesMade: gameStats.totalMovesMade,
-            eloHistory,
-            elo: leaderboardPlacement?.eloScore ?? playerRating?.eloScore ?? 1000,
-            worldRank: leaderboardPlacement?.rank ?? null
-        };
-    }
-
-    private toPublicAccountProfile(user: AccountUserProfile): ProfileResponse['user'] {
-        const { email: _email, ...publicProfile } = user;
-        return publicProfile;
     }
 
     private buildAdminServerSettingsResponse(): AdminServerSettingsResponse {
