@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 import { ApiQueryService, ApiRequestError } from './rest/apiQueryService'
 import fs from "fs/promises";
 
-interface FrontendSsrDependencies {
+type FrontendSsrDependencies = {
     apiQueryService: ApiQueryService
     ssrDistPath: string
 }
@@ -137,7 +137,7 @@ export class FrontendSsrRenderer {
             queryClient.setQueryData(queryKeys.availableSessions, sortLobbySessions(this.dependencies.apiQueryService.listSessions()))
         }
 
-        const sessionMatch = path.match(/^\/session\/([^/]+)$/)
+        const sessionMatch = /^\/session\/([^/]+)$/.exec(path)
         if (sessionMatch) {
             const sessionId = decodeURIComponent(sessionMatch[1])
             queryClient.setQueryData(queryKeys.session(sessionId), this.dependencies.apiQueryService.getSession(sessionId))
@@ -147,9 +147,9 @@ export class FrontendSsrRenderer {
             queryClient.setQueryData(queryKeys.leaderboard, await this.dependencies.apiQueryService.getLeaderboard(req))
         }
 
-        const profileMatch = path.match(/^\/profile\/(?<id>[^/]+)|\/account\/profile$/)
+        const profileMatch = /^\/profile\/(?<id>[^/]+)|\/account\/profile$/.exec(path)
         if (profileMatch) {
-            const profileId = decodeURIComponent(profileMatch.groups?.["id"] ?? currentUserId ?? "")
+            const profileId = decodeURIComponent(profileMatch.groups?.id ?? currentUserId ?? "")
             if (!profileId) {
                 return
             }
@@ -197,7 +197,7 @@ export class FrontendSsrRenderer {
             }
         }
 
-        const finishedGameMatch = path.match(/^\/(?:account\/)?games\/([^/]+)$/)
+        const finishedGameMatch = /^\/(?:account\/)?games\/([^/]+)$/.exec(path)
         if (finishedGameMatch) {
             const gameId = decodeURIComponent(finishedGameMatch[1])
             const finishedGame = await this.dependencies.apiQueryService.getFinishedGame(gameId)
@@ -206,7 +206,7 @@ export class FrontendSsrRenderer {
             }
         }
 
-        const sandboxPositionMatch = path.match(/^\/sandbox\/([^/]+)$/)
+        const sandboxPositionMatch = /^\/sandbox\/([^/]+)$/.exec(path)
         if (sandboxPositionMatch) {
             const positionId = decodeURIComponent(sandboxPositionMatch[1])
             const sandboxPosition = await this.dependencies.apiQueryService.getSandboxPosition(positionId)
@@ -223,7 +223,7 @@ export class FrontendSsrRenderer {
 
         const moduleUrl = pathToFileURL(join(this.dependencies.ssrDistPath, 'ssr/entry-server.js')).href;
         this.ssrModule = import(moduleUrl)
-            .then(module => module.default as SSRModule)
+            .then((module: { default: SSRModule }) => module.default)
             .catch((error: unknown) => {
                 this.ssrModule = null
                 throw error

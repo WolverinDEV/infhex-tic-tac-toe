@@ -2,9 +2,9 @@ import type { Document } from 'mongodb';
 import type { DatabaseMigration } from './types';
 import { METRICS_COLLECTION_NAME } from '../mongoCollections';
 
-interface MetricDocument extends Document {
+type MetricDocument = {
     _id: unknown;
-}
+} & Document
 
 export const metricsMigration: DatabaseMigration = {
     id: '004-metrics',

@@ -7,7 +7,7 @@ import { formatActiveSessionDuration, formatLobbyPlayers } from '../utils/lobby'
 import { useSsrCompatibleNow } from '../ssrState'
 import PageCorpus from './PageCorpus'
 
-interface AdminControlsScreenProps {
+type AdminControlsScreenProps = {
   isAuthorizing: boolean
   shutdown: ShutdownState | null
   maxConcurrentGames: string

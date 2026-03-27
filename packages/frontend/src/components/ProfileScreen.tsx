@@ -43,7 +43,7 @@ function showErrorToast(message: string) {
     })
 }
 
-interface ProfileScreenProps {
+type ProfileScreenProps = {
     account: PublicAccountProfile | null
     statistics: AccountStatistics | null
     recentGames: FinishedGamesPage | null
@@ -57,7 +57,7 @@ interface ProfileScreenProps {
     isPublicView: boolean
 }
 
-interface PrimaryStatCardProps {
+type PrimaryStatCardProps = {
     label: string
     value: string | number
     detail: string
@@ -76,7 +76,7 @@ function PrimaryStatCard({ label, value, detail, accentClassName }: Readonly<Pri
     )
 }
 
-interface SecondaryStatCardProps {
+type SecondaryStatCardProps = {
     label: string
     value: string | number
     detail: string
@@ -92,7 +92,7 @@ function SecondaryStatCard({ label, value, detail }: Readonly<SecondaryStatCardP
     )
 }
 
-interface AccountMetaItemProps {
+type AccountMetaItemProps = {
     label: string
     value: string
 }
@@ -106,7 +106,7 @@ function AccountMetaItem({ label, value }: Readonly<AccountMetaItemProps>) {
     )
 }
 
-interface StatisticsGroupProps {
+type StatisticsGroupProps = {
     eyebrow: string
     title: string
     description: string
@@ -453,7 +453,7 @@ function EloHistoryChartSection({
                             stroke="#94a3b8"
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={time => formatChartDate(intlFormatProvider, time)}
+                            tickFormatter={(time: number) => formatChartDate(intlFormatProvider, time)}
                         />
                         <YAxis
                             allowDecimals={false}
@@ -471,7 +471,7 @@ function EloHistoryChartSection({
                                 borderRadius: '1rem',
                                 color: '#e2e8f0'
                             }}
-                            formatter={(value) => [`${value} ELO`, 'Rating']}
+                            formatter={(value) => [`${value as number} ELO`, 'Rating']}
                             labelFormatter={(label) => formatDateTime(intlFormatProvider, Number(label))}
                         />
                         <Line

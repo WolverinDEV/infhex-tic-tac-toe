@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { SsrTimestampProvider } from "./ssrState";
 import { SSRModule } from '@ih3t/shared';
 import App from './App'
+import { QueryClient } from '@tanstack/react-query';
 
 const renderer: SSRModule = ({ url, timestamp, queryClient }) => {
     const parsedUrl = new URL(url)
@@ -14,15 +15,15 @@ const renderer: SSRModule = ({ url, timestamp, queryClient }) => {
             <body>
                 <div id="root">
                     <SsrTimestampProvider value={timestamp}>
-                        <App router={router} queryClient={queryClient} />
+                        <App router={router} queryClient={queryClient as QueryClient} />
                     </SsrTimestampProvider >
                 </div>
             </body>
         </html>
     );
 
-    const headMatch = document.match(/<head>([\s\S]*?)<\/head>/i);
-    const rootMatch = document.match(/<div id="root">([\s\S]*?)<\/div><\/body>/i);
+    const headMatch = /<head>([\s\S]*?)<\/head>/i.exec(document);
+    const rootMatch = /<div id="root">([\s\S]*?)<\/div><\/body>/i.exec(document);
 
     return {
         head: headMatch?.[1] ?? "",

@@ -12,7 +12,7 @@ function showErrorToast(message: string) {
   })
 }
 
-interface AccountPreferencesScreenProps {
+type AccountPreferencesScreenProps = {
   account: AccountProfile | null
   preferences: AccountPreferences | null
   isLoading: boolean
@@ -37,7 +37,7 @@ function PreferencesErrorState({ message }: Readonly<{ message: string }>) {
   )
 }
 
-interface PreferenceSwitchCardProps {
+type PreferenceSwitchCardProps = {
   label: string
   description: string
   checked: boolean

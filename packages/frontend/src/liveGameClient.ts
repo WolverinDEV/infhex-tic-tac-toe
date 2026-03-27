@@ -95,13 +95,11 @@ function executeHeartbeat() {
         heartbeatLastPingAt = now;
     }
 
-    if (!heartbeatLastPongAt) {
-        /*
-         * If we just started pinging and never received any pong
-         * assume a virtual "pong" right now.
-         */
-        heartbeatLastPongAt = now;
-    }
+    /*
+     * If we just started pinging and never received any pong
+     * assume a virtual "pong" right now.
+     */
+    heartbeatLastPongAt ??= now
 
     const lastPongMs = now - heartbeatLastPongAt;
 
@@ -379,6 +377,3 @@ if (typeof window !== "undefined") {
      */
     startHeartbeatMonitor()
 }
-
-/* @ts-ignore */
-window.queryClient = queryClient

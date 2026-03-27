@@ -1,6 +1,6 @@
 import FinishedGameReviewLayout from './FinishedGameReviewLayout'
 
-interface FinishedGameReviewLoadingProps {
+type FinishedGameReviewLoadingProps = {
   onRetry: () => void
 }
 

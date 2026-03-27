@@ -28,26 +28,26 @@ import { MongoDatabase } from './mongoClient';
 const zGameHistoryDocument = zDatabaseGame;
 type GameHistoryDocument = z.infer<typeof zGameHistoryDocument> & Document;
 
-interface ListFinishedGamesOptions {
+type ListFinishedGamesOptions = {
     page?: number;
     pageSize?: number;
     baseTimestamp?: number;
     playerProfileId?: string;
 }
 
-export interface GameHistoryAdminWindowStats {
+export type GameHistoryAdminWindowStats = {
     gamesPlayed: number;
     timePlayedMs: number;
     longestGameInMoves: AdminLongestGameInMoves | null;
     longestGameInDuration: AdminLongestGameInDuration | null;
 }
 
-export interface ActiveGamesTimelinePoint {
+export type ActiveGamesTimelinePoint = {
     timestamp: number;
     activeGames: number;
 }
 
-export interface PlayerLeaderboardStats {
+export type PlayerLeaderboardStats = {
     profileId: string;
     displayName: string;
     gamesPlayed: number;
@@ -55,7 +55,7 @@ export interface PlayerLeaderboardStats {
     winRatio: number;
 }
 
-export interface PlayerProfileStatistics {
+export type PlayerProfileStatistics = {
     profileId: string;
     totalGamesPlayed: number;
     totalGamesWon: number;
@@ -237,7 +237,7 @@ export class GameHistoryRepository {
         const matchStage = this.buildFinishedGamesMatch(baseTimestamp, options.playerProfileId);
         const aggregationResult = await collection.aggregate<{
             games: GameHistoryDocument[];
-            totals: Array<{ totalGames: number; totalMoves: number }>;
+            totals: { totalGames: number; totalMoves: number }[];
         }>([
             {
                 $match: matchStage
@@ -447,7 +447,7 @@ export class GameHistoryRepository {
                     break;
                 }
 
-                if (nextEndIsWithinBucket && (!nextStartIsWithinBucket || nextEndAt <= nextStartAt!)) {
+                if (nextEndIsWithinBucket && (!nextStartIsWithinBucket || nextEndAt <= nextStartAt)) {
                     activeGames = Math.max(0, activeGames - 1);
                     endIndex += 1;
                     continue;

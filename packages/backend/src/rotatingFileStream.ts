@@ -2,13 +2,13 @@ import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, stat
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { Writable } from 'node:stream';
 
-interface RotatingFileStreamOptions {
+type RotatingFileStreamOptions = {
     filePath: string;
     maxFileSizeBytes: number;
     maxTotalSizeBytes: number;
 }
 
-interface LogFileInfo {
+type LogFileInfo = {
     path: string;
     size: number;
     isCurrent: boolean;

@@ -1,4 +1,4 @@
-interface AppErrorScreenProps {
+type AppErrorScreenProps = {
   badge?: string
   title: string
   message: string

@@ -35,17 +35,17 @@ import { SessionError, SessionManager } from '../../session/sessionManager';
 import { ApiQueryService, ApiRequestError } from './apiQueryService';
 
 const zPositiveInteger = z.coerce.number().int().positive();
-const zPositiveIntegerQueryValue = z.preprocess((value) => Array.isArray(value) ? value[0] : value, zPositiveInteger);
+const zPositiveIntegerQueryValue = z.preprocess((value): unknown => Array.isArray(value) ? value[0] : value, zPositiveInteger);
 const zFinishedGamesView = z.enum(['all', 'mine']);
 const zFinishedGamesQuery = z.object({
     page: zPositiveIntegerQueryValue.optional(),
     pageSize: zPositiveIntegerQueryValue.optional(),
     baseTimestamp: zPositiveIntegerQueryValue.optional(),
-    view: z.preprocess((value) => Array.isArray(value) ? value[0] : value, zFinishedGamesView).optional()
+    view: z.preprocess((value): unknown => Array.isArray(value) ? value[0] : value, zFinishedGamesView).optional()
 });
 const zAdminStatsQuery = z.object({
     tzOffsetMinutes: z.preprocess(
-        (value) => Array.isArray(value) ? value[0] : value,
+        (value): unknown => Array.isArray(value) ? value[0] : value,
         z.coerce.number().int().min(-840).max(840)
     ).optional()
 });

@@ -11,7 +11,7 @@ import { GameHistoryRepository, type PlayerLeaderboardStats } from '../persisten
 const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 const LEADERBOARD_PLAYER_LIMIT = 10;
 
-interface LeaderboardPlacementCache {
+type LeaderboardPlacementCache = {
     generatedAt: number;
     nextRefreshAt: number;
     refreshIntervalMs: number;
@@ -105,7 +105,7 @@ export class LeaderboardService {
         const profile = profiles.get(player.profileId);
         const leaderboardPlayer = {
             profileId: player.profileId,
-            displayName: profile?.username?.trim() || 'Player',
+            displayName: profile?.username?.trim() ?? 'Player',
             image: profile?.image ?? null,
             elo: player.eloScore,
             gamesPlayed: stats?.gamesPlayed ?? 0,

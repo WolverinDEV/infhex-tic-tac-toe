@@ -2,7 +2,7 @@ import type { Leaderboard } from '@ih3t/shared'
 import { LeaderboardSection } from './LeaderboardPanel'
 import PageCorpus from './PageCorpus'
 
-interface LeaderboardScreenProps {
+type LeaderboardScreenProps = {
   leaderboard: Leaderboard | null
   isLoading: boolean
   errorMessage: string | null

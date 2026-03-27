@@ -4,7 +4,7 @@ import type { ServerGameSession } from '../session/types';
 
 type TurnExpiredHandler = (sessionId: string) => void;
 
-interface HandleMoveParams {
+type HandleMoveParams = {
     playerId: string;
     timestamp: number;
     turnCompleted: boolean;

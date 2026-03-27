@@ -4,7 +4,7 @@ import { playCountdownWarningSound } from '../../soundEffects'
 import { formatMinutesSeconds } from '../../utils/duration'
 import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard'
 
-interface TurnTimerHudProps {
+type TurnTimerHudProps = {
   gameOptions: LobbyOptions
   players: SessionParticipant[]
   gameState: GameState
@@ -29,8 +29,8 @@ function TurnTimerHud({
 
   const isSpectator = localPlayerId === null
   const canPlaceCell = localPlayerId !== null && currentTurnPlayerId === localPlayerId
-  const firstPlayerId = playerIds[0]!
-  const secondPlayerId = playerIds[1]!
+  const firstPlayerId = playerIds[0]
+  const secondPlayerId = playerIds[1]
   const playerSlots = [firstPlayerId, secondPlayerId] as const
   const activePlayerColor = currentTurnPlayerId ? getPlayerTileColor(gameState.playerTiles, currentTurnPlayerId) : '#7dd3fc'
   const spectatorAccentTextStyle = isSpectator ? { color: activePlayerColor } : undefined

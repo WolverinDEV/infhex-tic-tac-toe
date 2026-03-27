@@ -2,7 +2,7 @@ import type { LobbyOptions } from '@ih3t/shared'
 import { formatTimeControl } from '../utils/gameTimeControl'
 import ScreenFooter from './ScreenFooter'
 
-interface WaitingScreenProps {
+type WaitingScreenProps = {
   sessionId: string
   playerCount: number
   localPlayerName: string,

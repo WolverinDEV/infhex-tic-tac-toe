@@ -178,7 +178,7 @@ function SessionRoute() {
     const autoPlaceOriginTile = accountPreferences?.preferences.autoPlaceOriginTile ?? false
     const showTilePieceMarkers = accountPreferences?.preferences.tilePieceMarkers ?? false
     const hideEloInHud = accountPreferences?.preferences.zenModeInGame ?? false
-    const shouldBlockLeave = session && session.state.status === "in-game" && session.localParticipantRole === "player";
+    const shouldBlockLeave = session?.state.status === "in-game" && session.localParticipantRole === "player";
 
     const blocker = useBlocker(({ currentLocation, nextLocation }) => currentLocation.pathname !== nextLocation.pathname)
 
@@ -235,7 +235,7 @@ function SessionRoute() {
 
         /* Session routing path miss match. Navigate where we should belong to */
         blockSessionJoinRef.current = true;
-        navigate(buildSessionPath(sessionId));
+        void navigate(buildSessionPath(sessionId));
     }, [sessionId, session])
 
     useEffect(() => {
@@ -251,7 +251,7 @@ function SessionRoute() {
     }, [connection.isInitialized, !!session, sessionId])
 
     useEffect(() => {
-        if (!session || !session.gameState) {
+        if (!session?.gameState) {
             return
         }
 

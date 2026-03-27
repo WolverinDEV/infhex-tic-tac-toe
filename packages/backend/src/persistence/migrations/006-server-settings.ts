@@ -2,9 +2,9 @@ import type { Document } from 'mongodb';
 import type { DatabaseMigration } from './types';
 import { SERVER_SETTINGS_COLLECTION_NAME } from '../mongoCollections';
 
-interface ServerSettingDocument extends Document {
+type ServerSettingDocument = {
     _id: unknown;
-}
+} & Document
 
 export const serverSettingsMigration: DatabaseMigration = {
     id: '006-server-settings',

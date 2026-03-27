@@ -3,7 +3,7 @@ import type { SessionChat } from '@ih3t/shared'
 import GameHudShell from './GameHudShell'
 import { cn } from '../../utils/cn'
 
-interface SessionChatBoxProps {
+type SessionChatBoxProps = {
   currentParticipantId: string
   chat: SessionChat
   isOpen: boolean

@@ -266,7 +266,7 @@ export class SocketServerGateway {
                 }
 
                 this.socketParticipations.delete(socket.id);
-                socket.leave(participation.sessionId);
+                void socket.leave(participation.sessionId);
 
                 const session = this.sessionManager.getSession(participation.sessionId);
                 if (session) {
@@ -323,7 +323,7 @@ export class SocketServerGateway {
                         continue
                     }
 
-                    socket.leave(sessionId);
+                    void socket.leave(sessionId);
 
                     const gameParticipation = this.sessionManager.assignParticipantSocket(
                         rematchSession,
@@ -466,7 +466,7 @@ export class SocketServerGateway {
             participantId: participation.participantId
         });
 
-        socket.join(participation.session.id);
+        void socket.join(participation.session.id);
         socket.emit('session-joined', {
             session: participation.session,
             gameState: participation.gameState,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-interface SandboxShareModalProps {
+type SandboxShareModalProps = {
   isOpen: boolean
   isCreating: boolean
   isCopying: boolean

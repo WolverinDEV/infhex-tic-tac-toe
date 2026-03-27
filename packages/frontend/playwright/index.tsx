@@ -7,7 +7,7 @@ import '../src/index.css'
 import 'react-toastify/dist/ReactToastify.css'
 import { createQueryClient } from '../src/query/queryClient'
 
-interface ComponentTestHooksConfig {
+type ComponentTestHooksConfig = {
   seedAccount?: boolean
   accountUser?: AccountProfile | null
   renderedAt?: number

@@ -11,7 +11,7 @@ export { CHANGELOG_COMMIT_COUNT, CHANGELOG_DAYS, CHANGELOG_GENERATED_AT } from '
 export { FINISHED_GAMES_PAGE_SIZE, queryKeys } from './queryKeys';
 export type { FinishedGamesArchiveView } from './queryKeys';
 
-export interface HexCoordinate {
+export type HexCoordinate = {
     x: number;
     y: number;
 }
@@ -281,13 +281,13 @@ export const zSandboxPositionResponse = z.object({
 });
 export type SandboxPositionResponse = z.infer<typeof zSandboxPositionResponse>;
 
-export interface ApplyGameMoveParams {
+export type ApplyGameMoveParams = {
     playerId: string;
     x: number;
     y: number;
 }
 
-export interface ApplyGameMoveResult {
+export type ApplyGameMoveResult = {
     turnCompleted: boolean;
 }
 
@@ -415,7 +415,7 @@ function findWinningLine(gameState: GameState, playerId: string, x: number, y: n
             .filter((cell) => cell.occupiedBy === playerId)
             .map((cell) => getCellKey(cell.x, cell.y))
     );
-    const directions: Array<[number, number]> = [
+    const directions: [number, number][] = [
         [1, 0],
         [0, 1],
         [1, -1]

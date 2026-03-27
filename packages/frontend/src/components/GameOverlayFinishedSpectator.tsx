@@ -5,7 +5,7 @@ import { NavLink } from 'react-router'
 import { buildFinishedGamePath } from '../routes/archiveRouteState'
 
 
-interface GameOverlayFinishedSpectatorProps {
+type GameOverlayFinishedSpectatorProps = {
     players: SessionParticipant[],
     state: SessionStateFinished,
 

@@ -72,7 +72,7 @@ test('steps through replay moves with the left and right arrow keys', async ({ m
     <FinishedGameReplayView
       game={finishedGame}
       showTilePieceMarkers={false}
-      onRetry={() => { }}
+      onRetry={() => { /* empty */ }}
     />
   )
 

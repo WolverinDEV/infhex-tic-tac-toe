@@ -17,7 +17,7 @@ function BackIcon() {
     )
 }
 
-interface PageCorpusProperties {
+type PageCorpusProperties = {
     category: ReactNode,
     title: ReactNode,
     description?: ReactNode,

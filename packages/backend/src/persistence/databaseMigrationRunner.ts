@@ -6,11 +6,11 @@ import { DATABASE_MIGRATIONS_COLLECTION_NAME } from './mongoCollections';
 import { databaseMigrations } from './migrations';
 import { MongoDatabase } from './mongoClient';
 
-interface AppliedMigrationDocument extends Document {
+type AppliedMigrationDocument = {
     _id: string;
     description: string;
     appliedAt: string;
-}
+} & Document
 
 @injectable()
 export class DatabaseMigrationRunner {

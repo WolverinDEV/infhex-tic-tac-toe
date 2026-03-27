@@ -4,7 +4,7 @@ import FinishedGameReviewLoading from './finished-game-review/FinishedGameReview
 import FinishedGameReviewNotFound from './finished-game-review/FinishedGameReviewNotFound'
 import FinishedGameReplayView from './finished-game-review/FinishedGameReplayView'
 
-interface FinishedGameReviewScreenProps {
+type FinishedGameReviewScreenProps = {
   game: FinishedGameRecord | null
   isLoading: boolean
   errorMessage: string | null

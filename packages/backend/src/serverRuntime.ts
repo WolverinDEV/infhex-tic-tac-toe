@@ -68,7 +68,7 @@ export class ApplicationServer {
         await this.eloRepository.initialize();
         await this.serverSettingsService.initialize();
 
-        this.startCronJobs();
+        await this.startCronJobs();
 
         this.server.on('error', (error) => {
             this.logger.error({
@@ -110,7 +110,7 @@ export class ApplicationServer {
 
             await this.shutdownHttpServer();
 
-            this.stopCronJobs();
+            await this.stopCronJobs();
             this.timeControl.dispose();
 
             try {
@@ -133,7 +133,7 @@ export class ApplicationServer {
         }
 
         this.logger.debug({ event: 'server.shutting-down' }, 'Stopping HTTP server');
-        this.socketServerGateway.shutdownConnections();
+        await this.socketServerGateway.shutdownConnections();
 
         setTimeout(() => {
             /* force close connections */
@@ -202,8 +202,8 @@ export class ApplicationServer {
         }, 'Started a new cron job');
     }
 
-    private startCronJobs(): void {
-        this.stopCronJobs();
+    private async startCronJobs() {
+        await this.stopCronJobs();
 
         this.scheduleCronJob({
             name: "Session Tick",
@@ -217,10 +217,10 @@ export class ApplicationServer {
         }, 'Started lobby cleanup cron job');
     }
 
-    private stopCronJobs(): void {
+    private async stopCronJobs() {
         while (this.cronJobs.length > 0) {
             const job = this.cronJobs.pop();
-            job?.stop();
+            void job?.stop();
         }
     }
 }

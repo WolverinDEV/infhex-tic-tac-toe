@@ -23,7 +23,7 @@ type ActiveSession = SessionInfo & {
     gameState: GameState
 };
 
-interface LiveGameStoreState {
+type LiveGameStoreState = {
     connection: {
         isConnected: boolean
         isInitialized: boolean

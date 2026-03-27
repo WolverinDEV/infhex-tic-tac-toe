@@ -1,7 +1,7 @@
 import { BotEngineCapabilities, BotEngineInterface, BotEngineSuggestionResult, GameState, HexCoordinate } from "@ih3t/shared"
 import { BotWorkerRequest, BotWorkerResponse } from "../../../shared/src/botWorkerProtocol"
 
-interface PendingRequest {
+type PendingRequest = {
     resolve: (response: BotWorkerResponse) => void
     reject: (error: Error) => void
 }

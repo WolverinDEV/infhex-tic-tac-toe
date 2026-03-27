@@ -11,7 +11,7 @@ import {
     zAccountPreferences,
 } from '@ih3t/shared';
 import type { Logger } from 'pino';
-import { Collection, ObjectId, type Document } from 'mongodb';
+import { Collection, ObjectId } from 'mongodb';
 import { inject, injectable } from 'tsyringe';
 import { ROOT_LOGGER } from '../logger';
 import {
@@ -22,7 +22,7 @@ import {
 } from '../persistence/mongoCollections';
 import { MongoDatabase } from '../persistence/mongoClient';
 
-interface AuthUserDocument extends Document {
+type AuthUserDocument = {
     _id: ObjectId;
     name?: string | null;
     email?: string | null;
@@ -32,9 +32,10 @@ interface AuthUserDocument extends Document {
     preferences?: AccountPreferences;
     registeredAt?: number;
     lastActiveAt?: number;
+    elo?: number;
 }
 
-interface AuthAccountDocument extends Document {
+type AuthAccountDocument = {
     _id: ObjectId;
     userId: ObjectId;
     type: AdapterAccount['type'];
@@ -46,17 +47,17 @@ interface AuthAccountDocument extends Document {
     token_type?: string;
     scope?: string;
     id_token?: string;
-    session_state?: string;
+    session_state?: AdapterAccount["session_state"];
 }
 
-interface AuthSessionDocument extends Document {
+type AuthSessionDocument = {
     _id: ObjectId;
     sessionToken: string;
     userId: ObjectId;
     expires: Date;
 }
 
-interface AuthVerificationTokenDocument extends Document {
+type AuthVerificationTokenDocument = {
     _id: ObjectId;
     identifier: string;
     token: string;
@@ -71,12 +72,12 @@ type StoredAdapterUser = AdapterUser & {
 
 const DEFAULT_PLAYER_ELO = 1000;
 
-export interface AdminUserWindowStats {
+export type AdminUserWindowStats = {
     newUsers: number;
     activeUsers: number;
 }
 
-export interface AccountUserProfile {
+export type AccountUserProfile = {
     id: string;
     username: string;
     email: string | null;
@@ -557,7 +558,7 @@ export class AuthRepository implements Adapter {
 
         return {
             id: user.id,
-            username: user.name?.trim() || 'Player',
+            username: user.name?.trim() ?? 'Player',
             email: user.email || null,
             image: user.image ?? null,
             role: user.role ?? 'user',

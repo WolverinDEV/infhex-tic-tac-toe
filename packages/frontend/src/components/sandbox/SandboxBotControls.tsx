@@ -2,7 +2,7 @@ import type { BotEngineCapabilities, SandboxPlayerSlot } from '@ih3t/shared'
 import type { SandboxPlayerMode } from '../../sandbox/sandboxBotSettings'
 import React, { useEffect, useState } from 'react'
 
-interface SandboxBotControlsProps {
+type SandboxBotControlsProps = {
     botDisplayName: string | null
     botCapabilities: Readonly<BotEngineCapabilities> | null
     botAvailabilityMessage: string | null
@@ -16,11 +16,11 @@ interface SandboxBotControlsProps {
     onTimeoutMsChange: (timeoutMs: number) => void
 }
 
-const PLAYER_OPTIONS: ReadonlyArray<{
+const PLAYER_OPTIONS: readonly {
     slot: SandboxPlayerSlot
     title: string
     subtitle: string
-}> = [
+}[] = [
         {
             slot: 'player-1',
             title: 'Player 1',

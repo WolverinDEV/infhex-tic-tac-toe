@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import GameHudShell from '../game-screen/GameHudShell'
 
-interface SandboxHudProps {
+type SandboxHudProps = {
     positionName: string | null
     isAuthenticated: boolean
     occupiedCellCount: number

@@ -12,7 +12,7 @@ import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
 import { MetricsRepository } from '../persistence/metricsRepository';
 import { SessionManager } from '../session/sessionManager';
 
-interface AdminStatsInterval {
+type AdminStatsInterval = {
     startAt: number;
     endAt: number;
 }

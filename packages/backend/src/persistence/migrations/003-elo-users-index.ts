@@ -2,9 +2,9 @@ import type { Document } from 'mongodb';
 import type { DatabaseMigration } from './types';
 import { AUTH_USERS_COLLECTION_NAME } from '../mongoCollections';
 
-interface EloUserDocument extends Document {
+type EloUserDocument = {
     _id: unknown;
-}
+} & Document
 
 export const eloUsersIndexMigration: DatabaseMigration = {
     id: '003-elo-users-index',

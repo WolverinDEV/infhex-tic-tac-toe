@@ -53,7 +53,7 @@ export class SessionError extends Error {
     }
 }
 
-export interface TerminalSessionStatus {
+export type TerminalSessionStatus = {
     sessionId: string;
     state: 'lobby' | 'in-game' | 'finished';
     playerCount: number;
@@ -67,13 +67,13 @@ export interface TerminalSessionStatus {
     placementsRemaining: number;
 }
 
-export interface ActiveSessionCounts {
+export type ActiveSessionCounts = {
     total: number;
     public: number;
     private: number;
 }
 
-export interface RematchCreateResult {
+export type RematchCreateResult = {
     rematchSession: ServerGameSession,
     socketMapping: Record<string, string>,
 }
@@ -230,7 +230,8 @@ export class SessionManager {
         let participantRole: SessionParticipantRole;
         let participant: ServerSessionParticipant;
         switch (session.state) {
-            case 'lobby':
+            case 'lobby': {
+
                 if (session.players.length >= MAX_PLAYERS_PER_SESSION) {
                     throw new SessionError('Session is full');
                 }
@@ -272,6 +273,7 @@ export class SessionManager {
                 });
                 session.hadPlayers = true;
                 break;
+            }
 
             case 'in-game':
             case 'finished':
@@ -331,7 +333,7 @@ export class SessionManager {
     }
 
     async surrenderSession(session: ServerGameSession, participantId: string) {
-        session.lock.runExclusive(async () => {
+        await session.lock.runExclusive(async () => {
             if (session.state !== 'in-game') {
                 throw new SessionError('Game is not currently active');
             }
@@ -589,7 +591,7 @@ export class SessionManager {
 
     private readonly handleTurnExpired = (sessionId: string): void => {
         const session = this.sessions.get(sessionId);
-        if (!session || session.state !== 'in-game' || session.players.length < MAX_PLAYERS_PER_SESSION) {
+        if (session?.state !== 'in-game' || session.players.length < MAX_PLAYERS_PER_SESSION) {
             this.timeControl.clearSession(sessionId);
             return;
         }
@@ -994,7 +996,7 @@ export class SessionManager {
         const partialInfo: Partial<SessionInfo> = {};
         if (keys) {
             for (const key of keys) {
-                /* @ts-ignore */
+                /* @ts-expect-error key is keyof SessionInfo so also in Partial<SessionInfo> */
                 partialInfo[key] = fullInfo[key];
             }
         } else {

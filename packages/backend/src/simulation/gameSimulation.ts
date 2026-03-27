@@ -7,13 +7,13 @@ import {
     type GameState,
 } from '@ih3t/shared';
 
-interface ApplyMoveParams {
+type ApplyMoveParams = {
     playerId: string;
     x: number;
     y: number;
 }
 
-interface ApplyMoveResult {
+type ApplyMoveResult = {
     turnCompleted: boolean;
 }
 

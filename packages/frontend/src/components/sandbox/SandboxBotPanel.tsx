@@ -25,7 +25,7 @@ function getBotCapabilitiesLabel(botCapabilities: Readonly<BotEngineCapabilities
 }
 
 
-interface SandboxBotPanelProps {
+type SandboxBotPanelProps = {
   isOpen: boolean
 
   selectedFactory: SandboxBotEngineInfo | null,

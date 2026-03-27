@@ -41,8 +41,8 @@ function createProps(overrides: Partial<GameScreenHudProps> = {}): GameScreenHud
     renderableCellCount: 28,
     gameOptions: baseGameOptions,
     shutdown: null,
-    onLeave: () => {},
-    onResetView: () => {},
+    onLeave: () => { },
+    onResetView: () => { },
     ...overrides,
   }
 }

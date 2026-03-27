@@ -40,7 +40,7 @@ import { playTilePlacedSound } from '../soundEffects'
 import { kSandboxBotEngines, SandboxBotEngineInfo } from '../sandbox/botLoader'
 import { formatPlacementSummary, formatSandboxPlayerLabel } from '../utils/routeMetadata'
 
-interface SandboxSnapshot {
+type SandboxSnapshot = {
     positionName: string | null
     gameState: GameState
     gameHistory: GameState[]
@@ -94,11 +94,11 @@ function extractSandboxPositionId(value: string) {
 }
 
 function getSandboxPlayerSlot(playerId: string): SandboxPlayerSlot {
-    return playerId === SANDBOX_PLAYERS[0]!.id ? 'player-1' : 'player-2'
+    return playerId === SANDBOX_PLAYERS[0].id ? 'player-1' : 'player-2'
 }
 
 function getSandboxPlayerId(playerSlot: SandboxPlayerSlot): string {
-    return playerSlot === 'player-1' ? SANDBOX_PLAYERS[0]!.id : SANDBOX_PLAYERS[1]!.id
+    return playerSlot === 'player-1' ? SANDBOX_PLAYERS[0].id : SANDBOX_PLAYERS[1].id
 }
 
 function buildSandboxGamePosition(gameState: GameState): SandboxGamePosition | null {
@@ -211,7 +211,7 @@ function SandboxRoute() {
         : false
     const localPlayerId = gameState.winner === null
         && !isCurrentTurnBotControlled
-        ? (gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0]!.id)
+        ? (gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id)
         : null
     const canTakeBack = gameHistory.length > 0
     const canSharePosition =
@@ -283,7 +283,7 @@ function SandboxRoute() {
 
         const currentGameState = latestGameStateRef.current
         const currentGameHistory = latestGameHistoryRef.current
-        let nextGameState = cloneGameState(currentGameState)
+        const nextGameState = cloneGameState(currentGameState)
         const nextGameHistory = [...currentGameHistory]
 
         for (const move of moves) {
@@ -356,7 +356,7 @@ function SandboxRoute() {
     }
 
     function handlePlaceCell(x: number, y: number) {
-        const actingPlayerId = gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0]!.id
+        const actingPlayerId = gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id
         const nextGameState = cloneGameState(gameState)
 
         try {

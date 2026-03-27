@@ -19,7 +19,7 @@ export type HudPlayerInfo = {
     rankingEloScore: number,
 }
 
-interface GameScreenHudProps {
+type GameScreenHudProps = {
     sessionId: string
     localPlayerId: string | null
     players: HudPlayerInfo[]

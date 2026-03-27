@@ -20,7 +20,7 @@ import { formatChartDateTime, formatDateTime, useIntlFormatProvider } from '../u
 import { formatBucketSize, formatLongDuration } from '../utils/duration'
 import PageCorpus from './PageCorpus'
 
-interface AdminStatsScreenProps {
+type AdminStatsScreenProps = {
   stats: AdminStatsResponse | null
   isLoading: boolean
   errorMessage: string | null
@@ -157,7 +157,7 @@ function ActiveGamesChartSection({
               stroke="#94a3b8"
               tickLine={false}
               axisLine={false}
-              tickFormatter={time => formatChartDateTime(intlFormatProvider, time)}
+              tickFormatter={(time: number) => formatChartDateTime(intlFormatProvider, time)}
             />
             <YAxis
               allowDecimals={false}
@@ -174,7 +174,7 @@ function ActiveGamesChartSection({
                 borderRadius: '1rem',
                 color: '#e2e8f0'
               }}
-              formatter={(value) => [`${value} games`, 'Active']}
+              formatter={(value) => [`${value as number} games`, 'Active']}
               labelFormatter={(label) => formatDateTime(intlFormatProvider, Number(label))}
             />
             <Brush
@@ -182,7 +182,7 @@ function ActiveGamesChartSection({
               height={28}
               stroke="#7dd3fc"
               travellerWidth={10}
-              tickFormatter={time => formatChartDateTime(intlFormatProvider, time)}
+              tickFormatter={(time: number) => formatChartDateTime(intlFormatProvider, time)}
               fill="rgba(15,23,42,0.92)"
             />
             <Line

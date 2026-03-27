@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import PageCorpus from '../PageCorpus'
 
-interface FinishedGameReviewLayoutProps {
+type FinishedGameReviewLayoutProps = {
   onRetry: () => void
   children: ReactNode
 }

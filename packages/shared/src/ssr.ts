@@ -6,9 +6,7 @@ export type SSRResult = {
 export type SSRInput = {
     url: string,
     timestamp: number,
-    queryClient: any /* QueryClient */,
+    queryClient: unknown /* QueryClient */,
 }
 
-export interface SSRModule {
-    (params: SSRInput): SSRResult
-}
+export type SSRModule = (params: SSRInput) => SSRResult;

@@ -1,4 +1,4 @@
-interface SandboxWelcomeModalProps {
+type SandboxWelcomeModalProps = {
   isOpen: boolean
   onStartCleanBoard: () => void
   onImportPosition: () => void

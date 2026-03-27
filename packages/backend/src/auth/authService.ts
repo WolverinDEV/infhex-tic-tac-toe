@@ -9,7 +9,8 @@ import { getCookieValue } from '../network/clientInfo';
 import { CorsConfiguration } from '../network/cors';
 import { AuthRepository, type AccountUserProfile } from './authRepository';
 
-const Discord: typeof _Discord = (_Discord as any)["default"] ?? _Discord;
+/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+const Discord: typeof _Discord = (_Discord as any).default ?? _Discord;
 
 type SessionUserShape = {
     id?: string;
@@ -54,7 +55,7 @@ export class AuthService {
                 Discord({
                     clientId: serverConfig.discordClientId,
                     clientSecret: serverConfig.discordClientSecret,
-                    profile(profile) {
+                    profile(profile: DiscordProfile) {
                         return {
                             id: profile.id,
                             name: profile.username,

@@ -1,6 +1,6 @@
 import type { LobbyInfo } from '@ih3t/shared'
 
-interface LobbyPlayerLike {
+type LobbyPlayerLike = {
   displayName: string
   elo: number | null
 }
@@ -8,7 +8,7 @@ interface LobbyPlayerLike {
 export function formatLobbyPlayers(
   players: readonly LobbyPlayerLike[],
   rated: boolean,
-  emptyLabel: string = 'Waiting for first player'
+  emptyLabel = 'Waiting for first player'
 ) {
   if (players.length === 0) {
     return emptyLabel

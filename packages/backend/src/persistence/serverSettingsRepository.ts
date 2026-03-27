@@ -12,7 +12,7 @@ import { ROOT_LOGGER } from '../logger';
 import { SERVER_SETTINGS_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
 
-const SERVER_SETTING_KEYS = Object.keys(DEFAULT_SERVER_SETTINGS) as Array<keyof ServerSettings>;
+const SERVER_SETTING_KEYS = Object.keys(DEFAULT_SERVER_SETTINGS) as (keyof ServerSettings)[];
 
 const zServerSettingDocument = z.object({
     key: z.string().min(1),

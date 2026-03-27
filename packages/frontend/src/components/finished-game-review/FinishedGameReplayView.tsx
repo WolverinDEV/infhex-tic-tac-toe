@@ -20,7 +20,7 @@ import useGameBoard from '../game-screen/useGameBoard'
 import FinishedGameReviewLayout from './FinishedGameReviewLayout'
 import type { SandboxRouteInitialPosition, SandboxRouteState } from '../../routes/sandboxRouteState'
 
-interface FinishedGameReplayViewProps {
+type FinishedGameReplayViewProps = {
   game: FinishedGameRecord
   showTilePieceMarkers: boolean
   onRetry: () => void

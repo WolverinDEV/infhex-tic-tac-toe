@@ -10,12 +10,12 @@ export const GRID_LINE_COLOR = 'rgba(148, 163, 184, 0.18)'
 
 const SQRT_THREE = Math.sqrt(3)
 
-export interface HexCell {
+export type HexCell = {
     x: number
     y: number
 }
 
-interface CubeCell {
+type CubeCell = {
     x: number
     y: number
     z: number
@@ -71,7 +71,7 @@ export function getPlayerLabel(
     players: readonly PlayerReference[],
     playerId: string | null,
     playerNames?: PlayerNames,
-    fallbackName: string = 'A player'
+    fallbackName = 'A player'
 ): string {
     if (!playerId) {
         return fallbackName

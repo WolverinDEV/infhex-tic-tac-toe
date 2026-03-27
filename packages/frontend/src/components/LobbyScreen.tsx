@@ -7,7 +7,7 @@ import { useHydratedDelay } from '../useHydratedDelay'
 import ShutdownTimer from './game-screen/ShutdownTimer'
 import PublicMatchesList from './PublicMatchesList'
 
-interface LobbyScreenProps {
+type LobbyScreenProps = {
     isConnected: boolean
     shutdown: ShutdownState | null
     account: AccountProfile | null

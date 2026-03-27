@@ -6,23 +6,23 @@ import { AUTH_USERS_COLLECTION_NAME } from '../persistence/mongoCollections';
 import { MongoDatabase } from '../persistence/mongoClient';
 import { PlayerRating } from '@ih3t/shared';
 
-interface EloUserDocument extends Document {
+type EloUserDocument = {
     _id: ObjectId;
     elo?: number;
     ratedGamesPlayed?: number;
-}
+} & Document
 
 
-export interface StoredEloPlayerRating extends PlayerRating {
+export type StoredEloPlayerRating = {
     profileId: string;
-}
+} & PlayerRating
 
 
-export interface EloLeaderboardPlayer extends StoredEloPlayerRating { }
+export type EloLeaderboardPlayer = { } & StoredEloPlayerRating
 
-export interface EloLeaderboardPlacement extends EloLeaderboardPlayer {
+export type EloLeaderboardPlacement = {
     rank: number;
-}
+} & EloLeaderboardPlayer
 
 export const DEFAULT_PLAYER_ELO = 1000;
 const MINIMUM_PLAYER_ELO = 100;
@@ -110,7 +110,7 @@ export class EloRepository {
             throw Error(`invalid profile id`)
         }
 
-        return this.mapRating(document!);
+        return this.mapRating(document);
     }
 
     async getTopLeaderboardPlayers(limit: number): Promise<EloLeaderboardPlayer[]> {

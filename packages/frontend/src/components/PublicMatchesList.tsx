@@ -4,7 +4,7 @@ import { formatTimeControl } from '../utils/gameTimeControl'
 import { formatLobbyLiveDuration } from '../utils/lobby'
 import { cn } from '../utils/cn'
 
-interface PublicMatchesListProps {
+type PublicMatchesListProps = {
     liveSessions: LobbyInfo[]
     now: number
     isConnected: boolean
@@ -16,7 +16,7 @@ interface PublicMatchesListProps {
 
 type LobbyFilter = 'all' | 'rated' | 'unrated'
 
-const lobbyFilterOptions: Array<{ value: LobbyFilter, label: string }> = [
+const lobbyFilterOptions: { value: LobbyFilter, label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'rated', label: 'Rated' },
     { value: 'unrated', label: 'Unrated' },

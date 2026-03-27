@@ -50,8 +50,9 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   })
 
   if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    throw new ApiError(response.status, data?.error ?? `Request failed: ${response.status}`)
+    const data: unknown = await response.json().catch(() => null)
+    const message = typeof data === "object" && data && "error" in data && typeof data.error === "string" ? data?.error : `Request failed: ${response.status}`;
+    throw new ApiError(response.status, message)
   }
 
   return await response.json() as T

@@ -6,7 +6,7 @@ import { NavLink } from 'react-router'
 import { buildFinishedGamePath } from '../routes/archiveRouteState'
 
 
-interface GameOverlayFinishedPlayerProps {
+type GameOverlayFinishedPlayerProps = {
     state: SessionStateFinished,
     players: SessionParticipant[],
     localPlayerId: string,
@@ -127,13 +127,11 @@ function GameOverlayFinishedPlayer({
     const eloAdjustment = currentPlayer?.ratingAdjustment ?
         isWin ? currentPlayer.ratingAdjustment.eloGain : currentPlayer.ratingAdjustment.eloLoss : 0;
 
-    const eloSummary = currentPlayer && currentPlayer.rating !== null && currentPlayer.ratingAdjustment !== null
-        ? {
-            currentElo: currentPlayer.rating.eloScore + eloAdjustment,
-            previousElo: currentPlayer.rating.eloScore,
-            eloChange: eloAdjustment
-        }
-        : null
+    const eloSummary = currentPlayer?.rating !== null && currentPlayer?.ratingAdjustment !== null ? {
+        currentElo: currentPlayer!.rating.eloScore + eloAdjustment,
+        previousElo: currentPlayer!.rating.eloScore,
+        eloChange: eloAdjustment
+    } : null
     const animatedElo = useAnimatedElo(
         eloSummary?.currentElo ?? null,
         eloSummary?.previousElo ?? null

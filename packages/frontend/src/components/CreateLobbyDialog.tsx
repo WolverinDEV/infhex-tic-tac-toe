@@ -2,18 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyVisibility } from '@ih3t/shared'
 import { formatGameTimeSeconds } from '../utils/gameTimeControl'
 
-interface CreateLobbyDialogProps {
+type CreateLobbyDialogProps = {
   isOpen: boolean
   onClose: () => void
   account: AccountProfile | null
   onCreateLobby: (request: CreateSessionRequest) => void
 }
 
-const visibilityOptions: Array<{
+const visibilityOptions: {
   value: LobbyVisibility
   title: string
   description: string
-}> = [
+}[] = [
     {
       value: 'public',
       title: 'Public Lobby',
@@ -26,11 +26,11 @@ const visibilityOptions: Array<{
     }
   ]
 
-const timeControlModeOptions: Array<{
+const timeControlModeOptions: {
   value: GameTimeControl['mode']
   title: string
   description: string
-}> = [
+}[] = [
     {
       value: 'match',
       title: 'Match Based',

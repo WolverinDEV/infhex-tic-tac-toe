@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from './apiClient'
 
-interface CsrfResponse {
+type CsrfResponse = {
   csrfToken: string
 }
 

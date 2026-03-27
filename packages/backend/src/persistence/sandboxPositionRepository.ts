@@ -24,7 +24,7 @@ const zSandboxPositionDocument = z.object({
 
 type SandboxPositionDocument = z.infer<typeof zSandboxPositionDocument> & Document;
 
-interface CreateSandboxPositionDocumentParams {
+type CreateSandboxPositionDocumentParams = {
     id: string;
     name: SandboxPositionName;
     gamePosition: SandboxGamePosition;
@@ -32,7 +32,7 @@ interface CreateSandboxPositionDocumentParams {
     createdBy: string;
 }
 
-export interface LoadedSandboxPositionRecord {
+export type LoadedSandboxPositionRecord = {
     name: SandboxPositionName;
     gamePosition: SandboxGamePosition;
 }

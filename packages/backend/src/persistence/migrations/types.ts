@@ -1,12 +1,12 @@
 import type { Db } from 'mongodb';
 import type { Logger } from 'pino';
 
-export interface DatabaseMigrationContext {
+export type DatabaseMigrationContext = {
     database: Db;
     logger: Logger;
 }
 
-export interface DatabaseMigration {
+export type DatabaseMigration = {
     id: string;
     description: string;
     up(context: DatabaseMigrationContext): Promise<void>;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-interface SandboxImportModalProps {
+type SandboxImportModalProps = {
   isOpen: boolean
   isLoading: boolean
   errorMessage: string | null

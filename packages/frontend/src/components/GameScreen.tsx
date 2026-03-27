@@ -10,7 +10,7 @@ import TurnTimerHud from './game-screen/TurnTimerHud'
 import useGameBoard from './game-screen/useGameBoard'
 import ShutdownTimer from './game-screen/ShutdownTimer'
 
-interface GameScreenProps {
+type GameScreenProps = {
     sessionId: string
     gameId: string
     players: SessionParticipant[]

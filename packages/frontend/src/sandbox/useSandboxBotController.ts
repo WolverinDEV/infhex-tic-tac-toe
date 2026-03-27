@@ -5,7 +5,7 @@ import { createSandboxBot, SandboxBotEngineInfo } from './botLoader'
 import { getSandboxBotMoves } from './getSandboxBotMoves'
 import type { SandboxPlayerMode } from './sandboxBotSettings'
 
-interface UseSandboxBotControllerOptions {
+type UseSandboxBotControllerOptions = {
     gameState: GameState
     botTurnEnabled: boolean
     botFactory: SandboxBotEngineInfo | null
@@ -16,7 +16,7 @@ interface UseSandboxBotControllerOptions {
     onBotError?: (message: string) => void
 }
 
-interface SandboxBotControllerResult {
+type SandboxBotControllerResult = {
     bot: BotEngineInterface | null
     botCapabilities: Readonly<BotEngineCapabilities> | null
     botAvailabilityMessage: string | null

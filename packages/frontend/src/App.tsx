@@ -5,7 +5,7 @@ import AppErrorBoundary from './components/AppErrorBoundary'
 import { useEffect } from 'react'
 import { clearHydrationRenderPassFlag, useRenderMode } from './ssrState'
 
-interface AppProps {
+type AppProps = {
     router: Parameters<typeof RouterProvider>[0]['router']
     queryClient: QueryClient
     dehydratedState?: DehydratedState

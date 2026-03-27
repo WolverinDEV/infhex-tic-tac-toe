@@ -32,7 +32,7 @@ export class ApiRequestError extends Error {
     }
 }
 
-interface FinishedGamesQueryOptions {
+type FinishedGamesQueryOptions = {
     view: FinishedGamesArchiveView;
     page: number;
     pageSize: number;

@@ -20,7 +20,7 @@ export type BotEngineCapabilities = {
     suggestMove: boolean,
 }
 
-export interface BotEngineInterface {
+export type BotEngineInterface = {
     /// Get a human friendly identifier for the bot engine
     getDisplayName(): string;
 

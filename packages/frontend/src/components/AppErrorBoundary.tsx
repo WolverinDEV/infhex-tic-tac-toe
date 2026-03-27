@@ -1,11 +1,11 @@
 import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react'
 import AppErrorScreen from './AppErrorScreen'
 
-interface AppErrorBoundaryProps {
+type AppErrorBoundaryProps = {
   children: ReactNode
 }
 
-interface AppErrorBoundaryState {
+type AppErrorBoundaryState = {
   error: Error | null
   resetKey: number
 }

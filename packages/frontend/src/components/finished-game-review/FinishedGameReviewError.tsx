@@ -1,6 +1,6 @@
 import FinishedGameReviewLayout from './FinishedGameReviewLayout'
 
-interface FinishedGameReviewErrorProps {
+type FinishedGameReviewErrorProps = {
   errorMessage: string
   onRetry: () => void
 }

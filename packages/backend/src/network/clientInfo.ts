@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import type { Socket } from 'socket.io';
 import { zSocketIOClientAuthPayload, type ClientToServerEvents, type ServerToClientEvents } from '@ih3t/shared';
 
-export interface RequestClientInfo {
+export type RequestClientInfo = {
     deviceId: string;
     ip: string;
     userAgent: string;
@@ -10,11 +10,11 @@ export interface RequestClientInfo {
     referer: string | null;
 }
 
-export interface SocketClientInfo extends RequestClientInfo {
+export type SocketClientInfo = {
     socketId: string;
     ephemeralClientId: string;
     versionHash: string;
-}
+} & RequestClientInfo
 
 function getHeaderValue(value: string | string[] | undefined): string | null {
     if (typeof value === 'string') {

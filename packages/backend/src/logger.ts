@@ -11,7 +11,7 @@ const MAX_TOTAL_LOG_SIZE_BYTES = 500 * 1024 * 1024;
 
 let sharedServerLogFileStream: RotatingFileStream | null = null;
 
-interface CreateRootLoggerOptions {
+type CreateRootLoggerOptions = {
     level?: string;
     pretty?: boolean;
 }

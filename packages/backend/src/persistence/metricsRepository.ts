@@ -7,11 +7,11 @@ import { MongoDatabase } from './mongoClient';
 
 export type MetricDetails = Record<string, unknown>;
 
-export interface MetricDocument extends Document {
+export type MetricDocument = {
     event: string;
     timestamp: string;
     details: MetricDetails;
-}
+} & Document
 
 @injectable()
 export class MetricsRepository {

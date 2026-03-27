@@ -11,10 +11,12 @@ export class ServerConfig {
     readonly frontendDistPath = this.parsePathEnv('FRONTEND_DIST_PATH') ?? resolve(__dirname, '../../../frontend/dist');
     readonly mongoUri = this.requireEnv('MONGODB_URI');
     readonly mongoDbName = process.env.MONGODB_DB_NAME ?? 'ih3t';
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     readonly port: string | number = process.env.PORT || 3001;
     readonly authSecret = this.requireEnv('AUTH_SECRET');
     readonly discordClientId = this.requireFirstEnv('AUTH_DISCORD_ID', 'DISCORD_CLIENT_ID');
     readonly discordClientSecret = this.requireFirstEnv('AUTH_DISCORD_SECRET', 'DISCORD_CLIENT_SECRET');
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     readonly logLevel = process.env.LOG_LEVEL?.trim() || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
     readonly prettyLogs = this.parseBoolean(process.env.LOG_PRETTY) ?? process.env.NODE_ENV !== 'production';
 

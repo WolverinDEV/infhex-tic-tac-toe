@@ -1,6 +1,6 @@
 import type { CanvasHTMLAttributes, RefObject } from 'react'
 
-interface GameBoardCanvasProps {
+type GameBoardCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>
   className: string
   handlers: Pick<

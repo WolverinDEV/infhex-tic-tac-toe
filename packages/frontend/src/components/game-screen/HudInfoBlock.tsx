@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-interface HudInfoBlockProps {
+type HudInfoBlockProps = {
   label: string
   children: ReactNode
 }

@@ -91,7 +91,7 @@ async function main() {
     process.exit(0);
 }
 
-process.on("unhandledrejection", rejection => {
+process.on("unhandledrejection", (rejection: Event) => {
     rejection.preventDefault();
     bootstrapLogger.error(
         {

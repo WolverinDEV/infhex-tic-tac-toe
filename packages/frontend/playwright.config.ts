@@ -34,8 +34,13 @@ export default defineConfig({
         ctViteConfig: {
             define: {},
             plugins: [
+                /* @ts-expect-error idk why but typing fails here */
                 tailwindcss(),
+
+                /* @ts-expect-error idk why but typing fails here */
                 react(),
+
+                /* @ts-expect-error idk why but typing fails here */
                 babel({ presets: [reactCompilerPreset()] }),
             ]
         },

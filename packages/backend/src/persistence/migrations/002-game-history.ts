@@ -202,7 +202,7 @@ function migrateVersion2Document(document: Version2GameHistoryDocument): Databas
 function mapLegacyPlayers(playerIds: string[], document: LegacyGameHistoryDocument): DatabaseGamePlayer[] {
     return playerIds.map((playerId, playerIndex) => ({
         playerId,
-        displayName: document.playerNames?.[playerId]?.trim() || `Player ${playerIndex + 1}`,
+        displayName: document.playerNames?.[playerId]?.trim() ?? `Player ${playerIndex + 1}`,
         profileId: document.playerProfileIds?.[playerId] ?? playerId,
         elo: null,
         eloChange: null

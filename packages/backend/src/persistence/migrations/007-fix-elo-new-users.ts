@@ -2,7 +2,7 @@ import type { DatabaseMigration } from './types';
 import { AUTH_USERS_COLLECTION_NAME } from '../mongoCollections';
 import { DEFAULT_PLAYER_ELO } from '../../elo/eloRepository';
 
-interface AuthUserDocument {
+type AuthUserDocument = {
     elo: number,
     highestElo: number
 }

@@ -26,7 +26,7 @@ const CHANGELOG_KIND_CLASSES: Record<ChangelogEntryKind, string> = {
   other: 'border-white/15 bg-white/8 text-slate-100',
 }
 
-interface ChangelogScreenProps {
+type ChangelogScreenProps = {
   changelogDays: ChangelogDay[]
   commitCount: number
   generatedAt: string

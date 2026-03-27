@@ -137,7 +137,7 @@ function AdminControlsRoute() {
 
   const handleTerminateGame = async (sessionId: string) => {
     const targetSession = activeGames.find((session) => session.id === sessionId)
-    const targetLabel = targetSession?.players.map((player) => player.displayName).join(' vs ') || sessionId
+    const targetLabel = targetSession?.players.map((player) => player.displayName).join(' vs ') ?? sessionId
     if (!window.confirm(`Terminate the live game "${targetLabel}" now?`)) {
       return
     }

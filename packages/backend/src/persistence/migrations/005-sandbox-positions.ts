@@ -2,9 +2,9 @@ import type { Document } from 'mongodb';
 import type { DatabaseMigration } from './types';
 import { SANDBOX_POSITIONS_COLLECTION_NAME } from '../mongoCollections';
 
-interface SandboxPositionDocument extends Document {
+type SandboxPositionDocument = {
     _id: unknown;
-}
+} & Document
 
 export const sandboxPositionsMigration: DatabaseMigration = {
     id: '005-sandbox-positions',

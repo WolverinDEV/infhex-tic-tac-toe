@@ -21,13 +21,13 @@ import {
 const DRAG_THRESHOLD_PX = 6
 const MOUSE_AFTER_TOUCH_IGNORE_MS = 500
 
-interface ViewState {
+type ViewState = {
     offsetX: number
     offsetY: number
     scale: number
 }
 
-interface DragState {
+type DragState = {
     startX: number
     startY: number
     originOffsetX: number
@@ -35,7 +35,7 @@ interface DragState {
     moved: boolean
 }
 
-interface HighlightPointerState {
+type HighlightPointerState = {
     startX: number
     startY: number
     startCell: HexCell
@@ -44,14 +44,14 @@ interface HighlightPointerState {
     cells: HexCell[]
 }
 
-interface PinchState {
+type PinchState = {
     startDistance: number
     startScale: number
     anchorUnitX: number
     anchorUnitY: number
 }
 
-interface UseGameBoardOptions {
+type UseGameBoardOptions = {
     gameState: GameState
     highlightedCells: "last" | "turn" | HexCell[]
     localPlayerId: string | null
@@ -60,7 +60,7 @@ interface UseGameBoardOptions {
     showTilePieceMarkers?: boolean
 }
 
-interface UseGameBoardResult {
+type UseGameBoardResult = {
     canvasRef: RefObject<HTMLCanvasElement | null>
     canvasClassName: string
     canvasHandlers: Pick<
@@ -103,13 +103,13 @@ function traceTilePieceOPath(
     context.arc(centerX, centerY, markerRadius, 0, Math.PI * 2)
 }
 
-interface RgbColor {
+type RgbColor = {
     r: number
     g: number
     b: number
 }
 
-interface TilePieceMarkerPalette {
+type TilePieceMarkerPalette = {
     tileTintColor: string
     tileOutlineShadowColor: string
     tileOutlineColor: string

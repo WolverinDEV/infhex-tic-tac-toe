@@ -20,7 +20,7 @@ export const kSandboxBotEngines: readonly SandboxBotEngineInfo[] = [
         displayName: "Seal Bot",
         description: () => (
             <React.Fragment>
-                Imaseal's bot implementation based of a minimax search with alpha-beta pruning
+                Imaseal&apos;s bot implementation based of a minimax search with alpha-beta pruning
                 (<NavLink to={"https://github.com/Ramora0/HexTicTacToe"} target={"_blank"} >available on GitHub</ NavLink >).
             </React.Fragment>
         )

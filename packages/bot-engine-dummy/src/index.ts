@@ -39,7 +39,7 @@ class DummyBotEngine implements BotEngineInterface {
 
         return {
             status: "provide",
-            suggestion: [moves[0]!, moves[1]!],
+            suggestion: [moves[0], moves[1]],
             metadata: {}
         };
     }

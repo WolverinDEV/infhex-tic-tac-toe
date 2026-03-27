@@ -11,7 +11,7 @@ import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard'
 import { getVisiblePageNumbers } from '../utils/pagination'
 import PageCorpus from './PageCorpus'
 
-interface FinishedGamesScreenProps {
+type FinishedGamesScreenProps = {
   archive: FinishedGamesPage | null
   archiveView: FinishedGamesArchiveView
   currentProfileId: string | null

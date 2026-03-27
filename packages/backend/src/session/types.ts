@@ -33,20 +33,20 @@ export type ServerParticipantConnection = ParticipantConnection & ({
     timestamp: number;
 });
 
-export interface ServerSessionParticipant extends SessionParticipant {
+export type ServerSessionParticipant = {
     deviceId: string
 
     ratingAdjusted: PlayerRating | null,
 
     connection: ServerParticipantConnection
-}
+} & SessionParticipant
 
 export type ServerSessionParticipation = {
     participant: ServerSessionParticipant,
     role: SessionParticipantRole,
 }
 
-export interface ServerGameSession {
+export type ServerGameSession = {
     id: string;
     lock: Mutex,
     state: 'lobby' | 'in-game' | 'finished';
@@ -71,7 +71,7 @@ export interface ServerGameSession {
 
 export type PlayerLeaveSource = 'leave-session' | 'disconnect';
 
-export interface JoinSessionParams {
+export type JoinSessionParams = {
     deviceId: string;
 
     profile: AccountUserProfile | null;
@@ -79,26 +79,26 @@ export interface JoinSessionParams {
     allowSelfJoinCasualGames: boolean;
 }
 
-export interface CreateSessionParams {
+export type CreateSessionParams = {
     client: RequestClientInfo;
     lobbyOptions: LobbyOptions;
 }
 
-export interface ParticipantLeftEvent {
+export type ParticipantLeftEvent = {
     sessionId: string;
     participantId: string;
     participantRole: SessionParticipantRole;
     session: SessionInfo;
 }
 
-export interface ParticipantJoinedEvent {
+export type ParticipantJoinedEvent = {
     sessionId: string;
     participantId: string;
     participantRole: SessionParticipantRole;
     session: SessionInfo;
 }
 
-export interface SessionManagerEventHandlers {
+export type SessionManagerEventHandlers = {
     lobbyUpdated?: (lobby: EventLobbyUpdated) => void,
     lobbyRemoved?: (event: EventLobbyRemoved) => void;
 
@@ -108,7 +108,7 @@ export interface SessionManagerEventHandlers {
     gameCellPlacement?: (payload: GameCellPlaceEvent) => void,
 }
 
-export interface RematchRequestResult {
+export type RematchRequestResult = {
     status: 'pending' | 'ready';
     players: string[];
     spectators: string[];

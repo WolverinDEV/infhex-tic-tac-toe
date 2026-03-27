@@ -8,11 +8,11 @@ const DEFAULT_SHUTDOWN_DELAY_MS = 10 * 60 * 1000;
 type ShutdownMode = 'gracefull' | 'deadline-reached' | 'immediate';
 type ShutdownBlockerCallback = () => boolean;
 
-interface ServerShutdownServiceEventHandlers {
+type ServerShutdownServiceEventHandlers = {
     shutdownUpdated?: (shutdown: ShutdownState | null) => void;
 }
 
-export interface ShutdownHook {
+export type ShutdownHook = {
     tryShutdown(): void;
 }
 

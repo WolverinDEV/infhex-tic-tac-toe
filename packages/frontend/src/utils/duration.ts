@@ -3,7 +3,7 @@ function getTotalSeconds(milliseconds: number, roundMode: 'ceil' | 'round' = 'ro
   return Math.max(0, round(milliseconds / 1000))
 }
 
-export function formatMinutesSeconds(milliseconds: number | null, nullLabel: string = '--:--') {
+export function formatMinutesSeconds(milliseconds: number | null, nullLabel = '--:--') {
   if (milliseconds === null) {
     return nullLabel
   }

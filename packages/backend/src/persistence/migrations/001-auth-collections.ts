@@ -8,23 +8,23 @@ import {
     AUTH_VERIFICATION_TOKENS_COLLECTION_NAME,
 } from '../mongoCollections';
 
-interface AuthUserDocument extends Document {
+type AuthUserDocument = {
     _id: ObjectId;
     registeredAt?: number;
     lastActiveAt?: number;
-}
+} & Document
 
-interface AuthAccountDocument extends Document {
+type AuthAccountDocument = {
     _id: ObjectId;
-}
+} & Document
 
-interface AuthSessionDocument extends Document {
+type AuthSessionDocument = {
     _id: ObjectId;
-}
+} & Document
 
-interface AuthVerificationTokenDocument extends Document {
+type AuthVerificationTokenDocument = {
     _id: ObjectId;
-}
+} & Document
 
 export const authCollectionsMigration: DatabaseMigration = {
     id: '001-auth-collections',

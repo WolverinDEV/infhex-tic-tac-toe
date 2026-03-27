@@ -1,7 +1,7 @@
 import type { ReactNode, Ref } from 'react'
 import { cn } from '../../utils/cn'
 
-interface GameHudShellProps {
+type GameHudShellProps = {
     role: 'left' | 'right'
     isOpen: boolean
     onOpen: () => void

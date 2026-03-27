@@ -3,7 +3,7 @@ import kSoundGameLoss from './assets/sound-game-loss.aac'
 import kSoundGameStart from './assets/sound-game-start.aac'
 import kSoundGameWin from './assets/sound-game-win.aac'
 
-interface ToneOptions {
+type ToneOptions = {
   frequency: number
   durationMs: number
   delayMs?: number
@@ -38,10 +38,7 @@ function getAudioContext() {
     return null
   }
 
-  if (!audioContext) {
-    audioContext = new window.AudioContext()
-  }
-
+  audioContext ??= new window.AudioContext()
   return audioContext
 }
 

@@ -1,6 +1,6 @@
 import { SandboxBotEngineInfo } from "../../sandbox/botLoader"
 
-interface SandboxBotFactoryModalProps {
+type SandboxBotFactoryModalProps = {
     isOpen: boolean
     onClose: () => void
 

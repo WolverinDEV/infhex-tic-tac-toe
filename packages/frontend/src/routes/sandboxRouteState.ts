@@ -1,10 +1,10 @@
 import type { SandboxGamePosition } from '@ih3t/shared'
 
-export interface SandboxRouteInitialPosition {
+export type SandboxRouteInitialPosition = {
   name: string
   gamePosition: SandboxGamePosition
 }
 
-export interface SandboxRouteState {
+export type SandboxRouteState = {
   initialPosition?: SandboxRouteInitialPosition
 }

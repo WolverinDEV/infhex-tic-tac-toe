@@ -16,7 +16,7 @@ export function getBaseUrl() {
   return 'http://localhost:3001'
 }
 
-export interface PageMetadataProps {
+export type PageMetadataProps = {
   title: string;
   description: string;
   url: string;

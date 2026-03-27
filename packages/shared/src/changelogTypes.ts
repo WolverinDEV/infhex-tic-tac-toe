@@ -1,6 +1,6 @@
 export type ChangelogEntryKind = 'feature' | 'fix' | 'maintenance' | 'other';
 
-export interface ChangelogEntry {
+export type ChangelogEntry = {
     hash: string;
     shortHash: string;
     committedAt: number;
@@ -13,7 +13,7 @@ export interface ChangelogEntry {
     breakingChangeNote: string | null;
 }
 
-export interface ChangelogDay {
+export type ChangelogDay = {
     date: string;
     commitCount: number;
     entries: ChangelogEntry[];
