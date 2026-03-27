@@ -269,7 +269,7 @@ function SandboxRoute() {
         resetView
     } = useGameBoard({
         gameState: gameState,
-        highlightedCells: gameState.winner?.cells ?? "last",
+        highlightedCells: gameState.winner?.cells ?? "turn",
         localPlayerId,
         interactionEnabled: isSandboxInteractionEnabled,
         onPlaceCell: gameState.winner === null ? handlePlaceCell : undefined,
