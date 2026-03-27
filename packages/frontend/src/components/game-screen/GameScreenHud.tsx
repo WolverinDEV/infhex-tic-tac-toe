@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import type { LobbyOptions, PlayerRatingAdjustment, ShutdownState } from '@ih3t/shared'
-import GameHudShell from './GameHudShell'
-import { ShutdownTimer } from './ShutdownTimer'
-import HudInfoBlock from './HudInfoBlock'
-import { formatTimeControl } from '../../utils/gameTimeControl'
-import { NavLink } from 'react-router'
-import React from 'react'
+import type { LobbyOptions, PlayerRatingAdjustment, ShutdownState } from '@ih3t/shared';
+import { useState } from 'react';
+import React from 'react';
+import { NavLink } from 'react-router';
+
+import { formatTimeControl } from '../../utils/gameTimeControl';
+import GameHudShell from './GameHudShell';
+import HudInfoBlock from './HudInfoBlock';
+import { ShutdownTimer } from './ShutdownTimer';
 
 export type HudPlayerInfo = {
     playerId: string,
@@ -17,7 +18,7 @@ export type HudPlayerInfo = {
     isConnected: boolean,
 
     rankingEloScore: number,
-}
+};
 
 type GameScreenHudProps = {
     sessionId: string
@@ -38,7 +39,7 @@ type GameScreenHudProps = {
     leaveLabel?: string
     onLeave: () => void
     onResetView: () => void
-}
+};
 
 function MenuIcon() {
     return (
@@ -47,7 +48,7 @@ function MenuIcon() {
             <path d="M5 12h14" />
             <path d="M5 16h14" />
         </svg>
-    )
+    );
 }
 
 function OfflineIcon() {
@@ -59,7 +60,7 @@ function OfflineIcon() {
             <path d="M12 19.5h.01" />
             <path d="M3 3 21 21" />
         </svg>
-    )
+    );
 }
 
 function GameScreenHud({
@@ -78,12 +79,12 @@ function GameScreenHud({
     shutdown,
     gameOptions,
 
-    leaveLabel = 'Leave Game',
+    leaveLabel = `Leave Game`,
     onLeave,
-    onResetView
+    onResetView,
 }: Readonly<GameScreenHudProps>) {
     const isSpectator = !players.some(player => player.playerId === localPlayerId);
-    const [isHudOpen, setIsHudOpen] = useState(true)
+    const [isHudOpen, setIsHudOpen] = useState(true);
 
     return (
         <React.Fragment>
@@ -94,6 +95,7 @@ function GameScreenHud({
                     </div>
                 </div>
             )}
+
             <GameHudShell
                 role="left"
                 isOpen={isHudOpen}
@@ -103,52 +105,97 @@ function GameScreenHud({
                 openIcon={<MenuIcon />}
                 closeTitle="Close HUD"
             >
-                <div className="text-sm uppercase tracking-[0.25em] text-sky-300">Live Match {sessionId}</div>
-                <h1 className="mt-1 text-2xl font-bold">Infinite Hex Tic-Tac-Toe</h1>
+                <div className="text-sm uppercase tracking-[0.25em] text-sky-300">
+                    Live Match
+                    {sessionId}
+                </div>
+
+                <h1 className="mt-1 text-2xl font-bold">
+                    Infinite Hex Tic-Tac-Toe
+                </h1>
+
                 <div className="mt-2 text-sm text-slate-300">
-                    Connect 6 hexagons in a row.<br />
-                    {localPlayerId ? 'Tap to place, drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.' : 'Drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.'}
+                    Connect 6 hexagons in a row.
+                    <br />
+                    {localPlayerId ? `Tap to place, drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.` : `Drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.`}
                 </div>
 
                 {shutdown && (
                     <div className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200">Shutdown Scheduled</div>
-                        <div className="mt-1">New games are disabled. This server restarts in <ShutdownTimer shutdown={shutdown} />.</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-200">
+                            Shutdown Scheduled
+                        </div>
+
+                        <div className="mt-1">
+                            New games are disabled. This server restarts in
+                            <ShutdownTimer shutdown={shutdown} />
+                            .
+                        </div>
                     </div>
                 )}
 
                 <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                     <HudInfoBlock label="Session">
-                        <div className="text-white">{gameOptions.visibility === 'private' ? 'Private Session' : 'Public Session'}</div>
-                        <div className="text-slate-300">Clock {formatTimeControl(gameOptions.timeControl)}</div>
+                        <div className="text-white">
+                            {gameOptions.visibility === `private` ? `Private Session` : `Public Session`}
+                        </div>
+
+                        <div className="text-slate-300">
+                            Clock
+                            {formatTimeControl(gameOptions.timeControl)}
+                        </div>
                     </HudInfoBlock>
 
                     <HudInfoBlock label="Ranking">
                         {gameOptions.rated ? (
                             isSpectator ? (
                                 <React.Fragment>
-                                    <div className="text-white">Rated Match</div>
-                                    <div className="text-slate-300">Players will gain/lose ELO.</div>
+                                    <div className="text-white">
+                                        Rated Match
+                                    </div>
+
+                                    <div className="text-slate-300">
+                                        Players will gain/lose ELO.
+                                    </div>
                                 </React.Fragment>
                             ) : hideEloInHud ? (
                                 <React.Fragment>
-                                    <div className="text-white">Rated Match</div>
-                                    <div className="text-slate-300">Zen mode hides Elo in the HUD.</div>
+                                    <div className="text-white">
+                                        Rated Match
+                                    </div>
+
+                                    <div className="text-slate-300">
+                                        Zen mode hides Elo in the HUD.
+                                    </div>
                                 </React.Fragment>
                             ) : (
                                 <React.Fragment>
                                     <div className="text-white">
-                                        <span className={"inline-block w-[2em]"}>Win</span>
-                                        <span className={"inline-block w-[2em] text-right"}>+{rankingAdjustment?.eloGain ?? 0}</span>
+                                        <span className="inline-block w-[2em]">
+                                            Win
+                                        </span>
+
+                                        <span className="inline-block w-[2em] text-right">
+                                            +
+                                            {rankingAdjustment?.eloGain ?? 0}
+                                        </span>
                                     </div>
+
                                     <div className="text-slate-300">
-                                        <span className={"inline-block w-[2em]"}>Loss</span>
-                                        <span className={"inline-block w-[2em] text-right"}>{rankingAdjustment?.eloLoss ?? 0}</span>
+                                        <span className="inline-block w-[2em]">
+                                            Loss
+                                        </span>
+
+                                        <span className="inline-block w-[2em] text-right">
+                                            {rankingAdjustment?.eloLoss ?? 0}
+                                        </span>
                                     </div>
                                 </React.Fragment>
                             )
                         ) : (
-                            <div className="text-white">Not Rated</div>
+                            <div className="text-white">
+                                Not Rated
+                            </div>
                         )}
                     </HudInfoBlock>
 
@@ -156,7 +203,7 @@ function GameScreenHud({
                         {players.map(({ playerId, profileId, displayColor, displayName, isConnected, rankingEloScore }) => {
                             let formattedName;
                             if (gameOptions.rated && !hideEloInHud) {
-                                formattedName = `${displayName} (${rankingEloScore})`
+                                formattedName = `${displayName} (${rankingEloScore})`;
                             } else {
                                 formattedName = displayName;
                             }
@@ -167,16 +214,17 @@ function GameScreenHud({
                                         className="h-3.5 w-3.5 rounded-full border border-white/20 shrink-0"
                                         style={{ backgroundColor: displayColor }}
                                     />
+
                                     {profileId ? (
                                         <NavLink
                                             to={`/profile/${profileId}`}
-                                            className={"overflow-hidden overscroll-contain text-ellipsis min-w-0"}
+                                            className="overflow-hidden overscroll-contain text-ellipsis min-w-0"
                                             title={formattedName}
                                         >
                                             {formattedName}
                                         </NavLink>
                                     ) : (
-                                        <span title={formattedName} className={"overflow-hidden overscroll-contain text-ellipsis min-w-0"}                >
+                                        <span title={formattedName} className="overflow-hidden overscroll-contain text-ellipsis min-w-0"                >
                                             {formattedName}
                                         </span>
                                     )}
@@ -190,19 +238,29 @@ function GameScreenHud({
                                             <OfflineIcon />
                                         </span>
                                     )}
+
                                     {playerId === localPlayerId && (
                                         <span className="rounded-md border border-white/10 bg-white/6 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                                             You
                                         </span>
                                     )}
                                 </div>
-                            )
+                            );
                         })}
                     </HudInfoBlock>
 
                     <HudInfoBlock label="Cells">
-                        <div className="text-white">{renderableCellCount} active</div>
-                        <div className="text-slate-300">{occupiedCellCount} occupied</div>
+                        <div className="text-white">
+                            {renderableCellCount}
+                            {` `}
+                            active
+                        </div>
+
+                        <div className="text-slate-300">
+                            {occupiedCellCount}
+                            {` `}
+                            occupied
+                        </div>
                     </HudInfoBlock>
                 </div>
 
@@ -213,6 +271,7 @@ function GameScreenHud({
                     >
                         {leaveLabel}
                     </button>
+
                     <button
                         onClick={onResetView}
                         className="min-w-36 flex-1 rounded-full bg-sky-600 px-4 py-2 font-medium shadow-lg hover:bg-sky-500 md:flex-none"
@@ -222,7 +281,7 @@ function GameScreenHud({
                 </div>
             </GameHudShell>
         </React.Fragment>
-    )
+    );
 }
 
-export default GameScreenHud
+export default GameScreenHud;

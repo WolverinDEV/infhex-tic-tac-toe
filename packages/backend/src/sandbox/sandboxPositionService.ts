@@ -1,24 +1,24 @@
 import { randomInt } from 'node:crypto';
-import { inject, injectable } from 'tsyringe';
-import type { SandboxGamePosition, SandboxPositionName } from '@ih3t/shared';
-import { SandboxPositionRepository, type LoadedSandboxPositionRecord } from '../persistence/sandboxPositionRepository';
 
-const SHORT_ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+import type { SandboxGamePosition, SandboxPositionName } from '@ih3t/shared';
+import { inject, injectable } from 'tsyringe';
+
+import { type LoadedSandboxPositionRecord, SandboxPositionRepository } from '../persistence/sandboxPositionRepository';
+
+const SHORT_ID_ALPHABET = `abcdefghijklmnopqrstuvwxyz0123456789`;
 const SHORT_ID_LENGTH = 7;
 const MAX_SHORT_ID_ATTEMPTS = 10;
 
 export class SandboxPositionError extends Error {
     constructor(message: string) {
         super(message);
-        this.name = 'SandboxPositionError';
+        this.name = `SandboxPositionError`;
     }
 }
 
 @injectable()
 export class SandboxPositionService {
-    constructor(
-        @inject(SandboxPositionRepository) private readonly sandboxPositionRepository: SandboxPositionRepository
-    ) {}
+    constructor(@inject(SandboxPositionRepository) private readonly sandboxPositionRepository: SandboxPositionRepository) {}
 
     async createPosition(gamePosition: SandboxGamePosition, name: SandboxPositionName, userProfileId: string): Promise<string> {
         for (let attempt = 0; attempt < MAX_SHORT_ID_ATTEMPTS; attempt += 1) {
@@ -30,7 +30,7 @@ export class SandboxPositionService {
                     name,
                     gamePosition,
                     createdAt: Date.now(),
-                    createdBy: userProfileId
+                    createdBy: userProfileId,
                 });
             } catch (error: unknown) {
                 if (isMongoDuplicateKeyError(error)) {
@@ -41,7 +41,7 @@ export class SandboxPositionService {
             }
         }
 
-        throw new SandboxPositionError('Failed to generate a sandbox position id.');
+        throw new SandboxPositionError(`Failed to generate a sandbox position id.`);
     }
 
     async loadPosition(id: string): Promise<LoadedSandboxPositionRecord | null> {
@@ -53,7 +53,7 @@ export class SandboxPositionService {
     }
 
     private generateShortId(): string {
-        let id = '';
+        let id = ``;
         for (let characterIndex = 0; characterIndex < SHORT_ID_LENGTH; characterIndex += 1) {
             const alphabetIndex = randomInt(0, SHORT_ID_ALPHABET.length);
             id += SHORT_ID_ALPHABET[alphabetIndex];
@@ -64,9 +64,9 @@ export class SandboxPositionService {
 }
 
 function isMongoDuplicateKeyError(error: unknown): error is { code: number } {
-    return typeof error === 'object'
+    return typeof error === `object`
         && error !== null
-        && 'code' in error
-        && typeof (error as { code?: unknown }).code === 'number'
+        && `code` in error
+        && typeof (error as { code?: unknown }).code === `number`
         && (error as { code: number }).code === 11000;
 }

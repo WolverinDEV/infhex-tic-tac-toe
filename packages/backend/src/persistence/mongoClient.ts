@@ -1,7 +1,9 @@
 import '../env.js';
+
+import { type Db, MongoClient } from 'mongodb';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
-import { MongoClient, type Db } from 'mongodb';
+
 import { ServerConfig } from '../config/serverConfig';
 import { ROOT_LOGGER } from '../logger';
 
@@ -13,9 +15,9 @@ export class MongoDatabase {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(ServerConfig) private readonly serverConfig: ServerConfig
+        @inject(ServerConfig) private readonly serverConfig: ServerConfig,
     ) {
-        this.logger = rootLogger.child({ component: 'mongo-database' });
+        this.logger = rootLogger.child({ component: `mongo-database` });
     }
 
     async getDatabase(): Promise<Db> {
@@ -27,9 +29,9 @@ export class MongoDatabase {
             this.mongoClient = new MongoClient(this.serverConfig.mongoUri);
             await this.mongoClient.connect();
             this.logger.info({
-                event: 'mongo.connected',
-                database: this.serverConfig.mongoDbName
-            }, 'Connected to MongoDB');
+                event: `mongo.connected`,
+                database: this.serverConfig.mongoDbName,
+            }, `Connected to MongoDB`);
             return this.mongoClient.db(this.serverConfig.mongoDbName);
         })().catch((error: unknown) => {
             this.databasePromise = null;
@@ -37,10 +39,10 @@ export class MongoDatabase {
 
             this.logger.error({
                 err: error,
-                type: 'mongo',
-                event: 'connection-error',
+                type: `mongo`,
+                event: `connection-error`,
                 database: this.serverConfig.mongoDbName,
-            }, 'Failed to connect to MongoDB');
+            }, `Failed to connect to MongoDB`);
 
             throw error;
         });
@@ -59,8 +61,8 @@ export class MongoDatabase {
 
         await client.close();
         this.logger.info({
-            event: 'mongo.closed',
-            database: this.serverConfig.mongoDbName
-        }, 'Closed MongoDB connection');
+            event: `mongo.closed`,
+            database: this.serverConfig.mongoDbName,
+        }, `Closed MongoDB connection`);
     }
 }

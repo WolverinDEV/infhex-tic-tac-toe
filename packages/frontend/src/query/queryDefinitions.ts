@@ -1,12 +1,12 @@
 import {
-  FINISHED_GAMES_PAGE_SIZE,
-  queryKeys,
-  type FinishedGamesArchiveView
-} from '@ih3t/shared'
+    FINISHED_GAMES_PAGE_SIZE,
+    type FinishedGamesArchiveView,
+    queryKeys,
+} from '@ih3t/shared';
 
 export {
-  FINISHED_GAMES_PAGE_SIZE,
-  queryKeys
-}
+    FINISHED_GAMES_PAGE_SIZE,
+    queryKeys,
+};
 
-export type { FinishedGamesArchiveView }
+export type { FinishedGamesArchiveView };

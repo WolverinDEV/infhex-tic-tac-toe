@@ -1,23 +1,25 @@
-import type { Logger } from 'pino';
-import { inject, injectable } from 'tsyringe';
-import type { Collection } from 'mongodb';
 import {
     DEFAULT_SERVER_SETTINGS,
     type ServerSettings,
     zServerSettings,
 } from '@ih3t/shared';
+import type { Collection } from 'mongodb';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
+
 import type { AccountUserProfile } from '../auth/authRepository';
 import { ROOT_LOGGER } from '../logger';
-import { SERVER_SETTINGS_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
+import { SERVER_SETTINGS_COLLECTION_NAME } from './mongoCollections';
 
 const SERVER_SETTING_KEYS = Object.keys(DEFAULT_SERVER_SETTINGS) as (keyof ServerSettings)[];
 
 const zServerSettingDocument = z.object({
     key: z.string().min(1),
     value: z.unknown(),
-    lastUpdatedAt: z.number().int().nonnegative(),
+    lastUpdatedAt: z.number().int()
+        .nonnegative(),
     lastUpdatedBy: z.string().min(1),
 });
 type ServerSettingDocument = z.infer<typeof zServerSettingDocument>;
@@ -29,9 +31,9 @@ export class ServerSettingsRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'server-settings-repository' });
+        this.logger = rootLogger.child({ component: `server-settings-repository` });
     }
 
     async getSettings(): Promise<ServerSettings> {
@@ -67,21 +69,21 @@ export class ServerSettingsRepository {
                             key,
                             value: normalizedSettings[key],
                             lastUpdatedAt,
-                            lastUpdatedBy
-                        }
+                            lastUpdatedBy,
+                        },
                     },
-                    upsert: true
-                }
+                    upsert: true,
+                },
             })),
-            { ordered: false }
+            { ordered: false },
         );
 
         this.logger.info({
-            event: 'server-settings.updated',
+            event: `server-settings.updated`,
             maxConcurrentGames: normalizedSettings.maxConcurrentGames,
             lastUpdatedAt,
-            lastUpdatedBy
-        }, 'Updated server settings');
+            lastUpdatedBy,
+        }, `Updated server settings`);
 
         return { ...normalizedSettings };
     }
@@ -96,7 +98,7 @@ export class ServerSettingsRepository {
             return database.collection<ServerSettingDocument>(SERVER_SETTINGS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.collectionPromise = null;
-            this.logger.error({ err: error, event: 'server-settings.init.failed' }, 'Failed to initialize server settings collection');
+            this.logger.error({ err: error, event: `server-settings.init.failed` }, `Failed to initialize server settings collection`);
             throw error;
         });
 
@@ -111,12 +113,12 @@ export class ServerSettingsRepository {
 
     private parseServerSettingValue(key: keyof ServerSettings, value: unknown): ServerSettings[keyof ServerSettings] {
         switch (key) {
-            case 'maxConcurrentGames':
+            case `maxConcurrentGames`:
                 return zServerSettings.shape.maxConcurrentGames.parse(value);
         }
     }
 
-    private toStoredUser(user: AccountUserProfile): ServerSettingDocument['lastUpdatedBy'] {
+    private toStoredUser(user: AccountUserProfile): ServerSettingDocument[`lastUpdatedBy`] {
         return user.id;
     }
 }

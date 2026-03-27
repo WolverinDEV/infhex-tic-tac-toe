@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import GameHudShell from '../game-screen/GameHudShell'
+import { useState } from 'react';
+
+import GameHudShell from '../game-screen/GameHudShell';
 
 type SandboxHudProps = {
     positionName: string | null
@@ -13,7 +14,7 @@ type SandboxHudProps = {
     onSharePosition: () => void
     canSharePosition: boolean
     isSharingPosition: boolean
-}
+};
 
 function SandboxHud({
     positionName,
@@ -26,15 +27,15 @@ function SandboxHud({
     canTakeBack,
     onSharePosition,
     canSharePosition,
-    isSharingPosition
+    isSharingPosition,
 }: Readonly<SandboxHudProps>) {
-    const [isHudOpen, setIsHudOpen] = useState(true)
-    const resetBoardLabel = positionName ? 'Restore Position' : 'Clear Board'
-    const enabledButtonClassName = 'bg-slate-700 text-white hover:bg-slate-600'
-    const disabledButtonClassName = 'cursor-not-allowed bg-slate-700/60 text-slate-400'
+    const [isHudOpen, setIsHudOpen] = useState(true);
+    const resetBoardLabel = positionName ? `Restore Position` : `Clear Board`;
+    const enabledButtonClassName = `bg-slate-700 text-white hover:bg-slate-600`;
+    const disabledButtonClassName = `cursor-not-allowed bg-slate-700/60 text-slate-400`;
     const description = positionName
-        ? 'Play from this saved position locally with no clock. Assign either side to a bot or control both players yourself.'
-        : 'Local sandbox with no clock. Control both players yourself or let a bot take either side.'
+        ? `Play from this saved position locally with no clock. Assign either side to a bot or control both players yourself.`
+        : `Local sandbox with no clock. Control both players yourself or let a bot take either side.`;
 
     return (
         <GameHudShell
@@ -50,10 +51,10 @@ function SandboxHud({
                 </svg>
             }
 
-            role={"left"}
+            role="left"
 
-            openTitle={"Open"}
-            closeTitle={"Close"}
+            openTitle="Open"
+            closeTitle="Close"
         >
             <div className="pointer-events-auto absolute right-3 top-3 z-10">
                 <button
@@ -70,32 +71,61 @@ function SandboxHud({
                 </button>
             </div>
 
-            <div className="text-sm uppercase tracking-[0.25em] text-emerald-300">Sandbox Mode</div>
-            <h1 className="mt-1 text-2xl font-bold">Infinite Hex Tic-Tac-Toe</h1>
+            <div className="text-sm uppercase tracking-[0.25em] text-emerald-300">
+                Sandbox Mode
+            </div>
+
+            <h1 className="mt-1 text-2xl font-bold">
+                Infinite Hex Tic-Tac-Toe
+            </h1>
+
             <div className="mt-2 text-sm text-slate-300">
                 {description}
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-1">
                 <div className="border-l border-white/18 pl-3">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Cells</div>
-                    <div className="mt-1 text-white">{renderableCellCount} active</div>
-                    <div className="text-slate-300">{occupiedCellCount} occupied</div>
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                        Cells
+                    </div>
+
+                    <div className="mt-1 text-white">
+                        {renderableCellCount}
+                        {` `}
+                        active
+                    </div>
+
+                    <div className="text-slate-300">
+                        {occupiedCellCount}
+                        {` `}
+                        occupied
+                    </div>
                 </div>
 
                 <div className="border-l border-white/18 pl-3">
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
-                        {positionName ? 'Position' : 'Mode'}
+                        {positionName ? `Position` : `Mode`}
                     </div>
+
                     {positionName ? (
                         <>
-                            <div className="mt-1 truncate text-white">{positionName}</div>
-                            <div className="text-slate-300">Shared starting position</div>
+                            <div className="mt-1 truncate text-white">
+                                {positionName}
+                            </div>
+
+                            <div className="text-slate-300">
+                                Shared starting position
+                            </div>
                         </>
                     ) : (
                         <>
-                            <div className="mt-1 text-white">Clean board</div>
-                            <div className="text-slate-300">Local free play</div>
+                            <div className="mt-1 text-white">
+                                Clean board
+                            </div>
+
+                            <div className="text-slate-300">
+                                Local free play
+                            </div>
                         </>
                     )}
                 </div>
@@ -108,29 +138,32 @@ function SandboxHud({
                 >
                     Reset View
                 </button>
+
                 <button
                     onClick={onResetBoard}
                     className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${enabledButtonClassName}`}
                 >
                     {resetBoardLabel}
                 </button>
+
                 <button
                     onClick={onSharePosition}
                     disabled={!canSharePosition || isSharingPosition}
                     className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canSharePosition && !isSharingPosition
                         ? enabledButtonClassName
                         : disabledButtonClassName
-                        }`}
+                    }`}
                 >
-                    {isSharingPosition ? 'Sharing...' : 'Share Link'}
+                    {isSharingPosition ? `Sharing...` : `Share Link`}
                 </button>
+
                 <button
                     onClick={onTakeBack}
                     disabled={!canTakeBack}
                     className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canTakeBack
                         ? enabledButtonClassName
                         : disabledButtonClassName
-                        }`}
+                    }`}
                 >
                     Take Back
                 </button>
@@ -142,7 +175,7 @@ function SandboxHud({
                 </div>
             )}
         </GameHudShell>
-    )
+    );
 }
 
-export default SandboxHud
+export default SandboxHud;

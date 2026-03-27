@@ -1,16 +1,17 @@
+import { type Document, MongoServerError } from 'mongodb';
 import type { Logger } from 'pino';
-import { MongoServerError, type Document } from 'mongodb';
 import { inject, injectable } from 'tsyringe';
+
 import { ROOT_LOGGER } from '../logger';
-import { DATABASE_MIGRATIONS_COLLECTION_NAME } from './mongoCollections';
 import { databaseMigrations } from './migrations';
 import { MongoDatabase } from './mongoClient';
+import { DATABASE_MIGRATIONS_COLLECTION_NAME } from './mongoCollections';
 
 type AppliedMigrationDocument = {
     _id: string;
     description: string;
     appliedAt: string;
-} & Document
+} & Document;
 
 @injectable()
 export class DatabaseMigrationRunner {
@@ -19,9 +20,9 @@ export class DatabaseMigrationRunner {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'database-migration-runner' });
+        this.logger = rootLogger.child({ component: `database-migration-runner` });
     }
 
     async run(): Promise<void> {
@@ -45,7 +46,7 @@ export class DatabaseMigrationRunner {
         for (const migration of databaseMigrations) {
             const existingMigration = await migrationsCollection.findOne(
                 { _id: migration.id },
-                { projection: { _id: 1 } }
+                { projection: { _id: 1 } },
             );
             if (existingMigration) {
                 continue;
@@ -53,9 +54,9 @@ export class DatabaseMigrationRunner {
 
             const logger = this.logger.child({ migrationId: migration.id });
             logger.info({
-                event: 'database.migration.started',
-                description: migration.description
-            }, 'Running database migration');
+                event: `database.migration.started`,
+                description: migration.description,
+            }, `Running database migration`);
 
             await migration.up({ database, logger });
 
@@ -63,13 +64,13 @@ export class DatabaseMigrationRunner {
                 await migrationsCollection.insertOne({
                     _id: migration.id,
                     description: migration.description,
-                    appliedAt: new Date().toISOString()
+                    appliedAt: new Date().toISOString(),
                 });
             } catch (error: unknown) {
                 if (error instanceof MongoServerError && error.code === 11000) {
                     logger.warn({
-                        event: 'database.migration.raced'
-                    }, 'Database migration was already recorded by another process');
+                        event: `database.migration.raced`,
+                    }, `Database migration was already recorded by another process`);
                     continue;
                 }
 
@@ -77,8 +78,8 @@ export class DatabaseMigrationRunner {
             }
 
             logger.info({
-                event: 'database.migration.completed'
-            }, 'Database migration completed');
+                event: `database.migration.completed`,
+            }, `Database migration completed`);
         }
     }
 }

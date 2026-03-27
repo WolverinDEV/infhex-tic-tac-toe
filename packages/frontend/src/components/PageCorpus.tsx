@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
 function RefreshIcon() {
     return (
@@ -6,7 +6,7 @@ function RefreshIcon() {
             <path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M16.5 4.5v3.7h-3.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-    )
+    );
 }
 
 function BackIcon() {
@@ -14,7 +14,7 @@ function BackIcon() {
         <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
             <path d="M12.5 4.5 7 10l5.5 5.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-    )
+    );
 }
 
 type PageCorpusProperties = {
@@ -27,7 +27,7 @@ type PageCorpusProperties = {
     onBack?: () => void,
 
     onRefresh?: () => void,
-}
+};
 
 const PageCorpus = ({ category, title, description, children, back, onBack, onRefresh }: PageCorpusProperties) => {
     return (
@@ -40,6 +40,7 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                 <p className="text-sm uppercase tracking-[0.32em] text-sky-200/80">
                                     {category}
                                 </p>
+
                                 <h1 className="mt-2 text-2xl font-black uppercase tracking-[0.08em] text-white sm:text-4xl">
                                     {title}
                                 </h1>
@@ -55,6 +56,7 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                         <BackIcon />
                                     </button>
                                 )}
+
                                 {onRefresh && (
                                     <button
                                         onClick={onRefresh}
@@ -66,6 +68,7 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                 )}
                             </div>
                         </div>
+
                         {description && (
                             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-4 sm:text-base sm:leading-7">
                                 {description}
@@ -80,15 +83,16 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                                 aria-label="Refresh archive"
                                 className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/8 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:-translate-y-0.5 hover:bg-white/14"
                             >
-                                Refresh
+                                {`Refresh\r`}
                             </button>
                         )}
+
                         {onBack && (
                             <button
                                 onClick={onBack}
                                 className="hidden rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200 sm:inline-flex"
                             >
-                                {back ?? "Back To Lobby"}
+                                {back ?? `Back To Lobby`}
                             </button>
                         )}
                     </div>
@@ -97,6 +101,6 @@ const PageCorpus = ({ category, title, description, children, back, onBack, onRe
                 {children}
             </div>
         </div>
-    )
+    );
 };
 export default PageCorpus;

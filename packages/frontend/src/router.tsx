@@ -1,29 +1,31 @@
-import { createBrowserRouter, createMemoryRouter, createRoutesFromElements, Navigate, Outlet, Route } from 'react-router'
-import { ToastContainer } from 'react-toastify'
-import CommonPageLayout from './components/CommonPageLayout'
-import ChangelogRoute from './routes/ChangelogRoute'
-import LiveGameRuntime from './components/LiveGameRuntime'
-import RouteErrorScreen from './components/RouteErrorScreen'
-import AccountPreferencesRoute from './routes/AccountPreferencesRoute'
-import AdminControlsRoute from './routes/AdminControlsRoute'
-import AdminRoute from './routes/AdminRoute'
-import FinishedGameRoute from './routes/FinishedGameRoute'
-import FinishedGamesRoute from './routes/FinishedGamesRoute'
-import LeaderboardRoute from './routes/LeaderboardRoute'
-import LobbyRoute from './routes/LobbyRoute'
-import ProfileRoute from './routes/ProfileRoute'
-import RulesRoute from './routes/RulesRoute'
-import SandboxRoute from './routes/SandboxRoute'
-import SessionRoute from './routes/SessionRoute'
-import { useRenderMode } from './ssrState'
+import { createBrowserRouter, createMemoryRouter, createRoutesFromElements, Navigate, Outlet, Route } from 'react-router';
+import { ToastContainer } from 'react-toastify';
+
+import CommonPageLayout from './components/CommonPageLayout';
+import LiveGameRuntime from './components/LiveGameRuntime';
+import RouteErrorScreen from './components/RouteErrorScreen';
+import AccountPreferencesRoute from './routes/AccountPreferencesRoute';
+import AdminControlsRoute from './routes/AdminControlsRoute';
+import AdminRoute from './routes/AdminRoute';
+import ChangelogRoute from './routes/ChangelogRoute';
+import FinishedGameRoute from './routes/FinishedGameRoute';
+import FinishedGamesRoute from './routes/FinishedGamesRoute';
+import LeaderboardRoute from './routes/LeaderboardRoute';
+import LobbyRoute from './routes/LobbyRoute';
+import ProfileRoute from './routes/ProfileRoute';
+import RulesRoute from './routes/RulesRoute';
+import SandboxRoute from './routes/SandboxRoute';
+import SessionRoute from './routes/SessionRoute';
+import { useRenderMode } from './ssrState';
 
 function AppShell() {
-    const renderMode = useRenderMode()
+    const renderMode = useRenderMode();
     return (
         <>
-            {renderMode === "normal" && <LiveGameRuntime />}
+            {renderMode === `normal` && <LiveGameRuntime />}
             <Outlet />
-            {renderMode === "normal" && (
+
+            {renderMode === `normal` && (
                 <ToastContainer
                     position="top-right"
                     autoClose={4000}
@@ -35,7 +37,7 @@ function AppShell() {
                 />
             )}
         </>
-    )
+    );
 }
 
 export function createAppRoutes() {
@@ -57,23 +59,25 @@ export function createAppRoutes() {
                     <Route path="/admin/controls" element={<AdminControlsRoute />} />
                     <Route path="/admin/stats" element={<AdminRoute />} />
                 </Route>
+
                 <Route element={<CommonPageLayout limitWidth={false} />}>
                     <Route path="/sandbox" element={<SandboxRoute />} />
                     <Route path="/sandbox/:positionId" element={<SandboxRoute />} />
                     <Route path="/session/:sessionId" element={<SessionRoute />} />
                 </Route>
             </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
-        </>
-    )
+        </>,
+    );
 }
 
 export function createClientRouter() {
-    return createBrowserRouter(createAppRoutes())
+    return createBrowserRouter(createAppRoutes());
 }
 
 export function createServerRouter(url: string) {
     return createMemoryRouter(createAppRoutes(), {
-        initialEntries: [url]
-    })
+        initialEntries: [url],
+    });
 }

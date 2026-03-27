@@ -1,5 +1,6 @@
-import { injectable } from 'tsyringe';
 import type { GameTimeControl } from '@ih3t/shared';
+import { injectable } from 'tsyringe';
+
 import type { ServerGameSession } from '../session/types';
 
 type TurnExpiredHandler = (sessionId: string) => void;
@@ -9,12 +10,12 @@ type HandleMoveParams = {
     timestamp: number;
     turnCompleted: boolean;
     turnExpiresAt: number | null;
-}
+};
 
 export class GameTimeControlError extends Error {
     constructor(message: string) {
         super(message);
-        this.name = 'GameTimeControlError';
+        this.name = `GameTimeControlError`;
     }
 }
 
@@ -31,7 +32,7 @@ export class GameTimeControlManager {
     ensureTurnHasTimeRemaining(session: ServerGameSession, timestamp: number): void {
         const expiresAt = session.gameState.currentTurnExpiresAt;
         if (expiresAt !== null && timestamp > expiresAt) {
-            throw new GameTimeControlError('Your time has expired');
+            throw new GameTimeControlError(`Your time has expired`);
         }
     }
 
@@ -39,12 +40,12 @@ export class GameTimeControlManager {
         const { playerId, timestamp, turnCompleted, turnExpiresAt } = params;
         const timeControl = this.getTimeControl(session);
 
-        if (timeControl.mode === 'match') {
+        if (timeControl.mode === `match`) {
             const fallbackTimeMs = this.getPlayerRemainingTime(session, playerId, timeControl.mainTimeMs);
             session.gameState.playerTimeRemainingMs[playerId] = this.getRemainingTimeFromDeadline(
                 turnExpiresAt,
                 timestamp,
-                fallbackTimeMs
+                fallbackTimeMs,
             );
 
             if (turnCompleted) {
@@ -64,7 +65,7 @@ export class GameTimeControlManager {
         }
 
         const timeControl = this.getTimeControl(session);
-        if (timeControl.mode !== 'match') {
+        if (timeControl.mode !== `match`) {
             return;
         }
 
@@ -72,14 +73,14 @@ export class GameTimeControlManager {
         session.gameState.playerTimeRemainingMs[playerId] = this.getRemainingTimeFromDeadline(
             session.gameState.currentTurnExpiresAt,
             timestamp,
-            fallbackTimeMs
+            fallbackTimeMs,
         );
     }
 
     syncTurnTimeout(session: ServerGameSession, onTurnExpired: TurnExpiredHandler): void {
         this.clearSession(session.id);
 
-        if (session.state !== 'in-game' || !session.gameState.currentTurnPlayerId || !session.gameState.currentTurnExpiresAt) {
+        if (session.state !== `in-game` || !session.gameState.currentTurnPlayerId || !session.gameState.currentTurnExpiresAt) {
             return;
         }
 
@@ -109,14 +110,12 @@ export class GameTimeControlManager {
 
     private initializePlayerClocks(session: ServerGameSession): void {
         const timeControl = this.getTimeControl(session);
-        if (timeControl.mode !== 'match') {
+        if (timeControl.mode !== `match`) {
             session.gameState.playerTimeRemainingMs = {};
             return;
         }
 
-        session.gameState.playerTimeRemainingMs = Object.fromEntries(
-            session.players.map((player) => [player.id, timeControl.mainTimeMs])
-        );
+        session.gameState.playerTimeRemainingMs = Object.fromEntries(session.players.map((player) => [player.id, timeControl.mainTimeMs]));
     }
 
     private syncActiveTurnClock(session: ServerGameSession, timestamp: number): void {
@@ -128,19 +127,19 @@ export class GameTimeControlManager {
 
         const timeControl = this.getTimeControl(session);
         switch (timeControl.mode) {
-            case 'unlimited':
+            case `unlimited`:
                 session.gameState.currentTurnExpiresAt = null;
                 break;
 
-            case 'match':
+            case `match`:
                 session.gameState.currentTurnExpiresAt = timestamp + this.getPlayerRemainingTime(
                     session,
                     currentPlayerId,
-                    timeControl.mainTimeMs
+                    timeControl.mainTimeMs,
                 );
                 break;
 
-            case 'turn':
+            case `turn`:
                 session.gameState.currentTurnExpiresAt = timestamp + timeControl.turnTimeMs;
                 break;
         }

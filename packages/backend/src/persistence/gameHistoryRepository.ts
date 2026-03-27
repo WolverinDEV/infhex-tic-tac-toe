@@ -1,16 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type { Logger } from 'pino';
-import { inject, injectable } from 'tsyringe';
-import type { Collection, Document } from 'mongodb';
+
 import {
     type AccountEloHistory,
+    AccountEloHistoryPoint,
     type AdminLongestGameInDuration,
     type AdminLongestGameInMoves,
     type DatabaseGamePlayer,
     type DatabaseGameResult,
     type FinishedGameRecord,
-    type FinishedGameSummary,
     type FinishedGamesPage,
+    type FinishedGameSummary,
     type GameMove,
     type LobbyOptions,
     type PlayerTileConfig,
@@ -18,12 +17,15 @@ import {
     zFinishedGameRecord,
     zFinishedGamesPage,
     zFinishedGameSummary,
-    AccountEloHistoryPoint,
 } from '@ih3t/shared';
+import type { Collection, Document } from 'mongodb';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
+
 import { ROOT_LOGGER } from '../logger';
-import { GAME_HISTORY_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
+import { GAME_HISTORY_COLLECTION_NAME } from './mongoCollections';
 
 const zGameHistoryDocument = zDatabaseGame;
 type GameHistoryDocument = z.infer<typeof zGameHistoryDocument> & Document;
@@ -33,19 +35,19 @@ type ListFinishedGamesOptions = {
     pageSize?: number;
     baseTimestamp?: number;
     playerProfileId?: string;
-}
+};
 
 export type GameHistoryAdminWindowStats = {
     gamesPlayed: number;
     timePlayedMs: number;
     longestGameInMoves: AdminLongestGameInMoves | null;
     longestGameInDuration: AdminLongestGameInDuration | null;
-}
+};
 
 export type ActiveGamesTimelinePoint = {
     timestamp: number;
     activeGames: number;
-}
+};
 
 export type PlayerLeaderboardStats = {
     profileId: string;
@@ -53,7 +55,7 @@ export type PlayerLeaderboardStats = {
     gamesPlayed: number;
     gamesWon: number;
     winRatio: number;
-}
+};
 
 export type PlayerProfileStatistics = {
     profileId: string;
@@ -66,7 +68,7 @@ export type PlayerProfileStatistics = {
     longestGamePlayedMs: number;
     longestGameByMoves: number;
     totalMovesMade: number;
-}
+};
 
 const maxTrackedGameDurationMs = 8 * 60 * 60 * 1000;
 const accountEloHistoryBucketSizeMs = 60 * 60 * 1000;
@@ -78,16 +80,16 @@ export class GameHistoryRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'game-history-repository' });
+        this.logger = rootLogger.child({ component: `game-history-repository` });
     }
 
     async createGame(
         sessionId: string,
         players: DatabaseGamePlayer[],
         playerTiles: Record<string, PlayerTileConfig>,
-        gameOptions: LobbyOptions
+        gameOptions: LobbyOptions,
     ): Promise<string> {
         const collection = await this.getCollection();
         const gameId = randomUUID();
@@ -106,17 +108,17 @@ export class GameHistoryRepository {
                 gameOptions,
                 moves: [],
                 moveCount: 0,
-                gameResult: null
+                gameResult: null,
             });
         } catch (error: unknown) {
             this.logger.error({
                 err: error,
-                type: 'game-history',
-                event: 'game-history-create-error',
-                storage: 'mongodb',
+                type: `game-history`,
+                event: `game-history-create-error`,
+                storage: `mongodb`,
                 gameId,
-                sessionId
-            }, 'Failed to create game history');
+                sessionId,
+            }, `Failed to create game history`);
         }
 
         return gameId;
@@ -130,28 +132,28 @@ export class GameHistoryRepository {
                 { id: gameId },
                 {
                     $push: {
-                        moves: move
+                        moves: move,
                     } as never,
                     $inc: {
-                        moveCount: 1
-                    }
-                }
+                        moveCount: 1,
+                    },
+                },
             );
 
             if (result.matchedCount === 0) {
-                this.logMissingHistory('game-history-move-error', gameId, {
-                    moveNumber: move.moveNumber
+                this.logMissingHistory(`game-history-move-error`, gameId, {
+                    moveNumber: move.moveNumber,
                 });
             }
         } catch (error: unknown) {
             this.logger.error({
                 err: error,
-                type: 'game-history',
-                event: 'game-history-move-error',
-                storage: 'mongodb',
+                type: `game-history`,
+                event: `game-history-move-error`,
+                storage: `mongodb`,
                 gameId,
-                moveNumber: move.moveNumber
-            }, 'Failed to append game move');
+                moveNumber: move.moveNumber,
+            }, `Failed to append game move`);
         }
     }
 
@@ -168,23 +170,23 @@ export class GameHistoryRepository {
                         gameResult: {
                             winningPlayerId: result.winningPlayerId,
                             durationMs: result.durationMs,
-                            reason: result.reason
-                        }
-                    }
-                }
+                            reason: result.reason,
+                        },
+                    },
+                },
             );
 
             if (updateResult.matchedCount === 0) {
-                this.logMissingHistory('game-history-finalize-error', gameId);
+                this.logMissingHistory(`game-history-finalize-error`, gameId);
             }
         } catch (error: unknown) {
             this.logger.error({
                 err: error,
-                type: 'game-history',
-                event: 'game-history-finalize-error',
-                storage: 'mongodb',
-                gameId
-            }, 'Failed to finalize game history');
+                type: `game-history`,
+                event: `game-history-finalize-error`,
+                storage: `mongodb`,
+                gameId,
+            }, `Failed to finalize game history`);
         }
     }
 
@@ -196,35 +198,35 @@ export class GameHistoryRepository {
         const collection = await this.getCollection();
         const setEntries = Array.from(playerEloChanges.values()).map((eloChange, index) => [
             `players.$[player${index}].eloChange`,
-            eloChange
+            eloChange,
         ] as const);
 
         try {
             const updateResult = await collection.updateOne(
                 { id: gameId },
                 {
-                    $set: Object.fromEntries(setEntries)
+                    $set: Object.fromEntries(setEntries),
                 },
                 {
                     arrayFilters: Array.from(playerEloChanges.keys()).map((playerId, index) => ({
-                        [`player${index}.playerId`]: playerId
-                    }))
-                }
+                        [`player${index}.playerId`]: playerId,
+                    })),
+                },
             );
 
             if (updateResult.matchedCount === 0) {
-                this.logMissingHistory('game-history-elo-update-error', gameId);
+                this.logMissingHistory(`game-history-elo-update-error`, gameId);
             }
         } catch (error: unknown) {
             this.logger.error(
                 {
                     err: error,
-                    type: 'game-history',
-                    event: 'game-history-elo-update-error',
-                    storage: 'mongodb',
-                    gameId
+                    type: `game-history`,
+                    event: `game-history-elo-update-error`,
+                    storage: `mongodb`,
+                    gameId,
                 },
-                'Failed to update stored player elo changes'
+                `Failed to update stored player elo changes`,
             );
         }
     }
@@ -240,26 +242,26 @@ export class GameHistoryRepository {
             totals: { totalGames: number; totalMoves: number }[];
         }>([
             {
-                $match: matchStage
+                $match: matchStage,
             },
             { $sort: { finishedAt: -1, id: -1 } },
             {
                 $facet: {
                     games: [
                         { $skip: (requestedPage - 1) * pageSize },
-                        { $limit: pageSize }
+                        { $limit: pageSize },
                     ],
                     totals: [
                         {
                             $group: {
                                 _id: null,
                                 totalGames: { $sum: 1 },
-                                totalMoves: { $sum: '$moveCount' }
-                            }
-                        }
-                    ]
-                }
-            }
+                                totalMoves: { $sum: `$moveCount` },
+                            },
+                        },
+                    ],
+                },
+            },
         ]).toArray();
         const facetResult = aggregationResult[0] ?? { games: [], totals: [] };
         const totalGames = facetResult.totals[0]?.totalGames ?? 0;
@@ -283,8 +285,8 @@ export class GameHistoryRepository {
                 totalGames,
                 totalMoves,
                 totalPages,
-                baseTimestamp
-            }
+                baseTimestamp,
+            },
         });
     }
 
@@ -293,8 +295,8 @@ export class GameHistoryRepository {
         const document = await collection.findOne({
             id,
             finishedAt: {
-                $ne: null
-            }
+                $ne: null,
+            },
         });
 
         if (!document) {
@@ -310,15 +312,17 @@ export class GameHistoryRepository {
             finishedAt: {
                 $ne: null,
                 $gte: startAt,
-                $lte: endAt
-            }
+                $lte: endAt,
+            },
         };
 
-        const [gamesPlayed, timePlayedResult, longestGameInMovesDocument, longestGameInDurationDocument] = await Promise.all([
+        const [
+            gamesPlayed, timePlayedResult, longestGameInMovesDocument, longestGameInDurationDocument,
+        ] = await Promise.all([
             collection.countDocuments(finishedGameMatch),
             collection.aggregate<{ timePlayedMs: number }>([
                 {
-                    $match: finishedGameMatch
+                    $match: finishedGameMatch,
                 },
                 {
                     $group: {
@@ -328,32 +332,36 @@ export class GameHistoryRepository {
                                 $cond: [
                                     {
                                         $and: [
-                                            { $ne: ['$gameResult.durationMs', null] },
-                                            { $lt: ['$gameResult.durationMs', maxTrackedGameDurationMs] }
-                                        ]
+                                            { $ne: [`$gameResult.durationMs`, null] },
+                                            { $lt: [`$gameResult.durationMs`, maxTrackedGameDurationMs] },
+                                        ],
                                     },
-                                    '$gameResult.durationMs',
-                                    0
-                                ]
-                            }
-                        }
-                    }
+                                    `$gameResult.durationMs`,
+                                    0,
+                                ],
+                            },
+                        },
+                    },
                 },
                 {
                     $project: {
                         _id: 0,
-                        timePlayedMs: 1
-                    }
-                }
+                        timePlayedMs: 1,
+                    },
+                },
             ]).next(),
-            collection.find(finishedGameMatch).sort({ moveCount: -1, finishedAt: -1, id: 1 }).limit(1).next(),
+            collection.find(finishedGameMatch).sort({ moveCount: -1, finishedAt: -1, id: 1 })
+                .limit(1)
+                .next(),
             collection.find({
                 ...finishedGameMatch,
                 'gameResult.durationMs': {
                     $ne: null,
-                    $lt: maxTrackedGameDurationMs
-                }
-            }).sort({ 'gameResult.durationMs': -1, finishedAt: -1, id: 1 }).limit(1).next()
+                    $lt: maxTrackedGameDurationMs,
+                },
+            }).sort({ 'gameResult.durationMs': -1, finishedAt: -1, id: 1 })
+                .limit(1)
+                .next(),
         ]);
 
         return {
@@ -364,14 +372,14 @@ export class GameHistoryRepository {
                 : null,
             longestGameInDuration: longestGameInDurationDocument
                 ? this.mapAdminLongestGameInDuration(longestGameInDurationDocument)
-                : null
+                : null,
         };
     }
 
     async getActiveGamesTimeline(
         startAt: number,
         endAt: number,
-        bucketSizeMs: number
+        bucketSizeMs: number,
     ): Promise<ActiveGamesTimelinePoint[]> {
         const collection = await this.getCollection();
         const safeStartAt = Math.max(0, Math.floor(startAt));
@@ -380,20 +388,20 @@ export class GameHistoryRepository {
         const overlappingGames = await collection.find(
             {
                 startedAt: {
-                    $lte: safeEndAt
+                    $lte: safeEndAt,
                 },
                 finishedAt: {
                     $ne: null,
-                    $gt: safeStartAt
-                }
+                    $gt: safeStartAt,
+                },
             },
             {
                 projection: {
                     _id: 0,
                     startedAt: 1,
-                    finishedAt: 1
-                }
-            }
+                    finishedAt: 1,
+                },
+            },
         ).toArray();
 
         const startEvents: number[] = [];
@@ -401,8 +409,8 @@ export class GameHistoryRepository {
         let activeGames = 0;
 
         for (const game of overlappingGames) {
-            const startedAt = typeof game.startedAt === 'number' ? game.startedAt : null;
-            const finishedAt = typeof game.finishedAt === 'number' ? game.finishedAt : null;
+            const startedAt = typeof game.startedAt === `number` ? game.startedAt : null;
+            const finishedAt = typeof game.finishedAt === `number` ? game.finishedAt : null;
 
             if (startedAt === null || startedAt > safeEndAt) {
                 continue;
@@ -460,7 +468,7 @@ export class GameHistoryRepository {
 
             points.push({
                 timestamp: bucketStartAt,
-                activeGames: bucketPeakActiveGames
+                activeGames: bucketPeakActiveGames,
             });
         }
 
@@ -475,8 +483,8 @@ export class GameHistoryRepository {
             {
                 $project: {
                     _id: 0,
-                    profileId: 1
-                }
+                    profileId: 1,
+                },
             },
         ]).toArray();
 
@@ -485,7 +493,7 @@ export class GameHistoryRepository {
 
     async getPlayerLeaderboardStatsForPlayers(
         profileIds: string[],
-        options: { ratedOnly: boolean }
+        options: { ratedOnly: boolean },
     ): Promise<Map<string, PlayerLeaderboardStats>> {
         const uniqueProfileIds = Array.from(new Set(profileIds.filter((profileId) => profileId.trim().length > 0)));
         if (uniqueProfileIds.length === 0) {
@@ -498,15 +506,13 @@ export class GameHistoryRepository {
             {
                 $match: {
                     profileId: {
-                        $in: uniqueProfileIds
-                    }
-                }
-            }
+                        $in: uniqueProfileIds,
+                    },
+                },
+            },
         ]).toArray();
 
-        return new Map(
-            players.map((player) => [player.profileId, this.normalizePlayerLeaderboardStats(player)] as const)
-        );
+        return new Map(players.map((player) => [player.profileId, this.normalizePlayerLeaderboardStats(player)] as const));
     }
 
     async getPlayerProfileStatistics(profileId: string): Promise<PlayerProfileStatistics> {
@@ -517,104 +523,106 @@ export class GameHistoryRepository {
 
         const collection = await this.getCollection();
         const [statsResult, ratedGameResults] = await Promise.all([
-            collection.aggregate<Omit<PlayerProfileStatistics, 'profileId' | 'currentRankedWinStreak' | 'longestRankedWinStreak'>>([
+            collection.aggregate<Omit<PlayerProfileStatistics, `profileId` | `currentRankedWinStreak` | `longestRankedWinStreak`>>([
                 {
                     $match: {
                         finishedAt: {
-                            $ne: null
+                            $ne: null,
                         },
-                        'players.profileId': normalizedProfileId
-                    }
+                        'players.profileId': normalizedProfileId,
+                    },
                 },
                 {
                     $set: {
                         matchedPlayer: {
                             $first: {
                                 $filter: {
-                                    input: '$players',
-                                    as: 'player',
+                                    input: `$players`,
+                                    as: `player`,
                                     cond: {
-                                        $eq: ['$$player.profileId', normalizedProfileId]
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                        $eq: [`$$player.profileId`, normalizedProfileId],
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 {
                     $match: {
                         'matchedPlayer.playerId': {
-                            $exists: true
-                        }
-                    }
+                            $exists: true,
+                        },
+                    },
                 },
                 {
                     $project: {
                         _id: 0,
                         isRated: {
-                            $eq: ['$gameOptions.rated', true]
+                            $eq: [`$gameOptions.rated`, true],
                         },
                         gameWon: {
                             $cond: [
-                                { $eq: ['$gameResult.winningPlayerId', '$matchedPlayer.playerId'] },
+                                { $eq: [`$gameResult.winningPlayerId`, `$matchedPlayer.playerId`] },
                                 1,
-                                0
-                            ]
+                                0,
+                            ],
                         },
                         longestTrackedDurationMs: {
                             $cond: [
                                 {
                                     $and: [
-                                        { $ne: ['$gameResult.durationMs', null] },
-                                        { $lt: ['$gameResult.durationMs', maxTrackedGameDurationMs] }
-                                    ]
+                                        { $ne: [`$gameResult.durationMs`, null] },
+                                        { $lt: [`$gameResult.durationMs`, maxTrackedGameDurationMs] },
+                                    ],
                                 },
-                                '$gameResult.durationMs',
-                                0
-                            ]
+                                `$gameResult.durationMs`,
+                                0,
+                            ],
                         },
-                        moveCount: '$moveCount',
+                        moveCount: `$moveCount`,
                         playerMoveCount: {
                             $size: {
                                 $filter: {
-                                    input: '$moves',
-                                    as: 'move',
+                                    input: `$moves`,
+                                    as: `move`,
                                     cond: {
-                                        $eq: ['$$move.playerId', '$matchedPlayer.playerId']
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                        $eq: [`$$move.playerId`, `$matchedPlayer.playerId`],
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 {
                     $group: {
                         _id: null,
                         totalGamesPlayed: { $sum: 1 },
-                        totalGamesWon: { $sum: '$gameWon' },
+                        totalGamesWon: { $sum: `$gameWon` },
                         rankedGamesPlayed: {
                             $sum: {
-                                $cond: ['$isRated', 1, 0]
-                            }
+                                $cond: [
+                                    `$isRated`, 1, 0,
+                                ],
+                            },
                         },
                         rankedGamesWon: {
                             $sum: {
                                 $cond: [
                                     {
                                         $and: [
-                                            '$isRated',
-                                            { $eq: ['$gameWon', 1] }
-                                        ]
+                                            `$isRated`,
+                                            { $eq: [`$gameWon`, 1] },
+                                        ],
                                     },
                                     1,
-                                    0
-                                ]
-                            }
+                                    0,
+                                ],
+                            },
                         },
-                        longestGamePlayedMs: { $max: '$longestTrackedDurationMs' },
-                        longestGameByMoves: { $max: '$moveCount' },
-                        totalMovesMade: { $sum: '$playerMoveCount' }
-                    }
+                        longestGamePlayedMs: { $max: `$longestTrackedDurationMs` },
+                        longestGameByMoves: { $max: `$moveCount` },
+                        totalMovesMade: { $sum: `$playerMoveCount` },
+                    },
                 },
                 {
                     $project: {
@@ -625,57 +633,57 @@ export class GameHistoryRepository {
                         rankedGamesWon: 1,
                         longestGamePlayedMs: 1,
                         longestGameByMoves: 1,
-                        totalMovesMade: 1
-                    }
-                }
+                        totalMovesMade: 1,
+                    },
+                },
             ]).toArray(),
             collection.aggregate<{ gameWon: boolean }>([
                 {
                     $match: {
                         finishedAt: {
-                            $ne: null
+                            $ne: null,
                         },
                         'players.profileId': normalizedProfileId,
-                        'gameOptions.rated': true
-                    }
+                        'gameOptions.rated': true,
+                    },
                 },
                 {
                     $set: {
                         matchedPlayer: {
                             $first: {
                                 $filter: {
-                                    input: '$players',
-                                    as: 'player',
+                                    input: `$players`,
+                                    as: `player`,
                                     cond: {
-                                        $eq: ['$$player.profileId', normalizedProfileId]
-                                    }
-                                }
-                            }
-                        }
-                    }
+                                        $eq: [`$$player.profileId`, normalizedProfileId],
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 {
                     $match: {
                         'matchedPlayer.playerId': {
-                            $exists: true
-                        }
-                    }
+                            $exists: true,
+                        },
+                    },
                 },
                 {
                     $sort: {
                         finishedAt: -1,
-                        id: -1
-                    }
+                        id: -1,
+                    },
                 },
                 {
                     $project: {
                         _id: 0,
                         gameWon: {
-                            $eq: ['$gameResult.winningPlayerId', '$matchedPlayer.playerId']
-                        }
-                    }
-                }
-            ]).toArray()
+                            $eq: [`$gameResult.winningPlayerId`, `$matchedPlayer.playerId`],
+                        },
+                    },
+                },
+            ]).toArray(),
         ]);
         const [stats] = statsResult;
         const streakStats = this.calculateWinStreaks(ratedGameResults.map((game) => game.gameWon));
@@ -690,7 +698,7 @@ export class GameHistoryRepository {
             longestRankedWinStreak: streakStats.longest,
             longestGamePlayedMs: stats?.longestGamePlayedMs ?? 0,
             longestGameByMoves: stats?.longestGameByMoves ?? 0,
-            totalMovesMade: stats?.totalMovesMade ?? 0
+            totalMovesMade: stats?.totalMovesMade ?? 0,
         };
     }
 
@@ -699,7 +707,7 @@ export class GameHistoryRepository {
         if (normalizedProfileId.length === 0) {
             return {
                 bucketSizeMs: accountEloHistoryBucketSizeMs,
-                points: []
+                points: [],
             };
         }
 
@@ -708,85 +716,85 @@ export class GameHistoryRepository {
             {
                 $match: {
                     finishedAt: {
-                        $ne: null
+                        $ne: null,
                     },
                     'gameOptions.rated': true,
-                    'players.profileId': normalizedProfileId
-                }
+                    'players.profileId': normalizedProfileId,
+                },
             },
             {
-                $unwind: '$players'
+                $unwind: `$players`,
             },
             {
                 $match: {
                     'players.profileId': normalizedProfileId,
                     'players.elo': {
-                        $ne: null
+                        $ne: null,
                     },
                     'players.eloChange': {
-                        $ne: null
-                    }
-                }
+                        $ne: null,
+                    },
+                },
             },
             {
                 $set: {
                     timestamp: {
                         $subtract: [
-                            '$finishedAt',
+                            `$finishedAt`,
                             {
-                                $mod: ['$finishedAt', accountEloHistoryBucketSizeMs]
-                            }
-                        ]
+                                $mod: [`$finishedAt`, accountEloHistoryBucketSizeMs],
+                            },
+                        ],
                     },
                     postGameElo: {
                         $add: [
-                            '$players.elo',
+                            `$players.elo`,
                             {
                                 /* 
                                  * As we do want the highest ELO it's ether the starting ELO or 
                                  * the ELO after the match in case of a win. Hence just taking the
                                  * maximum removes the ELO loss.
                                  */
-                                $max: ['$players.eloChange', 0]
-                            }
-                        ]
-                    }
-                }
+                                $max: [`$players.eloChange`, 0],
+                            },
+                        ],
+                    },
+                },
             },
             {
                 $sort: {
                     finishedAt: 1,
-                    id: 1
-                }
+                    id: 1,
+                },
             },
             {
                 $group: {
-                    _id: '$timestamp',
+                    _id: `$timestamp`,
                     timestamp: {
-                        $first: '$timestamp'
+                        $first: `$timestamp`,
                     },
                     elo: {
-                        $max: '$postGameElo'
-                    }
-                }
+                        $max: `$postGameElo`,
+                    },
+                },
             },
             {
                 $project: {
                     _id: 0,
                     timestamp: 1,
                     elo: 1,
-                }
+                },
             },
             {
                 $sort: {
-                    timestamp: 1
-                }
-            }
+                    timestamp: 1,
+                },
+            },
         ]).toArray();
 
         return {
             bucketSizeMs: accountEloHistoryBucketSizeMs,
-            points
+            points,
         };
     }
 
@@ -803,10 +811,10 @@ export class GameHistoryRepository {
 
             this.logger.error({
                 err: error,
-                type: 'game-history',
-                event: 'game-history-storage-error',
-                storage: 'mongodb',
-            }, 'Failed to initialize game history storage');
+                type: `game-history`,
+                event: `game-history-storage-error`,
+                storage: `mongodb`,
+            }, `Failed to initialize game history storage`);
 
             throw error;
         });
@@ -819,7 +827,7 @@ export class GameHistoryRepository {
         try {
             parsedDocument = zGameHistoryDocument.parse(document);
         } catch {
-            return null
+            return null;
         }
 
         return zFinishedGameSummary.parse({
@@ -833,7 +841,7 @@ export class GameHistoryRepository {
             moveCount: parsedDocument.moveCount,
             gameResult: parsedDocument.gameResult
                 ? { ...parsedDocument.gameResult }
-                : null
+                : null,
         });
     }
 
@@ -846,7 +854,7 @@ export class GameHistoryRepository {
 
         return zFinishedGameRecord.parse({
             ...summary,
-            moves: parsedDocument.moves.map((move) => ({ ...move }))
+            moves: parsedDocument.moves.map((move) => ({ ...move })),
         });
     }
 
@@ -858,7 +866,7 @@ export class GameHistoryRepository {
             sessionId: parsedDocument.sessionId,
             players: parsedDocument.players.map((player) => player.displayName),
             finishedAt: parsedDocument.finishedAt ?? parsedDocument.startedAt,
-            moveCount: parsedDocument.moveCount
+            moveCount: parsedDocument.moveCount,
         };
     }
 
@@ -874,30 +882,28 @@ export class GameHistoryRepository {
             sessionId: parsedDocument.sessionId,
             players: parsedDocument.players.map((player) => player.displayName),
             finishedAt: parsedDocument.finishedAt ?? parsedDocument.startedAt,
-            durationMs
+            durationMs,
         };
     }
 
     private cloneGameOptions(gameOptions: LobbyOptions): LobbyOptions {
         return {
             ...gameOptions,
-            timeControl: { ...gameOptions.timeControl }
+            timeControl: { ...gameOptions.timeControl },
         };
     }
 
     private clonePlayerTiles(playerTiles: Record<string, PlayerTileConfig>): Record<string, PlayerTileConfig> {
-        return Object.fromEntries(
-            Object.entries(playerTiles).map(([playerId, playerTileConfig]) => [playerId, { ...playerTileConfig }])
-        );
+        return Object.fromEntries(Object.entries(playerTiles).map(([playerId, playerTileConfig]) => [playerId, { ...playerTileConfig }]));
     }
 
     private buildFinishedGamesMatch(baseTimestamp: number, playerProfileId?: string) {
         return {
             finishedAt: {
                 $ne: null,
-                $lte: baseTimestamp
+                $lte: baseTimestamp,
             },
-            ...(playerProfileId ? { 'players.profileId': playerProfileId } : {})
+            ...(playerProfileId ? { 'players.profileId': playerProfileId } : {}),
         };
     }
 
@@ -931,42 +937,42 @@ export class GameHistoryRepository {
                 $match: {
                     ...(options.ratedOnly ? { 'gameOptions.rated': true } : {}),
                     finishedAt: {
-                        $ne: null
+                        $ne: null,
                     },
-                }
+                },
             },
             {
-                $unwind: '$players'
+                $unwind: `$players`,
             },
             {
                 $match: {
                     'players.profileId': {
-                        $ne: null
-                    }
-                }
+                        $ne: null,
+                    },
+                },
             },
             {
                 $sort: {
                     finishedAt: -1,
-                    id: -1
-                }
+                    id: -1,
+                },
             },
             {
                 $group: {
-                    _id: '$players.profileId',
-                    profileId: { $first: '$players.profileId' },
-                    displayName: { $first: '$players.displayName' },
+                    _id: `$players.profileId`,
+                    profileId: { $first: `$players.profileId` },
+                    displayName: { $first: `$players.displayName` },
                     gamesPlayed: { $sum: 1 },
                     gamesWon: {
                         $sum: {
                             $cond: [
-                                { $eq: ['$players.playerId', '$gameResult.winningPlayerId'] },
+                                { $eq: [`$players.playerId`, `$gameResult.winningPlayerId`] },
                                 1,
-                                0
-                            ]
-                        }
-                    }
-                }
+                                0,
+                            ],
+                        },
+                    },
+                },
             },
             {
                 $project: {
@@ -977,13 +983,13 @@ export class GameHistoryRepository {
                     gamesWon: 1,
                     winRatio: {
                         $cond: [
-                            { $eq: ['$gamesPlayed', 0] },
+                            { $eq: [`$gamesPlayed`, 0] },
                             0,
-                            { $divide: ['$gamesWon', '$gamesPlayed'] }
-                        ]
-                    }
-                }
-            }
+                            { $divide: [`$gamesWon`, `$gamesPlayed`] },
+                        ],
+                    },
+                },
+            },
         ];
     }
 
@@ -994,8 +1000,8 @@ export class GameHistoryRepository {
                 winRatio: -1,
                 gamesPlayed: -1,
                 displayName: 1,
-                profileId: 1
-            }
+                profileId: 1,
+            },
         };
     }
 
@@ -1005,7 +1011,7 @@ export class GameHistoryRepository {
             displayName: player.displayName,
             gamesPlayed: player.gamesPlayed,
             gamesWon: player.gamesWon,
-            winRatio: Number(player.winRatio.toFixed(4))
+            winRatio: Number(player.winRatio.toFixed(4)),
         };
     }
 
@@ -1020,7 +1026,7 @@ export class GameHistoryRepository {
             longestRankedWinStreak: 0,
             longestGamePlayedMs: 0,
             longestGameByMoves: 0,
-            totalMovesMade: 0
+            totalMovesMade: 0,
         };
     }
 
@@ -1049,17 +1055,17 @@ export class GameHistoryRepository {
 
         return {
             current: currentStreak,
-            longest: longestStreak
+            longest: longestStreak,
         };
     }
 
     private logMissingHistory(event: string, gameId: string, extraDetails: Record<string, unknown> = {}): void {
         this.logger.warn({
-            type: 'game-history',
+            type: `game-history`,
             event,
-            storage: 'mongodb',
+            storage: `mongodb`,
             gameId,
-            ...extraDetails
-        }, 'Game history does not exist');
+            ...extraDetails,
+        }, `Game history does not exist`);
     }
 }

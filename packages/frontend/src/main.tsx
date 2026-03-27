@@ -1,17 +1,18 @@
 import { StrictMode } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
+
+import App from "./App";
+import { queryClient } from "./query/queryClient";
 import { createClientRouter } from "./router";
 import { getDehydratedStateFromWindow, getRenderMode } from "./ssrState";
-import { queryClient } from "./query/queryClient";
-import { createRoot, hydrateRoot } from "react-dom/client";
-import App from "./App";
 
-let root = document.getElementById('root');
+let root = document.getElementById(`root`);
 if (!root) {
-    console.error("Missing DOM root. Using body.");
+    console.error(`Missing DOM root. Using body.`);
     root = document.body;
 }
 
-const router = createClientRouter()
+const router = createClientRouter();
 const app = (
     <StrictMode>
         <App
@@ -20,11 +21,11 @@ const app = (
             dehydratedState={getDehydratedStateFromWindow()}
         />
     </StrictMode>
-)
+);
 
 const renderMode = getRenderMode();
-if (renderMode === "hydration") {
-    hydrateRoot(root, app)
+if (renderMode === `hydration`) {
+    hydrateRoot(root, app);
 } else {
-    createRoot(root).render(app)
+    createRoot(root).render(app);
 }

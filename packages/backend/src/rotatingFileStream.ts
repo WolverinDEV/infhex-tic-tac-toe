@@ -6,14 +6,14 @@ type RotatingFileStreamOptions = {
     filePath: string;
     maxFileSizeBytes: number;
     maxTotalSizeBytes: number;
-}
+};
 
 type LogFileInfo = {
     path: string;
     size: number;
     isCurrent: boolean;
     mtimeMs: number;
-}
+};
 
 export class RotatingFileStream extends Writable {
     private readonly filePath: string;
@@ -48,7 +48,7 @@ export class RotatingFileStream extends Writable {
 
         this.currentSizeBytes = existsSync(this.filePath) ? statSync(this.filePath).size : 0;
         this.totalSizeBytes = this.scanLogFiles().reduce((total, file) => total + file.size, 0);
-        this.currentStream = createWriteStream(this.filePath, { flags: 'a' });
+        this.currentStream = createWriteStream(this.filePath, { flags: `a` });
     }
 
     override _write(chunk: string | Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
@@ -60,7 +60,7 @@ export class RotatingFileStream extends Writable {
 
         this.pendingWrite.then(
             () => callback(),
-            (error: unknown) => callback(asError(error))
+            (error: unknown) => callback(asError(error)),
         );
     }
 
@@ -71,7 +71,7 @@ export class RotatingFileStream extends Writable {
 
         this.pendingWrite.then(
             () => callback(),
-            (error: unknown) => callback(asError(error))
+            (error: unknown) => callback(asError(error)),
         );
     }
 
@@ -104,13 +104,14 @@ export class RotatingFileStream extends Writable {
         renameSync(this.filePath, this.createArchivePath());
 
         this.currentSizeBytes = 0;
-        this.currentStream = createWriteStream(this.filePath, { flags: 'a' });
+        this.currentStream = createWriteStream(this.filePath, { flags: `a` });
         this.enforceTotalSizeLimit();
     }
 
     private createArchivePath(): string {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const sequence = String(this.archiveSequence++).padStart(3, '0');
+        const timestamp = new Date().toISOString()
+            .replace(/[:.]/g, `-`);
+        const sequence = String(this.archiveSequence++).padStart(3, `0`);
         const archiveFileName = `${this.archiveFilePrefix}${timestamp}-${sequence}${this.archiveFileSuffix}`;
         return join(this.directoryPath, archiveFileName);
     }
@@ -133,17 +134,17 @@ export class RotatingFileStream extends Writable {
             const stream = this.currentStream;
 
             const onError = (error: Error) => {
-                stream.off('finish', onFinish);
+                stream.off(`finish`, onFinish);
                 rejectClose(error);
             };
 
             const onFinish = () => {
-                stream.off('error', onError);
+                stream.off(`error`, onError);
                 resolveClose();
             };
 
-            stream.once('error', onError);
-            stream.once('finish', onFinish);
+            stream.once(`error`, onError);
+            stream.once(`finish`, onFinish);
             stream.end();
         });
     }
@@ -183,7 +184,7 @@ export class RotatingFileStream extends Writable {
                     path: filePath,
                     size: stats.size,
                     isCurrent: fileName === this.currentFileName,
-                    mtimeMs: stats.mtimeMs
+                    mtimeMs: stats.mtimeMs,
                 };
             });
     }

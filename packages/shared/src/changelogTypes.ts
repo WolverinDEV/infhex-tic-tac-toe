@@ -1,4 +1,4 @@
-export type ChangelogEntryKind = 'feature' | 'fix' | 'maintenance' | 'other';
+export type ChangelogEntryKind = `feature` | `fix` | `maintenance` | `other`;
 
 export type ChangelogEntry = {
     hash: string;
@@ -11,10 +11,10 @@ export type ChangelogEntry = {
     kind: ChangelogEntryKind;
     isBreakingChange: boolean;
     breakingChangeNote: string | null;
-}
+};
 
 export type ChangelogDay = {
     date: string;
     commitCount: number;
     entries: ChangelogEntry[];
-}
+};

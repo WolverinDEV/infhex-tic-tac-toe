@@ -1,5 +1,3 @@
-import type { Document } from 'mongodb';
-import type { Logger } from 'pino';
 import {
     buildPlayerTileConfigMap,
     type DatabaseGame,
@@ -15,9 +13,12 @@ import {
     zLobbyOptions,
     zSessionFinishReason,
 } from '@ih3t/shared';
+import type { Document } from 'mongodb';
+import type { Logger } from 'pino';
 import { z } from 'zod';
-import type { DatabaseMigration } from './types';
+
 import { GAME_HISTORY_COLLECTION_NAME } from '../mongoCollections';
+import type { DatabaseMigration } from './types';
 
 type GameHistoryDocument = z.infer<typeof zDatabaseGame> & Document;
 
@@ -27,15 +28,17 @@ const zVersion2GameHistoryDocument = z.object({
     version: z.literal(2),
     sessionId: z.string(),
     startedAt: z.number().int(),
-    finishedAt: z.number().int().nullable(),
+    finishedAt: z.number().int()
+        .nullable(),
     players: z.array(zDatabaseGamePlayer),
     gameOptions: zLobbyOptions,
     moves: z.array(zGameMove),
-    moveCount: z.number().int().nonnegative(),
+    moveCount: z.number().int()
+        .nonnegative(),
     gameResult: zDatabaseGameResult.nullable(),
     playerTiles: z.record(z.string(), z.object({
-        color: z.string()
-    })).optional()
+        color: z.string(),
+    })).optional(),
 });
 type Version2GameHistoryDocument = z.infer<typeof zVersion2GameHistoryDocument> & Document;
 
@@ -43,29 +46,43 @@ const zLegacyGameHistoryDocument = z.object({
     _id: z.unknown().optional(),
     id: z.string(),
     sessionId: z.string(),
-    state: z.enum(['lobby', 'in-game', 'finished']).optional(),
+    state: z.enum([
+        `lobby`, `in-game`, `finished`,
+    ]).optional(),
     players: z.array(z.string()).optional(),
     playerNames: z.record(z.string(), z.string()).optional(),
     playerProfileIds: z.record(z.string(), z.string().nullable()).optional(),
-    winningPlayerId: z.string().nullable().optional(),
+    winningPlayerId: z.string().nullable()
+        .optional(),
     reason: zSessionFinishReason.nullable().optional(),
-    moveCount: z.number().int().nonnegative().optional(),
+    moveCount: z.number().int()
+        .nonnegative()
+        .optional(),
     moves: z.array(zGameMove).optional(),
-    createdAt: z.number().int().optional(),
-    startedAt: z.number().int().nullable().optional(),
-    finishedAt: z.number().int().nullable().optional(),
-    gameDurationMs: z.number().int().nonnegative().nullable().optional(),
-    updatedAt: z.number().int().optional(),
+    createdAt: z.number().int()
+        .optional(),
+    startedAt: z.number().int()
+        .nullable()
+        .optional(),
+    finishedAt: z.number().int()
+        .nullable()
+        .optional(),
+    gameDurationMs: z.number().int()
+        .nonnegative()
+        .nullable()
+        .optional(),
+    updatedAt: z.number().int()
+        .optional(),
     gameOptions: zLobbyOptions.optional(),
     playerTiles: z.record(z.string(), z.object({
-        color: z.string()
+        color: z.string(),
     })).optional(),
 });
 type LegacyGameHistoryDocument = z.infer<typeof zLegacyGameHistoryDocument> & Document;
 
 export const gameHistoryMigration: DatabaseMigration = {
-    id: '002-game-history',
-    description: 'Create game history indexes and migrate legacy game history documents',
+    id: `002-game-history`,
+    description: `Create game history indexes and migrate legacy game history documents`,
     async up({ database, logger }) {
         const collection = database.collection<GameHistoryDocument>(GAME_HISTORY_COLLECTION_NAME);
         await collection.createIndex({ id: 1 }, { unique: true });
@@ -78,8 +95,8 @@ export const gameHistoryMigration: DatabaseMigration = {
             $or: [
                 { version: { $exists: false } },
                 { version: 2 },
-                { playerTiles: { $exists: false } }
-            ]
+                { playerTiles: { $exists: false } },
+            ],
         } as Document).toArray();
 
         if (legacyDocuments.length === 0) {
@@ -92,15 +109,17 @@ export const gameHistoryMigration: DatabaseMigration = {
                 return [];
             }
 
-            return [{
-                replaceOne: {
-                    filter: { _id: document._id },
-                    replacement: {
-                        _id: document._id,
-                        ...migratedDocument
-                    } as GameHistoryDocument
-                }
-            }];
+            return [
+                {
+                    replaceOne: {
+                        filter: { _id: document._id },
+                        replacement: {
+                            _id: document._id,
+                            ...migratedDocument,
+                        } as GameHistoryDocument,
+                    },
+                },
+            ];
         });
 
         if (operations.length === 0) {
@@ -109,12 +128,12 @@ export const gameHistoryMigration: DatabaseMigration = {
 
         await collection.bulkWrite(operations, { ordered: false });
         logger.info({
-            type: 'game-history',
-            event: 'game-history-migration-complete',
-            storage: 'mongodb',
-            migratedGames: operations.length
-        }, 'Migrated legacy game history documents');
-    }
+            type: `game-history`,
+            event: `game-history-migration-complete`,
+            storage: `mongodb`,
+            migratedGames: operations.length,
+        }, `Migrated legacy game history documents`);
+    },
 };
 
 function migrateLegacyDocument(document: unknown, logger: Logger): DatabaseGame | null {
@@ -131,11 +150,11 @@ function migrateLegacyDocument(document: unknown, logger: Logger): DatabaseGame 
     const legacyDocument = zLegacyGameHistoryDocument.safeParse(document);
     if (!legacyDocument.success) {
         logger.warn({
-            type: 'game-history',
-            event: 'game-history-migration-skipped',
-            storage: 'mongodb',
-            issues: legacyDocument.error.issues
-        }, 'Skipped migrating an invalid game history document');
+            type: `game-history`,
+            event: `game-history-migration-skipped`,
+            storage: `mongodb`,
+            issues: legacyDocument.error.issues,
+        }, `Skipped migrating an invalid game history document`);
         return null;
     }
 
@@ -159,7 +178,7 @@ function migrateLegacyDocument(document: unknown, logger: Logger): DatabaseGame 
         : {
             winningPlayerId: parsedDocument.winningPlayerId ?? null,
             durationMs,
-            reason: parsedDocument.reason ?? 'terminated'
+            reason: parsedDocument.reason ?? `terminated`,
         } satisfies DatabaseGameResult;
 
     return zDatabaseGame.parse({
@@ -175,7 +194,7 @@ function migrateLegacyDocument(document: unknown, logger: Logger): DatabaseGame 
             : createDefaultGameOptions(),
         moves: moves.map((move) => ({ ...move })),
         moveCount,
-        gameResult
+        gameResult,
     });
 }
 
@@ -195,7 +214,7 @@ function migrateVersion2Document(document: Version2GameHistoryDocument): Databas
         moveCount: document.moveCount,
         gameResult: document.gameResult
             ? { ...document.gameResult }
-            : null
+            : null,
     });
 }
 
@@ -205,21 +224,19 @@ function mapLegacyPlayers(playerIds: string[], document: LegacyGameHistoryDocume
         displayName: document.playerNames?.[playerId]?.trim() ?? `Player ${playerIndex + 1}`,
         profileId: document.playerProfileIds?.[playerId] ?? playerId,
         elo: null,
-        eloChange: null
+        eloChange: null,
     }));
 }
 
 function cloneGameOptions(gameOptions: LobbyOptions): LobbyOptions {
     return {
         ...gameOptions,
-        timeControl: { ...gameOptions.timeControl }
+        timeControl: { ...gameOptions.timeControl },
     };
 }
 
 function clonePlayerTiles(playerTiles: Record<string, PlayerTileConfig>): Record<string, PlayerTileConfig> {
-    return Object.fromEntries(
-        Object.entries(playerTiles).map(([playerId, playerTileConfig]) => [playerId, { ...playerTileConfig }])
-    );
+    return Object.fromEntries(Object.entries(playerTiles).map(([playerId, playerTileConfig]) => [playerId, { ...playerTileConfig }]));
 }
 
 function createDefaultGameOptions(): LobbyOptions {

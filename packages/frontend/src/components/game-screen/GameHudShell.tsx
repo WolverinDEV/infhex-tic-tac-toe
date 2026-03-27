@@ -1,8 +1,9 @@
-import type { ReactNode, Ref } from 'react'
-import { cn } from '../../utils/cn'
+import type { ReactNode, Ref } from 'react';
+
+import { cn } from '../../utils/cn';
 
 type GameHudShellProps = {
-    role: 'left' | 'right'
+    role: `left` | `right`
     isOpen: boolean
     onOpen: () => void
     onClose: () => void
@@ -12,7 +13,7 @@ type GameHudShellProps = {
     children: ReactNode
     openButtonBadge?: ReactNode
     panelRef?: Ref<HTMLDivElement>
-}
+};
 
 function CloseIcon() {
     return (
@@ -20,7 +21,7 @@ function CloseIcon() {
             <path d="M6 6 18 18" />
             <path d="M18 6 6 18" />
         </svg>
-    )
+    );
 }
 
 function GameHudShell({
@@ -47,7 +48,7 @@ function GameHudShell({
                 {openIcon}
                 {openButtonBadge}
             </button>
-        )
+        );
     }
 
 
@@ -55,19 +56,19 @@ function GameHudShell({
         <div
             ref={panelRef}
             className={cn(
-                "pointer-events-auto z-20",
-                "w-auto md:w-full md:max-w-md",
-                "overflow-hidden",
-                "bg-slate-800",
-                "px-4 py-4",
-                "ml-auto",
-                "shadow-[0_12px_45px_rgba(15,23,42,0.22)]",
-                "backdrop-blur-md outline-none",
-                "absolute",
-                "bottom-0 left-0 right-0",
-                "md:relative",
-                "md:rounded-tl-3xl md:rounded-tr-none",
-                side === "right" && "md:rounded-bl-3xl md:mb-4"
+                `pointer-events-auto z-20`,
+                `w-auto md:w-full md:max-w-md`,
+                `overflow-hidden`,
+                `bg-slate-800`,
+                `px-4 py-4`,
+                `ml-auto`,
+                `shadow-[0_12px_45px_rgba(15,23,42,0.22)]`,
+                `backdrop-blur-md outline-none`,
+                `absolute`,
+                `bottom-0 left-0 right-0`,
+                `md:relative`,
+                `md:rounded-tl-3xl md:rounded-tr-none`,
+                side === `right` && `md:rounded-bl-3xl md:mb-4`,
             )}
         >
             <div className="pointer-events-auto absolute right-3 top-3 z-10">
@@ -83,7 +84,7 @@ function GameHudShell({
 
             {children}
         </div>
-    )
+    );
 }
 
-export default GameHudShell
+export default GameHudShell;

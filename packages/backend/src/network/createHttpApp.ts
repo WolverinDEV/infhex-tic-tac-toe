@@ -1,10 +1,12 @@
-import express from 'express';
-import cors from 'cors';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
+
+import cors from 'cors';
+import express from 'express';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
+
 import { AuthService } from '../auth/authService';
 import { ServerConfig } from '../config/serverConfig';
 import { ROOT_LOGGER } from '../logger';
@@ -25,10 +27,10 @@ export class HttpApplication {
         @inject(ApiQueryService) apiQueryService: ApiQueryService,
         @inject(ApiRouter) apiRouter: ApiRouter,
         @inject(CorsConfiguration) corsConfiguration: CorsConfiguration,
-        @inject(ServerConfig) serverConfig: ServerConfig
+        @inject(ServerConfig) serverConfig: ServerConfig,
     ) {
         const app = express();
-        const logger = rootLogger.child({ component: 'http-application' });
+        const logger = rootLogger.child({ component: `http-application` });
         const corsOptions = corsConfiguration.options;
         this.frontendDistPath = `${serverConfig.frontendDistPath}/client`;
         this.frontendSsrRenderer = new FrontendSsrRenderer({
@@ -36,7 +38,7 @@ export class HttpApplication {
             ssrDistPath: serverConfig.frontendDistPath,
         });
 
-        app.set('trust proxy', true);
+        app.set(`trust proxy`, true);
 
         if (corsOptions) {
             app.use(cors(corsOptions));
@@ -49,25 +51,25 @@ export class HttpApplication {
                 requestId,
                 method: req.method,
                 path: req.originalUrl,
-                remoteAddress: req.ip
+                remoteAddress: req.ip,
             });
 
-            res.on('finish', () => {
+            res.on(`finish`, () => {
                 const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
                 requestLogger.trace({
-                    event: 'http.request.completed',
+                    event: `http.request.completed`,
                     statusCode: res.statusCode,
                     durationMs: Number(durationMs.toFixed(3)),
-                    contentLength: res.getHeader('content-length') ?? null,
-                    userAgent: req.get('user-agent') ?? null
-                }, 'HTTP request completed');
+                    contentLength: res.getHeader(`content-length`) ?? null,
+                    userAgent: req.get(`user-agent`) ?? null,
+                }, `HTTP request completed`);
             });
 
             next();
         });
 
-        app.use('/auth', express.urlencoded({ extended: false }), express.json(), authService.handler);
-        app.use('/api', apiRouter.router);
+        app.use(`/auth`, express.urlencoded({ extended: false }), express.json(), authService.handler);
+        app.use(`/api`, apiRouter.router);
         app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
             if (!(error instanceof z.ZodError)) {
                 next(error);
@@ -76,15 +78,15 @@ export class HttpApplication {
 
             logger.warn({
                 err: error,
-                event: 'http.request.invalid',
+                event: `http.request.invalid`,
                 method: req.method,
                 path: req.originalUrl,
-                issues: error.issues
-            }, 'HTTP request validation failed');
+                issues: error.issues,
+            }, `HTTP request validation failed`);
 
             res.status(400).json({
                 error: error.message,
-                issues: error.issues
+                issues: error.issues,
             });
         });
 
@@ -104,7 +106,7 @@ export class HttpApplication {
                 }
 
                 const html = await this.frontendSsrRenderer.render(req);
-                res.type('html').send(html);
+                res.type(`html`).send(html);
             });
         }
 
@@ -112,13 +114,13 @@ export class HttpApplication {
     }
 
     private resolveJoinRedirectUrl(req: express.Request): string | null {
-        if (req.path !== '/') {
+        if (req.path !== `/`) {
             return null;
         }
 
-        const origin = `${req.protocol}://${req.get('host')}`;
+        const origin = `${req.protocol}://${req.get(`host`)}`;
         const url = new URL(req.originalUrl || req.url, origin);
-        const sessionId = String(url.searchParams.get('join') ?? '').trim();
+        const sessionId = String(url.searchParams.get(`join`) ?? ``).trim();
         if (!sessionId) {
             return null;
         }
@@ -127,18 +129,18 @@ export class HttpApplication {
     }
 
     private resolveArchiveRedirectUrl(req: express.Request): string | null {
-        if (req.path !== '/games' && req.path !== '/account/games') {
+        if (req.path !== `/games` && req.path !== `/account/games`) {
             return null;
         }
 
-        const origin = `${req.protocol}://${req.get('host')}`;
+        const origin = `${req.protocol}://${req.get(`host`)}`;
         const url = new URL(req.originalUrl || req.url, origin);
-        const atValue = Number.parseInt(url.searchParams.get('at') ?? '', 10);
+        const atValue = Number.parseInt(url.searchParams.get(`at`) ?? ``, 10);
         if (Number.isFinite(atValue) && atValue > 0) {
             return null;
         }
 
-        url.searchParams.set('at', String(Date.now()));
+        url.searchParams.set(`at`, String(Date.now()));
         return `${url.pathname}?${url.searchParams.toString()}`;
     }
 }

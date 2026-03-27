@@ -1,97 +1,98 @@
 import type {
     ClientToServerEvents,
     LobbyInfo,
+    ServerToClientEvents,
     SessionInfo,
-    ServerToClientEvents
-} from '@ih3t/shared'
-import { io, type Socket } from 'socket.io-client'
-import { toast } from 'react-toastify'
-import { APP_VERSION_HASH } from './appVersion'
-import { useLiveGameStore } from './liveGameStore'
-import { getDeviceId, getSocketUrl } from './query/apiClient'
-import { queryClient } from './query/queryClient'
-import { buildSessionPath } from './routes/archiveRouteState'
-import { sortLobbySessions } from './utils/lobby'
-import { queryKeys } from './query/queryDefinitions'
+} from '@ih3t/shared';
+import { toast } from 'react-toastify';
+import { io, type Socket } from 'socket.io-client';
 
-let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
+import { APP_VERSION_HASH } from './appVersion';
+import { useLiveGameStore } from './liveGameStore';
+import { getDeviceId, getSocketUrl } from './query/apiClient';
+import { queryClient } from './query/queryClient';
+import { queryKeys } from './query/queryDefinitions';
+import { buildSessionPath } from './routes/archiveRouteState';
+import { sortLobbySessions } from './utils/lobby';
 
-let shouldHandleDisconnect = true
-let suppressDisconnectToast = false
+let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-let heartbeatMonitor: number | null = null
-let heartbeatLastPingAt: number | null = null
-let heartbeatLastPongAt: number | null = null
+let shouldHandleDisconnect = true;
+let suppressDisconnectToast = false;
 
-const HEARTBEAT_INTERVAL_MS = 250
-const HEARTBEAT_PING_INTERVAL_MS = 1_000
-const HEARTBEAT_UNSTABLE_AFTER_MS = 2_000
-const HEARTBEAT_RECONNECT_AFTER_MS = 10_000
+let heartbeatMonitor: number | null = null;
+let heartbeatLastPingAt: number | null = null;
+let heartbeatLastPongAt: number | null = null;
+
+const HEARTBEAT_INTERVAL_MS = 250;
+const HEARTBEAT_PING_INTERVAL_MS = 1_000;
+const HEARTBEAT_UNSTABLE_AFTER_MS = 2_000;
+const HEARTBEAT_RECONNECT_AFTER_MS = 10_000;
 
 function showErrorToast(message: string) {
     toast.error(message, {
-        toastId: `error:${message}`
-    })
+        toastId: `error:${message}`,
+    });
 }
 
 function showAdminMessageToast(message: string, sentAt: number) {
     toast.info(message, {
         toastId: `admin-message:${sentAt}`,
-        autoClose: 10_000
-    })
+        autoClose: 10_000,
+    });
 }
 
 function navigateToSession(sessionId: string) {
-    const sessionPath = buildSessionPath(sessionId)
+    const sessionPath = buildSessionPath(sessionId);
     if (window.location.pathname === sessionPath) {
-        return
+        return;
     }
 
-    window.history.pushState(null, '', sessionPath)
-    window.dispatchEvent(new PopStateEvent('popstate'))
+    window.history.pushState(null, ``, sessionPath);
+    window.dispatchEvent(new PopStateEvent(`popstate`));
 }
 
 function isVersionMismatchMessage(message: string) {
-    return message.includes('version hash')
+    return message.includes(`version hash`);
 }
 
 function clearHeartbeatState() {
-    heartbeatLastPingAt = null
-    heartbeatLastPongAt = null
-    useLiveGameStore.getState().setConnectionUnstable(false)
+    heartbeatLastPingAt = null;
+    heartbeatLastPongAt = null;
+    useLiveGameStore.getState().setConnectionUnstable(false);
 }
 
 function isHeartbeatActive() {
-    if (!socket?.connected || typeof document === 'undefined') {
-        return false
+    if (!socket?.connected || typeof document === `undefined`) {
+        return false;
     }
 
-    const activeSession = useLiveGameStore.getState().session
-    return activeSession?.state.status === 'in-game' && document.visibilityState === 'visible'
+    const activeSession = useLiveGameStore.getState().session;
+    return activeSession?.state.status === `in-game` && document.visibilityState === `visible`;
 }
 
 function reconnectAfterHeartbeatTimeout() {
     if (!socket) {
-        return
+        return;
     }
 
-    clearHeartbeatState()
-    suppressDisconnectToast = true
-    socket.disconnect()
-    socket.connect()
+    clearHeartbeatState();
+    suppressDisconnectToast = true;
+    socket.disconnect();
+    socket.connect();
 }
 
 function executeHeartbeat() {
     if (!isHeartbeatActive()) {
         clearHeartbeatState();
-        return
+        return;
     }
 
-    const now = Date.now()
+    const now = Date.now();
 
     /* 50ms grace due to setInterval inaccuracy */
     if (now - (heartbeatLastPingAt ?? 0) >= HEARTBEAT_PING_INTERVAL_MS - 50) {
-        socket?.emit("client-ping");
+        socket?.emit(`client-ping`);
         heartbeatLastPingAt = now;
     }
 
@@ -99,77 +100,77 @@ function executeHeartbeat() {
      * If we just started pinging and never received any pong
      * assume a virtual "pong" right now.
      */
-    heartbeatLastPongAt ??= now
+    heartbeatLastPongAt ??= now;
 
     const lastPongMs = now - heartbeatLastPongAt;
 
-    useLiveGameStore.getState().setConnectionUnstable(lastPongMs >= HEARTBEAT_UNSTABLE_AFTER_MS)
+    useLiveGameStore.getState().setConnectionUnstable(lastPongMs >= HEARTBEAT_UNSTABLE_AFTER_MS);
     if (lastPongMs >= HEARTBEAT_RECONNECT_AFTER_MS) {
-        reconnectAfterHeartbeatTimeout()
+        reconnectAfterHeartbeatTimeout();
     }
 }
 
 function startHeartbeatMonitor() {
-    if (heartbeatMonitor || typeof window === 'undefined') {
-        return
+    if (heartbeatMonitor || typeof window === `undefined`) {
+        return;
     }
 
-    heartbeatMonitor = window.setInterval(executeHeartbeat, HEARTBEAT_INTERVAL_MS)
-    window.addEventListener('focus', executeHeartbeat)
-    window.addEventListener('blur', executeHeartbeat)
-    document.addEventListener('visibilitychange', executeHeartbeat)
+    heartbeatMonitor = window.setInterval(executeHeartbeat, HEARTBEAT_INTERVAL_MS);
+    window.addEventListener(`focus`, executeHeartbeat);
+    window.addEventListener(`blur`, executeHeartbeat);
+    document.addEventListener(`visibilitychange`, executeHeartbeat);
 }
 
 export function startLiveGameClient() {
     if (socket) {
-        return
+        return;
     }
 
-    const deviceId = getDeviceId()
-    const socketUrl = getSocketUrl()
-    shouldHandleDisconnect = true
+    const deviceId = getDeviceId();
+    const socketUrl = getSocketUrl();
+    shouldHandleDisconnect = true;
     socket = io(socketUrl, {
         auth: {
             deviceId,
             ephemeralClientId: crypto.randomUUID(),
-            versionHash: APP_VERSION_HASH
+            versionHash: APP_VERSION_HASH,
         },
         withCredentials: true,
-        transports: ["websocket"]
-    })
+        transports: [`websocket`],
+    });
 
-    socket.on('connect_error', (error) => {
-        const message = error.message || 'Failed to connect to the server.'
-        useLiveGameStore.getState().onSocketDisconnected()
+    socket.on(`connect_error`, (error) => {
+        const message = error.message || `Failed to connect to the server.`;
+        useLiveGameStore.getState().onSocketDisconnected();
 
         if (isVersionMismatchMessage(message)) {
-            const activeSocket = socket
+            const activeSocket = socket;
             if (activeSocket) {
-                activeSocket.io.opts.reconnection = false
-                activeSocket.disconnect()
+                activeSocket.io.opts.reconnection = false;
+                activeSocket.disconnect();
             }
         }
 
-        showErrorToast(message)
-    })
-
-    socket.on('connect', () => {
-        clearHeartbeatState()
-        useLiveGameStore.getState().onSocketConnected()
+        showErrorToast(message);
     });
-    socket.on('initialized', () => useLiveGameStore.getState().onSocketInitialized());
-    socket.on('server-pong', () => {
-        heartbeatLastPongAt = Date.now()
-    })
 
-    socket.on('lobby-list', (lobbies) => {
+    socket.on(`connect`, () => {
+        clearHeartbeatState();
+        useLiveGameStore.getState().onSocketConnected();
+    });
+    socket.on(`initialized`, () => useLiveGameStore.getState().onSocketInitialized());
+    socket.on(`server-pong`, () => {
+        heartbeatLastPongAt = Date.now();
+    });
+
+    socket.on(`lobby-list`, (lobbies) => {
         queryClient.setQueryData(
             queryKeys.availableSessions,
-            sortLobbySessions(lobbies)
-        )
-    })
+            sortLobbySessions(lobbies),
+        );
+    });
 
-    socket.on('lobby-updated', (lobby) => {
+    socket.on(`lobby-updated`, (lobby) => {
         const lobbies: LobbyInfo[] | undefined = queryClient.getQueryData(queryKeys.availableSessions);
         if (!lobbies) {
             /* The lobbies query does not exist. No need to update the (non existing) data. */
@@ -181,11 +182,11 @@ export function startLiveGameClient() {
 
         queryClient.setQueryData(
             queryKeys.availableSessions,
-            sortLobbySessions(newLobbies)
-        )
-    })
+            sortLobbySessions(newLobbies),
+        );
+    });
 
-    socket.on('lobby-removed', ({ id }) => {
+    socket.on(`lobby-removed`, ({ id }) => {
         const lobbies: LobbyInfo[] | undefined = queryClient.getQueryData(queryKeys.availableSessions);
         if (!lobbies) {
             /* The lobbies query does not exist. No need to update the (non existing) data. */
@@ -194,177 +195,177 @@ export function startLiveGameClient() {
 
         queryClient.setQueryData(
             queryKeys.availableSessions,
-            sortLobbySessions(lobbies.filter(lobby => lobby.id !== id))
-        )
-    })
+            sortLobbySessions(lobbies.filter(lobby => lobby.id !== id)),
+        );
+    });
 
-    socket.on('shutdown-updated', (shutdown) => {
+    socket.on(`shutdown-updated`, (shutdown) => {
         queryClient.setQueryData(
             queryKeys.serverShutdown,
-            shutdown
-        )
-    })
+            shutdown,
+        );
+    });
 
-    socket.on('admin-message', (broadcast) => {
-        showAdminMessageToast(broadcast.message, broadcast.sentAt)
-    })
+    socket.on(`admin-message`, (broadcast) => {
+        showAdminMessageToast(broadcast.message, broadcast.sentAt);
+    });
 
-    socket.on('disconnect', () => {
-        clearHeartbeatState()
+    socket.on(`disconnect`, () => {
+        clearHeartbeatState();
         if (!shouldHandleDisconnect) {
-            return
+            return;
         }
 
-        useLiveGameStore.getState().onSocketDisconnected()
+        useLiveGameStore.getState().onSocketDisconnected();
         if (suppressDisconnectToast) {
-            suppressDisconnectToast = false
-            return
+            suppressDisconnectToast = false;
+            return;
         }
 
-        showErrorToast('Disconnected from the server.')
-    })
+        showErrorToast(`Disconnected from the server.`);
+    });
 
-    socket.on('session-joined', data => {
+    socket.on(`session-joined`, data => {
         queryClient.setQueryData(
             queryKeys.session(data.session.id),
-            data.session
-        )
-        useLiveGameStore.getState().setupSession(data)
-        navigateToSession(data.session.id)
-        executeHeartbeat()
-    })
+            data.session,
+        );
+        useLiveGameStore.getState().setupSession(data);
+        navigateToSession(data.session.id);
+        executeHeartbeat();
+    });
 
-    socket.on('session-updated', data => {
+    socket.on(`session-updated`, data => {
         queryClient.setQueryData(
             queryKeys.session(data.sessionId),
             (currentSession: SessionInfo | null | undefined) => currentSession
                 ? {
                     ...currentSession,
                     ...data.session,
-                    id: data.sessionId
+                    id: data.sessionId,
                 }
-                : currentSession ?? null
-        )
-        useLiveGameStore.getState().handleSessionUpdate({ ...data.session, id: data.sessionId })
-    })
+                : currentSession ?? null,
+        );
+        useLiveGameStore.getState().handleSessionUpdate({ ...data.session, id: data.sessionId });
+    });
 
-    socket.on('game-state', data => useLiveGameStore.getState().handleGameState(data))
-    socket.on('game-cell-place', data => useLiveGameStore.getState().handleGameCellPlace(data))
+    socket.on(`game-state`, data => useLiveGameStore.getState().handleGameState(data));
+    socket.on(`game-cell-place`, data => useLiveGameStore.getState().handleGameCellPlace(data));
 
-    socket.on('session-chat', data => useLiveGameStore.getState().handleSessionChatEvent(data))
+    socket.on(`session-chat`, data => useLiveGameStore.getState().handleSessionChatEvent(data));
 
-    socket.on('error', (error: string) => {
-        console.error('Socket error:', error)
-        const currentState = useLiveGameStore.getState()
-        const pendingJoin = currentState.pendingSessionJoin
+    socket.on(`error`, (error: string) => {
+        console.error(`Socket error:`, error);
+        const currentState = useLiveGameStore.getState();
+        const pendingJoin = currentState.pendingSessionJoin;
 
-        if (pendingJoin.status === 'pending' && pendingJoin.sessionId) {
-            currentState.failJoiningSession(pendingJoin.sessionId, error)
-            const isSessionRoute = window.location.pathname === `/session/${encodeURIComponent(pendingJoin.sessionId)}`
-            if (error === 'Session not found' && isSessionRoute) {
-                return
+        if (pendingJoin.status === `pending` && pendingJoin.sessionId) {
+            currentState.failJoiningSession(pendingJoin.sessionId, error);
+            const isSessionRoute = window.location.pathname === `/session/${encodeURIComponent(pendingJoin.sessionId)}`;
+            if (error === `Session not found` && isSessionRoute) {
+                return;
             }
         }
 
-        showErrorToast(error)
-    })
+        showErrorToast(error);
+    });
 }
 
 export function stopLiveGameClient() {
     if (!socket) {
-        return
+        return;
     }
 
-    shouldHandleDisconnect = false
-    socket.removeAllListeners()
-    socket.disconnect()
-    socket = null
-    suppressDisconnectToast = false
-    useLiveGameStore.getState().onSocketDisconnected()
+    shouldHandleDisconnect = false;
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+    suppressDisconnectToast = false;
+    useLiveGameStore.getState().onSocketDisconnected();
 }
 
 export function joinSession(sessionId: string) {
-    const state = useLiveGameStore.getState()
+    const state = useLiveGameStore.getState();
     if (state.session?.id === sessionId) {
-        return
+        return;
     }
 
-    if (state.pendingSessionJoin.status === 'pending' && state.pendingSessionJoin.sessionId === sessionId) {
-        return
+    if (state.pendingSessionJoin.status === `pending` && state.pendingSessionJoin.sessionId === sessionId) {
+        return;
     }
 
-    state.startJoiningSession(sessionId)
-    socket?.emit('join-session', {
-        sessionId
-    })
+    state.startJoiningSession(sessionId);
+    socket?.emit(`join-session`, {
+        sessionId,
+    });
 }
 
 export function leaveSession() {
-    const state = useLiveGameStore.getState()
+    const state = useLiveGameStore.getState();
     if (state.session) {
-        socket?.emit('leave-session', state.session.id)
+        socket?.emit(`leave-session`, state.session.id);
     } else if (state.pendingSessionJoin.sessionId) {
-        socket?.emit('leave-session', state.pendingSessionJoin.sessionId)
+        socket?.emit(`leave-session`, state.pendingSessionJoin.sessionId);
     }
 
-    state.clearSession()
+    state.clearSession();
 }
 
 export function surrenderGame() {
-    const state = useLiveGameStore.getState()
+    const state = useLiveGameStore.getState();
     if (!state.session || !socket) {
-        return
+        return;
     }
 
-    socket.emit('surrender-session', state.session.id)
+    socket.emit(`surrender-session`, state.session.id);
 }
 
 export function returnToLobby() {
-    const state = useLiveGameStore.getState()
+    const state = useLiveGameStore.getState();
     if (state.session) {
-        socket?.emit('leave-session', state.session.id)
+        socket?.emit(`leave-session`, state.session.id);
     }
 
-    state.clearSession()
+    state.clearSession();
 }
 
 export function placeCell(x: number, y: number) {
-    const { session } = useLiveGameStore.getState()
+    const { session } = useLiveGameStore.getState();
     if (!session) {
-        return
+        return;
     }
 
-    socket?.emit('place-cell', { x, y })
+    socket?.emit(`place-cell`, { x, y });
 }
 
 export function sendSessionChatMessage(message: string) {
-    const { session } = useLiveGameStore.getState()
+    const { session } = useLiveGameStore.getState();
     if (!session) {
-        return
+        return;
     }
 
-    socket?.emit('send-session-chat-message', { message })
+    socket?.emit(`send-session-chat-message`, { message });
 }
 
 export function requestRematch() {
-    const { session } = useLiveGameStore.getState()
+    const { session } = useLiveGameStore.getState();
     if (!session) {
-        return
+        return;
     }
 
-    socket?.emit('request-rematch', session.id)
+    socket?.emit(`request-rematch`, session.id);
 }
 
 export function cancelRematch() {
-    const { session } = useLiveGameStore.getState()
+    const { session } = useLiveGameStore.getState();
     if (!session) {
-        return
+        return;
     }
 
-    socket?.emit('cancel-rematch', session.id)
+    socket?.emit(`cancel-rematch`, session.id);
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== `undefined`) {
     /* 
      * Instantly connect to the server and do not wait until the first render.
      * This should speed up the initial connect process.
@@ -375,5 +376,5 @@ if (typeof window !== "undefined") {
      * Start the heartbeat monitor regardless of if we're connected.
      * While disconnected, it will do nothing.
      */
-    startHeartbeatMonitor()
+    startHeartbeatMonitor();
 }

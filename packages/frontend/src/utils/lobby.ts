@@ -1,48 +1,48 @@
-import type { LobbyInfo } from '@ih3t/shared'
+import type { LobbyInfo } from '@ih3t/shared';
 
 type LobbyPlayerLike = {
-  displayName: string
-  elo: number | null
-}
+    displayName: string
+    elo: number | null
+};
 
 export function formatLobbyPlayers(
-  players: readonly LobbyPlayerLike[],
-  rated: boolean,
-  emptyLabel = 'Waiting for first player'
+    players: readonly LobbyPlayerLike[],
+    rated: boolean,
+    emptyLabel = `Waiting for first player`,
 ) {
-  if (players.length === 0) {
-    return emptyLabel
-  }
+    if (players.length === 0) {
+        return emptyLabel;
+    }
 
-  return players
-    .map((player) => rated ? `${player.displayName} (${player.elo})` : player.displayName)
-    .join(' vs ')
+    return players
+        .map((player) => rated ? `${player.displayName} (${player.elo})` : player.displayName)
+        .join(` vs `);
 }
 
 export function formatLobbyLiveDuration(startedAt: number | null, now: number) {
-  if (!startedAt) {
-    return null
-  }
+    if (!startedAt) {
+        return null;
+    }
 
-  return formatActiveSessionDuration(startedAt, now)
+    return formatActiveSessionDuration(startedAt, now);
 }
 
 export function formatActiveSessionDuration(startedAt: number, now: number) {
-  const totalSeconds = Math.max(0, Math.round((now - startedAt) / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    const totalSeconds = Math.max(0, Math.round((now - startedAt) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, `0`)}:${String(seconds).padStart(2, `0`)}`;
 }
 
 export function sortLobbySessions(sessions: LobbyInfo[]) {
-  return sessions.sort((leftSession, rightSession) => {
-    const leftCanJoin = leftSession.startedAt === null && leftSession.players.length < 2
-    const rightCanJoin = rightSession.startedAt === null && rightSession.players.length < 2
+    return sessions.sort((leftSession, rightSession) => {
+        const leftCanJoin = leftSession.startedAt === null && leftSession.players.length < 2;
+        const rightCanJoin = rightSession.startedAt === null && rightSession.players.length < 2;
 
-    if (leftCanJoin !== rightCanJoin) {
-      return leftCanJoin ? -1 : 1
-    }
+        if (leftCanJoin !== rightCanJoin) {
+            return leftCanJoin ? -1 : 1;
+        }
 
-    return (rightSession.startedAt ?? 0) - (leftSession.startedAt ?? 0)
-  })
+        return (rightSession.startedAt ?? 0) - (leftSession.startedAt ?? 0);
+    });
 }

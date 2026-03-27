@@ -1,5 +1,3 @@
-import type express from 'express';
-import { inject, injectable } from 'tsyringe';
 import type {
     AccountPreferencesResponse,
     AccountResponse,
@@ -8,13 +6,16 @@ import type {
     FinishedGamesPage,
     Leaderboard,
     LobbyInfo,
-    SessionInfo,
     ProfileGamesResponse,
     ProfileResponse,
     ProfileStatisticsResponse,
-    SandboxPositionResponse
+    SandboxPositionResponse,
+    SessionInfo,
 } from '@ih3t/shared';
-import { AuthRepository, type AccountUserProfile } from '../../auth/authRepository';
+import type express from 'express';
+import { inject, injectable } from 'tsyringe';
+
+import { type AccountUserProfile, AuthRepository } from '../../auth/authRepository';
 import { AuthService } from '../../auth/authService';
 import { EloRepository } from '../../elo/eloRepository';
 import { LeaderboardService } from '../../leaderboard/leaderboardService';
@@ -25,10 +26,10 @@ import { SessionManager } from '../../session/sessionManager';
 export class ApiRequestError extends Error {
     constructor(
         readonly statusCode: number,
-        message: string
+        message: string,
     ) {
         super(message);
-        this.name = 'ApiRequestError';
+        this.name = `ApiRequestError`;
     }
 }
 
@@ -37,7 +38,7 @@ type FinishedGamesQueryOptions = {
     page: number;
     pageSize: number;
     baseTimestamp: number;
-}
+};
 
 @injectable()
 export class ApiQueryService {
@@ -48,24 +49,24 @@ export class ApiQueryService {
         @inject(LeaderboardService) private readonly leaderboardService: LeaderboardService,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService,
-        @inject(SessionManager) private readonly sessionManager: SessionManager
+        @inject(SessionManager) private readonly sessionManager: SessionManager,
     ) { }
 
     async getAccount(req: express.Request): Promise<AccountResponse> {
         return {
-            user: await this.authService.getUserFromRequest(req)
+            user: await this.authService.getUserFromRequest(req),
         };
     }
 
     async getAccountPreferences(req: express.Request): Promise<AccountPreferencesResponse> {
         const user = await this.authService.getUserFromRequest(req);
         if (!user) {
-            throw new ApiRequestError(401, 'Sign in with Discord to view your account preferences.');
+            throw new ApiRequestError(401, `Sign in with Discord to view your account preferences.`);
         }
 
         const preferences = await this.authRepository.getAccountPreferences(user.id);
         if (!preferences) {
-            throw new ApiRequestError(404, 'Account not found.');
+            throw new ApiRequestError(404, `Account not found.`);
         }
 
         return { preferences };
@@ -78,7 +79,7 @@ export class ApiQueryService {
         }
 
         return {
-            user: this.toPublicAccountProfile(user)
+            user: this.toPublicAccountProfile(user),
         };
     }
 
@@ -89,7 +90,7 @@ export class ApiQueryService {
         }
 
         return {
-            statistics: await this.buildAccountStatistics(user.id)
+            statistics: await this.buildAccountStatistics(user.id),
         };
     }
 
@@ -102,7 +103,7 @@ export class ApiQueryService {
         return await this.gameHistoryRepository.listFinishedGames({
             page: 1,
             pageSize: 10,
-            playerProfileId: user.id
+            playerProfileId: user.id,
         });
     }
 
@@ -116,22 +117,22 @@ export class ApiQueryService {
 
     async getFinishedGames(
         req: express.Request,
-        options: FinishedGamesQueryOptions
+        options: FinishedGamesQueryOptions,
     ): Promise<FinishedGamesPage> {
         const currentUser = await this.authService.getUserFromRequest(req);
-        if (options.view === 'mine' && !currentUser) {
-            throw new ApiRequestError(401, 'Sign in to view your own match history.');
+        if (options.view === `mine` && !currentUser) {
+            throw new ApiRequestError(401, `Sign in to view your own match history.`);
         }
 
-        if (options.view !== 'mine' && options.page * options.pageSize >= 500 && currentUser?.role !== 'admin') {
-            throw new ApiRequestError(401, 'Public match history is limited to the last 500 games');
+        if (options.view !== `mine` && options.page * options.pageSize >= 500 && currentUser?.role !== `admin`) {
+            throw new ApiRequestError(401, `Public match history is limited to the last 500 games`);
         }
 
         return await this.gameHistoryRepository.listFinishedGames({
             page: options.page,
             pageSize: options.pageSize,
             baseTimestamp: options.baseTimestamp,
-            playerProfileId: options.view === 'mine' ? currentUser?.id : undefined
+            playerProfileId: options.view === `mine` ? currentUser?.id : undefined,
         });
     }
 
@@ -153,39 +154,41 @@ export class ApiQueryService {
         return {
             id,
             name: sandboxPosition.name,
-            gamePosition: sandboxPosition.gamePosition
+            gamePosition: sandboxPosition.gamePosition,
         };
     }
 
-    private async buildAccountStatistics(profileId: string): Promise<ProfileStatisticsResponse['statistics']> {
-        const [gameStats, eloHistory, playerRating, leaderboardPlacement] = await Promise.all([
+    private async buildAccountStatistics(profileId: string): Promise<ProfileStatisticsResponse[`statistics`]> {
+        const [
+            gameStats, eloHistory, playerRating, leaderboardPlacement,
+        ] = await Promise.all([
             this.gameHistoryRepository.getPlayerProfileStatistics(profileId),
             this.gameHistoryRepository.getPlayerEloHistory(profileId),
             this.eloRepository.getPlayerRating(profileId),
-            this.eloRepository.getLeaderboardPlacement(profileId)
+            this.eloRepository.getLeaderboardPlacement(profileId),
         ]);
 
         return {
             totalGames: {
                 played: gameStats.totalGamesPlayed,
-                won: gameStats.totalGamesWon
+                won: gameStats.totalGamesWon,
             },
             rankedGames: {
                 played: gameStats.rankedGamesPlayed,
                 won: gameStats.rankedGamesWon,
                 currentWinStreak: gameStats.currentRankedWinStreak,
-                longestWinStreak: gameStats.longestRankedWinStreak
+                longestWinStreak: gameStats.longestRankedWinStreak,
             },
             longestGamePlayedMs: gameStats.longestGamePlayedMs,
             longestGameByMoves: gameStats.longestGameByMoves,
             totalMovesMade: gameStats.totalMovesMade,
             eloHistory,
             elo: leaderboardPlacement?.eloScore ?? playerRating?.eloScore ?? 1000,
-            worldRank: leaderboardPlacement?.rank ?? null
+            worldRank: leaderboardPlacement?.rank ?? null,
         };
     }
 
-    private toPublicAccountProfile(user: AccountUserProfile): ProfileResponse['user'] {
+    private toPublicAccountProfile(user: AccountUserProfile): ProfileResponse[`user`] {
         const { email: _email, ...publicProfile } = user;
         return publicProfile;
     }

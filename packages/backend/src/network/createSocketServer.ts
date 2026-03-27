@@ -1,28 +1,30 @@
 import type { Server as HttpServer } from 'node:http';
-import { Server, type Socket } from 'socket.io';
-import type { Logger } from 'pino';
-import { inject, injectable } from 'tsyringe';
+
 import {
-    DEFAULT_ACCOUNT_PREFERENCES,
     type AdminBroadcastMessage,
     type ClientToServerEvents,
+    DEFAULT_ACCOUNT_PREFERENCES,
     type LobbyInfo,
     type ServerToClientEvents,
     zJoinSessionRequest,
     zPlaceCellRequest,
     zSessionChatMessageRequest,
 } from '@ih3t/shared';
+import { Mutex } from 'async-mutex';
+import type { Logger } from 'pino';
+import { Server, type Socket } from 'socket.io';
+import { inject, injectable } from 'tsyringe';
 import { z, ZodError } from 'zod';
+
 import { ServerShutdownService } from '../admin/serverShutdownService';
+import { APP_VERSION_HASH } from '../appVersion';
 import { AuthService } from '../auth/authService';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
-import { getSocketClientInfo as parseSocketClientInfo } from './clientInfo';
-import { APP_VERSION_HASH } from '../appVersion';
-import { CorsConfiguration } from './cors';
 import { SessionError, SessionManager } from '../session/sessionManager';
-import type { ClientGameParticipation, } from '../session/types';
-import { Mutex } from 'async-mutex';
+import type { ClientGameParticipation } from '../session/types';
+import { getSocketClientInfo as parseSocketClientInfo } from './clientInfo';
+import { CorsConfiguration } from './cors';
 
 type Participation = {
     sessionId: string,
@@ -33,9 +35,9 @@ type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const LOBBY_LIST_DEBOUNCE_MS = 1_000;
 
-const kEmptyValue = Symbol()
+const kEmptyValue = Symbol();
 class UpdateDebouncer<T> {
-    private pendingTimer: ReturnType<typeof setTimeout> | null = null
+    private pendingTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingValue: T | typeof kEmptyValue = kEmptyValue;
 
     constructor(private readonly callback: (payload: T) => void) { }
@@ -47,7 +49,7 @@ class UpdateDebouncer<T> {
         }
 
         this.pendingValue = kEmptyValue;
-        this.callback(value)
+        this.callback(value);
     }
 
     notify(value: T) {
@@ -67,10 +69,10 @@ class UpdateDebouncer<T> {
 
         this.pendingTimer = setTimeout(
             () => {
-                this.pendingTimer = null
-                this.pushPendingValue()
+                this.pendingTimer = null;
+                this.pushPendingValue();
             },
-            LOBBY_LIST_DEBOUNCE_MS
+            LOBBY_LIST_DEBOUNCE_MS,
         );
     }
 
@@ -99,14 +101,14 @@ export class SocketServerGateway {
         @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
-        @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration
+        @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration,
     ) {
-        this.logger = rootLogger.child({ component: 'socket-server' });
+        this.logger = rootLogger.child({ component: `socket-server` });
     }
 
     attach(server: HttpServer) {
         const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, this.corsConfiguration.options ? {
-            cors: this.corsConfiguration.options
+            cors: this.corsConfiguration.options,
         } : undefined);
 
         io.use((socket, next) => {
@@ -114,7 +116,7 @@ export class SocketServerGateway {
                 this.assertSocketVersionMatch(socket);
                 next();
             } catch (error: unknown) {
-                next(error instanceof Error ? error : new Error('Unexpected server error'));
+                next(error instanceof Error ? error : new Error(`Unexpected server error`));
             }
         });
 
@@ -122,8 +124,8 @@ export class SocketServerGateway {
             lobbyUpdated: (event) => {
                 let debouncer = this.lobbyPendingUpdates.get(event.id);
                 if (!debouncer) {
-                    debouncer = new UpdateDebouncer(event => io.emit('lobby-updated', event));
-                    this.lobbyPendingUpdates.set(event.id, debouncer)
+                    debouncer = new UpdateDebouncer(event => io.emit(`lobby-updated`, event));
+                    this.lobbyPendingUpdates.set(event.id, debouncer);
                 }
 
                 debouncer.notify(event);
@@ -131,34 +133,34 @@ export class SocketServerGateway {
             lobbyRemoved: (event) => {
                 this.lobbyPendingUpdates.get(event.id)?.cancel();
                 this.lobbyPendingUpdates.delete(event.id);
-                io.emit('lobby-removed', event)
+                io.emit(`lobby-removed`, event);
             },
 
             sessionUpdated(event) {
-                io.to(event.sessionId).emit('session-updated', event);
+                io.to(event.sessionId).emit(`session-updated`, event);
             },
             sessionChat(event) {
-                io.to(event.sessionId).emit('session-chat', event);
+                io.to(event.sessionId).emit(`session-chat`, event);
             },
             gameStateUpdated(event) {
-                io.to(event.sessionId).emit('game-state', event);
+                io.to(event.sessionId).emit(`game-state`, event);
             },
             gameCellPlacement(event) {
-                io.to(event.sessionId).emit('game-cell-place', event);
-            }
+                io.to(event.sessionId).emit(`game-cell-place`, event);
+            },
         });
         this.serverShutdownService.setEventHandlers({
             shutdownUpdated(shutdown) {
-                io.emit('shutdown-updated', shutdown);
-            }
+                io.emit(`shutdown-updated`, shutdown);
+            },
         });
 
-        io.on('connection', async (socket) => {
+        io.on(`connection`, async (socket) => {
             try {
                 await this.handleConnection(socket);
             } catch (error: unknown) {
-                logSocketActionFailure(this.logger, 'connect', socket, error);
-                socket.emit('error', getSocketErrorMessage(error));
+                logSocketActionFailure(this.logger, `connect`, socket, error);
+                socket.emit(`error`, getSocketErrorMessage(error));
                 socket.disconnect();
                 return;
             }
@@ -171,10 +173,10 @@ export class SocketServerGateway {
         const clientInfo = parseSocketClientInfo(socket);
 
         this.logger.debug({
-            event: 'socket.connected',
+            event: `socket.connected`,
             socketId: socket.id,
-            client: clientInfo
-        }, 'Socket connected');
+            client: clientInfo,
+        }, `Socket connected`);
 
         /* identify the connection and ensure we only have one connection of that client */
         const connectionId = `${clientInfo.deviceId}:${clientInfo.ephemeralClientId}`;
@@ -182,38 +184,38 @@ export class SocketServerGateway {
             const oldConnection = this.connections.get(connectionId)!;
             const reclaimedParticipation = await this.sessionManager.participantTransferConnection(oldConnection.id, socket.id);
             if (reclaimedParticipation) {
-                this.putClientInGameState(socket, reclaimedParticipation)
+                this.putClientInGameState(socket, reclaimedParticipation);
             }
         }
 
         /* store the connection */
-        this.connections.set(`${clientInfo.deviceId}:${clientInfo.ephemeralClientId}`, socket)
+        this.connections.set(`${clientInfo.deviceId}:${clientInfo.ephemeralClientId}`, socket);
 
         /* reclaim a game by the device id */
         {
-            const reclaimedSession = await this.sessionManager.participantReclaimSessionFromDeviceId(clientInfo.deviceId ?? "", socket.id);
+            const reclaimedSession = await this.sessionManager.participantReclaimSessionFromDeviceId(clientInfo.deviceId ?? ``, socket.id);
             if (reclaimedSession) {
                 this.putClientInGameState(socket, reclaimedSession);
             }
         }
 
-        this.metricsTracker.track('site-visited', { client: clientInfo });
-        socket.emit('lobby-list', this.sessionManager.listLobbyInfo());
-        socket.emit('shutdown-updated', this.serverShutdownService.getShutdownState());
+        this.metricsTracker.track(`site-visited`, { client: clientInfo });
+        socket.emit(`lobby-list`, this.sessionManager.listLobbyInfo());
+        socket.emit(`shutdown-updated`, this.serverShutdownService.getShutdownState());
 
         const participationMutex = new Mutex();
-        this.bindSocketHandler(socket, 'client-ping', z.any(), async _request => {
-            socket.emit('server-pong');
+        this.bindSocketHandler(socket, `client-ping`, z.any(), async _request => {
+            socket.emit(`server-pong`);
         });
 
-        this.bindSocketHandler(socket, "join-session", zJoinSessionRequest, async request => {
+        this.bindSocketHandler(socket, `join-session`, zJoinSessionRequest, async request => {
             await participationMutex.runExclusive(async () => {
                 const existingParticipation = this.sessionManager.findParticipationFromSocketId(socket.id);
                 if (existingParticipation?.session.id === request.sessionId) {
                     const gameParticipation = this.sessionManager.assignParticipantSocket(
                         existingParticipation.session,
                         existingParticipation.participant.id,
-                        socket.id
+                        socket.id,
                     );
 
                     this.putClientInGameState(socket, gameParticipation);
@@ -221,7 +223,7 @@ export class SocketServerGateway {
                 }
 
                 if (existingParticipation) {
-                    throw new SessionError('Socket already bound to a session');
+                    throw new SessionError(`Socket already bound to a session`);
                 }
 
                 const session = this.sessionManager.requireSession(request.sessionId);
@@ -231,34 +233,35 @@ export class SocketServerGateway {
                     deviceId: clientInfo.deviceId,
 
                     profile: user,
-                    displayName: user?.username ?? "Guest " + clientInfo.deviceId.replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase(),
+                    displayName: user?.username ?? `Guest ` + clientInfo.deviceId.replace(/[^a-z0-9]/gi, ``).slice(0, 4)
+                        .toUpperCase(),
 
-                    allowSelfJoinCasualGames: preferences.allowSelfJoinCasualGames
+                    allowSelfJoinCasualGames: preferences.allowSelfJoinCasualGames,
                 });
 
                 const gameParticipation = this.sessionManager.assignParticipantSocket(
                     session,
                     participant.id,
-                    socket.id
+                    socket.id,
                 );
 
                 this.putClientInGameState(socket, gameParticipation);
 
                 this.logger.info(
                     {
-                        event: 'socket.joined-session',
+                        event: `socket.joined-session`,
                         socketId: socket.id,
 
                         sessionId: session.id,
                         participantId: participant.id,
                         role,
                     },
-                    'Socket joined session'
+                    `Socket joined session`,
                 );
             });
         });
 
-        this.bindSocketHandler(socket, "leave-session", z.any(), async () => {
+        this.bindSocketHandler(socket, `leave-session`, z.any(), async () => {
             await participationMutex.runExclusive(async () => {
                 const participation = this.socketParticipations.get(socket.id);
                 if (!participation) {
@@ -273,24 +276,24 @@ export class SocketServerGateway {
                     await this.sessionManager.leaveSession(
                         session,
                         participation.participantId,
-                        'leave-session'
+                        `leave-session`,
                     );
                 }
 
                 this.logger.info(
                     {
-                        event: 'socket.left-session',
+                        event: `socket.left-session`,
                         socketId: socket.id,
 
                         sessionId: participation.sessionId,
                         participantId: participation.participantId,
                     },
-                    'Socket left session'
+                    `Socket left session`,
                 );
-            })
+            });
         });
 
-        this.bindSocketHandler(socket, "surrender-session", z.any(), async () => {
+        this.bindSocketHandler(socket, `surrender-session`, z.any(), async () => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);
                 const session = this.sessionManager.requireSession(sessionId);
@@ -299,14 +302,14 @@ export class SocketServerGateway {
             });
         });
 
-        this.bindSocketHandler(socket, "request-rematch", z.any(), async () => {
+        this.bindSocketHandler(socket, `request-rematch`, z.any(), async () => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);
 
                 {
                     const session = this.sessionManager.requireSession(sessionId);
                     const rematch = await this.sessionManager.requestRematch(session, participantId);
-                    if (rematch.status !== 'ready') {
+                    if (rematch.status !== `ready`) {
                         return;
                     }
                 }
@@ -315,12 +318,12 @@ export class SocketServerGateway {
                 for (const { participant } of this.sessionManager.getAllParticipations(rematchSession)) {
                     const socketId = socketMapping[participant.id];
                     if (!socketId) {
-                        continue
+                        continue;
                     }
 
                     const socket = this.io?.sockets.sockets.get(socketId);
                     if (!socket) {
-                        continue
+                        continue;
                     }
 
                     void socket.leave(sessionId);
@@ -328,14 +331,14 @@ export class SocketServerGateway {
                     const gameParticipation = this.sessionManager.assignParticipantSocket(
                         rematchSession,
                         participant.id,
-                        socketId
-                    )
+                        socketId,
+                    );
                     this.putClientInGameState(socket, gameParticipation);
                 }
             });
         });
 
-        this.bindSocketHandler(socket, "cancel-rematch", z.any(), async () => {
+        this.bindSocketHandler(socket, `cancel-rematch`, z.any(), async () => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);
                 const session = this.sessionManager.requireSession(sessionId);
@@ -344,7 +347,7 @@ export class SocketServerGateway {
             });
         });
 
-        this.bindSocketHandler(socket, "place-cell", zPlaceCellRequest, async request => {
+        this.bindSocketHandler(socket, `place-cell`, zPlaceCellRequest, async request => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);
                 const session = this.sessionManager.requireSession(sessionId);
@@ -353,7 +356,7 @@ export class SocketServerGateway {
             });
         });
 
-        this.bindSocketHandler(socket, "send-session-chat-message", zSessionChatMessageRequest, async request => {
+        this.bindSocketHandler(socket, `send-session-chat-message`, zSessionChatMessageRequest, async request => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);
                 const session = this.sessionManager.requireSession(sessionId);
@@ -362,7 +365,7 @@ export class SocketServerGateway {
             });
         });
 
-        socket.on('disconnect', async () => {
+        socket.on(`disconnect`, async () => {
             if (this.connections.get(connectionId) === socket) {
                 /* connection terminated compeltely */
                 this.connections.delete(connectionId);
@@ -378,9 +381,9 @@ export class SocketServerGateway {
 
 
             this.logger.debug({
-                event: 'socket.disconnected',
-                socketId: socket.id
-            }, 'Socket disconnected');
+                event: `socket.disconnected`,
+                socketId: socket.id,
+            }, `Socket disconnected`);
 
             await participationMutex.runExclusive(() => {
                 this.socketParticipations.delete(socket.id);
@@ -388,7 +391,7 @@ export class SocketServerGateway {
             });
         });
 
-        socket.emit("initialized");
+        socket.emit(`initialized`);
     }
 
     private assertSocketVersionMatch(socket: ClientSocket): void {
@@ -403,16 +406,14 @@ export class SocketServerGateway {
         }
 
         this.logger.warn({
-            event: 'socket.version-mismatch',
+            event: `socket.version-mismatch`,
             socketId: socket.id,
             clientVersionHash: clientInfo.versionHash,
             serverVersionHash: APP_VERSION_HASH,
-            client: clientInfo
-        }, 'Rejected socket connection due to version mismatch');
+            client: clientInfo,
+        }, `Rejected socket connection due to version mismatch`);
 
-        throw new Error(
-            `Client version hash ${clientInfo.versionHash} does not match server version hash ${APP_VERSION_HASH}. Please refresh the page.`
-        );
+        throw new Error(`Client version hash ${clientInfo.versionHash} does not match server version hash ${APP_VERSION_HASH}. Please refresh the page.`);
     }
 
     public getConnectedClientCount() {
@@ -422,17 +423,17 @@ export class SocketServerGateway {
     public broadcastAdminMessage(message: string): AdminBroadcastMessage {
         const broadcast: AdminBroadcastMessage = {
             message,
-            sentAt: Date.now()
+            sentAt: Date.now(),
         };
 
-        this.io?.emit('admin-message', broadcast);
+        this.io?.emit(`admin-message`, broadcast);
 
         this.logger.info({
-            event: 'admin.broadcast',
+            event: `admin.broadcast`,
             sentAt: new Date(broadcast.sentAt).toISOString(),
             messageLength: message.length,
-            connectedClients: this.getConnectedClientCount()
-        }, 'Broadcasted admin message');
+            connectedClients: this.getConnectedClientCount(),
+        }, `Broadcasted admin message`);
 
         return broadcast;
     }
@@ -444,7 +445,7 @@ export class SocketServerGateway {
     private requireParticipation(socketId: string): Participation {
         const participation = this.getParticipation(socketId);
         if (!participation) {
-            throw new SessionError('You are not part of a session');
+            throw new SessionError(`You are not part of a session`);
         }
 
         return participation;
@@ -452,22 +453,22 @@ export class SocketServerGateway {
 
     public async shutdownConnections() {
         for (const updater of this.lobbyPendingUpdates.values()) {
-            updater.cancel()
+            updater.cancel();
         }
-        this.lobbyPendingUpdates.clear()
+        this.lobbyPendingUpdates.clear();
 
-        this.io?.emit('error', 'Server shutdown');
+        this.io?.emit(`error`, `Server shutdown`);
         await this.io?.close();
     }
 
     private putClientInGameState(socket: ClientSocket, participation: ClientGameParticipation) {
         this.socketParticipations.set(socket.id, {
             sessionId: participation.session.id,
-            participantId: participation.participantId
+            participantId: participation.participantId,
         });
 
         void socket.join(participation.session.id);
-        socket.emit('session-joined', {
+        socket.emit(`session-joined`, {
             session: participation.session,
             gameState: participation.gameState,
 
@@ -480,7 +481,7 @@ export class SocketServerGateway {
         socket: ClientSocket,
         eventType: T,
         eventSchema: z.ZodType<E>,
-        callback: (event: E) => Promise<void>
+        callback: (event: E) => Promise<void>,
     ) {
         socket.on(
             eventType as any,
@@ -490,16 +491,16 @@ export class SocketServerGateway {
                     event = eventSchema.parse(rawEvent);
                 } catch (error: unknown) {
                     logSocketActionFailure(this.logger, `${eventType}:validate`, socket, error, { payload: rawEvent });
-                    socket.emit('error', getSocketErrorMessage(error));
+                    socket.emit(`error`, getSocketErrorMessage(error));
                     return;
                 }
 
                 callback(event).catch(error => {
                     logSocketActionFailure(this.logger, eventType, socket, error, { event });
-                    socket.emit('error', getSocketErrorMessage(error));
-                })
-            }
-        )
+                    socket.emit(`error`, getSocketErrorMessage(error));
+                });
+            },
+        );
     }
 }
 
@@ -512,7 +513,7 @@ function getSocketErrorMessage(error: unknown): string {
         return error.message;
     }
 
-    return 'Unexpected server error';
+    return `Unexpected server error`;
 }
 
 function logSocketActionFailure(
@@ -520,18 +521,18 @@ function logSocketActionFailure(
     action: string,
     socket: Socket<ClientToServerEvents, ServerToClientEvents>,
     error: unknown,
-    extra: Record<string, unknown> = {}
+    extra: Record<string, unknown> = {},
 ): void {
     if (error instanceof SessionError || error instanceof ZodError) {
         logger.warn(
             {
-                event: 'socket.action.failed',
+                event: `socket.action.failed`,
                 action,
                 socketId: socket.id,
                 message: error.message,
-                ...extra
+                ...extra,
             },
-            'Socket action rejected'
+            `Socket action rejected`,
         );
         return;
     }
@@ -539,11 +540,11 @@ function logSocketActionFailure(
     logger.error(
         {
             err: error,
-            event: 'socket.action.failed',
+            event: `socket.action.failed`,
             action,
             socketId: socket.id,
-            ...extra
+            ...extra,
         },
-        'Socket action failed unexpectedly'
+        `Socket action failed unexpectedly`,
     );
 }

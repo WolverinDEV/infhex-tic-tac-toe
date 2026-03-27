@@ -1,9 +1,10 @@
+import type { Collection, Document } from 'mongodb';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
-import type { Collection, Document } from 'mongodb';
+
 import { ROOT_LOGGER } from '../logger';
-import { METRICS_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
+import { METRICS_COLLECTION_NAME } from './mongoCollections';
 
 export type MetricDetails = Record<string, unknown>;
 
@@ -11,7 +12,7 @@ export type MetricDocument = {
     event: string;
     timestamp: string;
     details: MetricDetails;
-} & Document
+} & Document;
 
 @injectable()
 export class MetricsRepository {
@@ -20,9 +21,9 @@ export class MetricsRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'metrics-repository' });
+        this.logger = rootLogger.child({ component: `metrics-repository` });
     }
 
     async persist(document: MetricDocument): Promise<void> {
@@ -33,11 +34,11 @@ export class MetricsRepository {
         } catch (error: unknown) {
             this.logger.error({
                 err: error,
-                type: 'metric',
-                event: 'metrics-write-error',
-                storage: 'mongodb',
-                metricEvent: document.event
-            }, 'Failed to write metric');
+                type: `metric`,
+                event: `metrics-write-error`,
+                storage: `mongodb`,
+                metricEvent: document.event,
+            }, `Failed to write metric`);
         }
     }
 
@@ -47,8 +48,8 @@ export class MetricsRepository {
             event,
             timestamp: {
                 $gte: startTimestamp,
-                $lte: endTimestamp
-            }
+                $lte: endTimestamp,
+            },
         });
     }
 
@@ -65,10 +66,10 @@ export class MetricsRepository {
 
             this.logger.error({
                 err: error,
-                type: 'metric',
-                event: 'metrics-storage-error',
-                storage: 'mongodb',
-            }, 'Failed to initialize metrics storage');
+                type: `metric`,
+                event: `metrics-storage-error`,
+                storage: `mongodb`,
+            }, `Failed to initialize metrics storage`);
 
             throw error;
         });

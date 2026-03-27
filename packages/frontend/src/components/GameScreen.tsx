@@ -1,14 +1,15 @@
-import type { ReactNode } from 'react'
-import { useEffect, useMemo, useRef } from 'react'
-import type { GameState, LobbyOptions, SessionChat, SessionParticipant, SessionParticipantRole, ShutdownState } from '@ih3t/shared'
-import { playTilePlacedSound } from '../soundEffects'
-import { getPlayerTileColor } from '../utils/gameBoard'
-import GameBoardCanvas from './game-screen/GameBoardCanvas'
-import GameScreenHud, { HudPlayerInfo } from './game-screen/GameScreenHud'
-import GameChatBox from './game-screen/GameChatBox'
-import TurnTimerHud from './game-screen/TurnTimerHud'
-import useGameBoard from './game-screen/useGameBoard'
-import ShutdownTimer from './game-screen/ShutdownTimer'
+import type { GameState, LobbyOptions, SessionChat, SessionParticipant, SessionParticipantRole, ShutdownState } from '@ih3t/shared';
+import type { ReactNode } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+
+import { playTilePlacedSound } from '../soundEffects';
+import { getPlayerTileColor } from '../utils/gameBoard';
+import GameBoardCanvas from './game-screen/GameBoardCanvas';
+import GameChatBox from './game-screen/GameChatBox';
+import GameScreenHud, { HudPlayerInfo } from './game-screen/GameScreenHud';
+import ShutdownTimer from './game-screen/ShutdownTimer';
+import TurnTimerHud from './game-screen/TurnTimerHud';
+import useGameBoard from './game-screen/useGameBoard';
 
 type GameScreenProps = {
     sessionId: string
@@ -32,7 +33,7 @@ type GameScreenProps = {
     isChatOpen: boolean
     onChatOpenChange: (isOpen: boolean) => void
     onSendChatMessage?: (message: string) => void
-}
+};
 
 function GameScreen({
     sessionId,
@@ -57,10 +58,10 @@ function GameScreen({
     onChatOpenChange,
     onSendChatMessage,
 }: Readonly<GameScreenProps>) {
-    const previousCellCountRef = useRef(gameState.cells.length)
-    const isSpectator = participantRole === 'spectator'
-    const isOwnTurn = Boolean(currentPlayerId) && gameState.currentTurnPlayerId === currentPlayerId
-    const canPlaceCell = interactionEnabled && !isSpectator && isOwnTurn
+    const previousCellCountRef = useRef(gameState.cells.length);
+    const isSpectator = participantRole === `spectator`;
+    const isOwnTurn = Boolean(currentPlayerId) && gameState.currentTurnPlayerId === currentPlayerId;
+    const canPlaceCell = interactionEnabled && !isSpectator && isOwnTurn;
 
     const hudPlayerInfo = useMemo(() => {
         return players.map<HudPlayerInfo>(player => ({
@@ -72,37 +73,39 @@ function GameScreen({
 
             rankingEloScore: player.rating.eloScore,
 
-            isConnected: player.connection.status === "connected",
+            isConnected: player.connection.status === `connected`,
         }));
-    }, [gameState.playerTiles, players])
+    }, [gameState.playerTiles, players]);
 
     useEffect(() => {
-        previousCellCountRef.current = gameState.cells.length
-    }, [currentPlayerId, participantRole, gameId])
+        previousCellCountRef.current = gameState.cells.length;
+    }, [
+        currentPlayerId, participantRole, gameId,
+    ]);
 
     const {
         canvasRef,
         canvasClassName,
         canvasHandlers,
         renderableCellCount,
-        resetView
+        resetView,
     } = useGameBoard({
         gameState: gameState,
-        highlightedCells: gameState.winner?.cells ?? "turn",
+        highlightedCells: gameState.winner?.cells ?? `turn`,
         localPlayerId: isSpectator ? null : currentPlayerId,
         interactionEnabled,
         showTilePieceMarkers,
-        onPlaceCell: canPlaceCell ? onPlaceCell : undefined
-    })
+        onPlaceCell: canPlaceCell ? onPlaceCell : undefined,
+    });
 
     useEffect(() => {
-        const previousCellCount = previousCellCountRef.current
+        const previousCellCount = previousCellCountRef.current;
         if (interactionEnabled && gameState.cells.length > previousCellCount) {
-            playTilePlacedSound()
+            playTilePlacedSound();
         }
 
-        previousCellCountRef.current = gameState.cells.length
-    }, [gameState.cells.length, interactionEnabled])
+        previousCellCountRef.current = gameState.cells.length;
+    }, [gameState.cells.length, interactionEnabled]);
 
     const rankingAdjustment = players.find(player => player.id === currentPlayerId)?.ratingAdjustment ?? null;
     return (
@@ -134,11 +137,12 @@ function GameScreen({
 
             {shutdown && (
                 <div className="absolute bottom-3 left-3 rounded-full border border-amber-300/40 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg">
-                    Server Restart in <ShutdownTimer shutdown={shutdown} />
+                    {`Server Restart in `}
+                    <ShutdownTimer shutdown={shutdown} />
                 </div>
             )}
 
-            <div className={"absolute inset-0 flex flex-col justify-end pointer-events-none"}>
+            <div className="absolute inset-0 flex flex-col justify-end pointer-events-none">
                 <GameChatBox
                     currentParticipantId={currentPlayerId}
                     chat={chat}
@@ -146,6 +150,7 @@ function GameScreen({
                     onOpenChange={onChatOpenChange}
                     onSendMessage={onSendChatMessage}
                 />
+
                 {interactionEnabled && (
                     <GameScreenHud
                         sessionId={sessionId}
@@ -169,7 +174,7 @@ function GameScreen({
                 )}
             </div>
         </div >
-    )
+    );
 }
 
-export default GameScreen
+export default GameScreen;

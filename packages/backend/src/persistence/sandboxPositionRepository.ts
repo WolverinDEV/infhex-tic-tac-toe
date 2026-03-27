@@ -1,7 +1,3 @@
-import type { Logger } from 'pino';
-import type { Collection, Document } from 'mongodb';
-import { inject, injectable } from 'tsyringe';
-import { z } from 'zod';
 import {
     type SandboxGamePosition,
     type SandboxPositionName,
@@ -9,17 +5,25 @@ import {
     zSandboxPositionId,
     zSandboxPositionName,
 } from '@ih3t/shared';
+import type { Collection, Document } from 'mongodb';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
+import { z } from 'zod';
+
 import { ROOT_LOGGER } from '../logger';
-import { SANDBOX_POSITIONS_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
+import { SANDBOX_POSITIONS_COLLECTION_NAME } from './mongoCollections';
 
 const zSandboxPositionDocument = z.object({
     id: zSandboxPositionId,
     name: zSandboxPositionName,
     gamePosition: zSandboxGamePosition,
-    createdAt: z.number().int().nonnegative(),
-    createdBy: z.string().trim().min(1),
-    loadCount: z.number().int().nonnegative()
+    createdAt: z.number().int()
+        .nonnegative(),
+    createdBy: z.string().trim()
+        .min(1),
+    loadCount: z.number().int()
+        .nonnegative(),
 });
 
 type SandboxPositionDocument = z.infer<typeof zSandboxPositionDocument> & Document;
@@ -30,12 +34,12 @@ type CreateSandboxPositionDocumentParams = {
     gamePosition: SandboxGamePosition;
     createdAt: number;
     createdBy: string;
-}
+};
 
 export type LoadedSandboxPositionRecord = {
     name: SandboxPositionName;
     gamePosition: SandboxGamePosition;
-}
+};
 
 @injectable()
 export class SandboxPositionRepository {
@@ -44,9 +48,9 @@ export class SandboxPositionRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'sandbox-position-repository' });
+        this.logger = rootLogger.child({ component: `sandbox-position-repository` });
     }
 
     async createPosition(params: CreateSandboxPositionDocumentParams): Promise<string> {
@@ -57,7 +61,7 @@ export class SandboxPositionRepository {
             gamePosition: params.gamePosition,
             createdAt: params.createdAt,
             createdBy: params.createdBy,
-            loadCount: 0
+            loadCount: 0,
         });
 
         await collection.insertOne(document);
@@ -70,12 +74,12 @@ export class SandboxPositionRepository {
             { id },
             {
                 $inc: {
-                    loadCount: 1
-                }
+                    loadCount: 1,
+                },
             },
             {
-                returnDocument: 'after'
-            }
+                returnDocument: `after`,
+            },
         );
 
         if (!document) {
@@ -85,7 +89,7 @@ export class SandboxPositionRepository {
         const parsedDocument = zSandboxPositionDocument.parse(document);
         return {
             name: parsedDocument.name,
-            gamePosition: parsedDocument.gamePosition
+            gamePosition: parsedDocument.gamePosition,
         };
     }
 
@@ -99,7 +103,7 @@ export class SandboxPositionRepository {
         const parsedDocument = zSandboxPositionDocument.parse(document);
         return {
             name: parsedDocument.name,
-            gamePosition: parsedDocument.gamePosition
+            gamePosition: parsedDocument.gamePosition,
         };
     }
 
@@ -113,7 +117,7 @@ export class SandboxPositionRepository {
             return database.collection<SandboxPositionDocument>(SANDBOX_POSITIONS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.collectionPromise = null;
-            this.logger.error({ err: error, event: 'sandbox-positions.init.failed' }, 'Failed to initialize sandbox positions collection');
+            this.logger.error({ err: error, event: `sandbox-positions.init.failed` }, `Failed to initialize sandbox positions collection`);
             throw error;
         });
 

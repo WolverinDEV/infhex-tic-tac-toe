@@ -1,4 +1,4 @@
-import { SandboxBotEngineInfo } from "../../sandbox/botLoader"
+import { SandboxBotEngineInfo } from "../../sandbox/botLoader";
 
 type SandboxBotFactoryModalProps = {
     isOpen: boolean
@@ -8,7 +8,7 @@ type SandboxBotFactoryModalProps = {
     selectedEngine: string | null,
 
     onSelectBotFactory: (botFactory: SandboxBotEngineInfo | null) => void
-}
+};
 
 function SandboxBotFactoryModal({
     isOpen,
@@ -17,10 +17,10 @@ function SandboxBotFactoryModal({
     availableEngines,
     selectedEngine,
 
-    onSelectBotFactory
+    onSelectBotFactory,
 }: Readonly<SandboxBotFactoryModalProps>) {
     if (!isOpen) {
-        return null
+        return null;
     }
 
     return (
@@ -38,8 +38,14 @@ function SandboxBotFactoryModal({
 
                 <div className="flex items-start justify-between gap-4">
                     <div className="pr-6">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-sky-300">Bot Engine</div>
-                        <h2 className="mt-1 text-2xl font-bold text-white">Choose an engine</h2>
+                        <div className="text-[11px] uppercase tracking-[0.24em] text-sky-300">
+                            Bot Engine
+                        </div>
+
+                        <h2 className="mt-1 text-2xl font-bold text-white">
+                            Choose an engine
+                        </h2>
+
                         <div className="mt-2 text-sm leading-6 text-slate-300">
                             Pick which bot engine the bot should use.
                         </div>
@@ -61,7 +67,7 @@ function SandboxBotFactoryModal({
 
                 <div className="mt-5 grid gap-3">
                     {availableEngines.map((engine) => {
-                        const isSelected = engine.name === selectedEngine
+                        const isSelected = engine.name === selectedEngine;
 
                         return (
                             <button
@@ -69,24 +75,31 @@ function SandboxBotFactoryModal({
                                 type="button"
                                 onClick={() => onSelectBotFactory(engine)}
                                 className={`rounded-2xl border px-4 py-4 text-left transition ${isSelected
-                                    ? 'border-sky-300/35 bg-sky-300/10 shadow-[0_8px_18px_rgba(14,165,233,0.1)]'
-                                    : 'border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10'
-                                    }`}
+                                    ? `border-sky-300/35 bg-sky-300/10 shadow-[0_8px_18px_rgba(14,165,233,0.1)]`
+                                    : `border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10`
+                                }`}
                             >
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <div className="text-sm font-semibold text-white">{engine.displayName}</div>
-                                        <div className="mt-1 text-xs leading-5 text-slate-300">{engine.description()}</div>
+                                        <div className="text-sm font-semibold text-white">
+                                            {engine.displayName}
+                                        </div>
+
+                                        <div className="mt-1 text-xs leading-5 text-slate-300">
+                                            {engine.description()}
+                                        </div>
                                     </div>
+
                                     <div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${isSelected
-                                        ? 'bg-sky-200/15 text-sky-50'
-                                        : 'bg-white/8 text-slate-100'
-                                        }`}>
-                                        {isSelected ? 'Selected' : 'Use'}
+                                        ? `bg-sky-200/15 text-sky-50`
+                                        : `bg-white/8 text-slate-100`
+                                    }`}
+                                    >
+                                        {isSelected ? `Selected` : `Use`}
                                     </div>
                                 </div>
                             </button>
-                        )
+                        );
                     })}
                 </div>
 
@@ -102,7 +115,7 @@ function SandboxBotFactoryModal({
 
             </section>
         </div>
-    )
+    );
 }
 
-export default SandboxBotFactoryModal
+export default SandboxBotFactoryModal;

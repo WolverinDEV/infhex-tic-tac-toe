@@ -1,6 +1,6 @@
+import { type ClientToServerEvents, type ServerToClientEvents, zSocketIOClientAuthPayload } from '@ih3t/shared';
 import type { Request } from 'express';
 import type { Socket } from 'socket.io';
-import { zSocketIOClientAuthPayload, type ClientToServerEvents, type ServerToClientEvents } from '@ih3t/shared';
 
 export type RequestClientInfo = {
     deviceId: string;
@@ -8,16 +8,16 @@ export type RequestClientInfo = {
     userAgent: string;
     origin: string;
     referer: string | null;
-}
+};
 
 export type SocketClientInfo = {
     socketId: string;
     ephemeralClientId: string;
     versionHash: string;
-} & RequestClientInfo
+} & RequestClientInfo;
 
 function getHeaderValue(value: string | string[] | undefined): string | null {
-    if (typeof value === 'string') {
+    if (typeof value === `string`) {
         return value;
     }
 
@@ -31,7 +31,7 @@ export function getCookieValue(cookieHeader: string | null | undefined, cookieNa
 
     const cookiePrefix = `${cookieName}=`;
     const cookie = cookieHeader
-        .split(';')
+        .split(`;`)
         .map((entry) => entry.trim())
         .find((entry) => entry.startsWith(cookiePrefix));
 
@@ -47,14 +47,14 @@ export function getCookieValue(cookieHeader: string | null | undefined, cookieNa
 }
 
 export function getRequestClientInfo(request: Request): RequestClientInfo {
-    const deviceId = request.get('x-device-id') ?? getCookieValue(request.get('cookie'), 'ih3t_device_id') ?? '';
+    const deviceId = request.get(`x-device-id`) ?? getCookieValue(request.get(`cookie`), `ih3t_device_id`) ?? ``;
 
     return {
         deviceId,
-        ip: request.ip ?? '',
-        userAgent: request.get('user-agent') ?? '',
-        origin: request.get('origin') ?? '',
-        referer: request.get('referer') ?? null
+        ip: request.ip ?? ``,
+        userAgent: request.get(`user-agent`) ?? ``,
+        origin: request.get(`origin`) ?? ``,
+        referer: request.get(`referer`) ?? null,
     };
 }
 
@@ -66,10 +66,10 @@ export function getSocketClientInfo(socket: Socket<ClientToServerEvents, ServerT
         versionHash,
 
         socketId: socket.id,
-        ip: socket.handshake.address ?? '',
+        ip: socket.handshake.address ?? ``,
 
-        userAgent: getHeaderValue(socket.handshake.headers['user-agent']) ?? '',
-        origin: getHeaderValue(socket.handshake.headers.origin) ?? '',
-        referer: getHeaderValue(socket.handshake.headers.referer)
+        userAgent: getHeaderValue(socket.handshake.headers[`user-agent`]) ?? ``,
+        origin: getHeaderValue(socket.handshake.headers.origin) ?? ``,
+        referer: getHeaderValue(socket.handshake.headers.referer),
     };
 }

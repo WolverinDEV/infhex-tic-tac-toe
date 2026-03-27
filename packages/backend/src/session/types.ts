@@ -4,32 +4,33 @@ import {
     EventLobbyRemoved,
     EventLobbyUpdated,
     GameCellPlaceEvent,
-    GameStateEvent,
-    PlayerRating,
-    SessionChatEvent,
-    SessionChatSenderId,
-    SessionUpdatedEvent,
     type GameState,
+    GameStateEvent,
     type LobbyOptions,
     type ParticipantConnection,
+    PlayerRating,
+    SessionChatEvent,
     type SessionChatMessage,
+    SessionChatSenderId,
     type SessionFinishReason,
     type SessionInfo,
     type SessionParticipant,
     type SessionParticipantRole,
+    SessionUpdatedEvent,
 } from '@ih3t/shared';
-import type { RequestClientInfo } from '../network/clientInfo';
-import type { AccountUserProfile } from '../auth/authRepository';
 import { Mutex } from 'async-mutex';
 
+import type { AccountUserProfile } from '../auth/authRepository';
+import type { RequestClientInfo } from '../network/clientInfo';
+
 export type ServerParticipantConnection = ParticipantConnection & ({
-    status: 'connected';
+    status: `connected`;
     socketId: string;
 } | {
-    status: 'orphaned';
+    status: `orphaned`;
     timeout: ReturnType<typeof setTimeout>;
 } | {
-    status: 'disconnected';
+    status: `disconnected`;
     timestamp: number;
 });
 
@@ -39,17 +40,17 @@ export type ServerSessionParticipant = {
     ratingAdjusted: PlayerRating | null,
 
     connection: ServerParticipantConnection
-} & SessionParticipant
+} & SessionParticipant;
 
 export type ServerSessionParticipation = {
     participant: ServerSessionParticipant,
     role: SessionParticipantRole,
-}
+};
 
 export type ServerGameSession = {
     id: string;
     lock: Mutex,
-    state: 'lobby' | 'in-game' | 'finished';
+    state: `lobby` | `in-game` | `finished`;
 
     hadPlayers: boolean,
     players: ServerSessionParticipant[];
@@ -67,9 +68,9 @@ export type ServerGameSession = {
 
     chatNames: Record<SessionChatSenderId, string>;
     chatMessages: SessionChatMessage[];
-}
+};
 
-export type PlayerLeaveSource = 'leave-session' | 'disconnect';
+export type PlayerLeaveSource = `leave-session` | `disconnect`;
 
 export type JoinSessionParams = {
     deviceId: string;
@@ -77,26 +78,26 @@ export type JoinSessionParams = {
     profile: AccountUserProfile | null;
     displayName: string;
     allowSelfJoinCasualGames: boolean;
-}
+};
 
 export type CreateSessionParams = {
     client: RequestClientInfo;
     lobbyOptions: LobbyOptions;
-}
+};
 
 export type ParticipantLeftEvent = {
     sessionId: string;
     participantId: string;
     participantRole: SessionParticipantRole;
     session: SessionInfo;
-}
+};
 
 export type ParticipantJoinedEvent = {
     sessionId: string;
     participantId: string;
     participantRole: SessionParticipantRole;
     session: SessionInfo;
-}
+};
 
 export type SessionManagerEventHandlers = {
     lobbyUpdated?: (lobby: EventLobbyUpdated) => void,
@@ -106,13 +107,13 @@ export type SessionManagerEventHandlers = {
     sessionChat?: (event: SessionChatEvent) => void;
     gameStateUpdated?: (payload: GameStateEvent) => void;
     gameCellPlacement?: (payload: GameCellPlaceEvent) => void,
-}
+};
 
 export type RematchRequestResult = {
-    status: 'pending' | 'ready';
+    status: `pending` | `ready`;
     players: string[];
     spectators: string[];
-}
+};
 
 export type ClientGameParticipation = {
     session: SessionInfo
@@ -125,13 +126,13 @@ export type ClientGameParticipation = {
 export function cloneGameOptions(gameOptions: LobbyOptions): LobbyOptions {
     return {
         ...gameOptions,
-        timeControl: { ...gameOptions.timeControl }
+        timeControl: { ...gameOptions.timeControl },
     };
 }
 
 export function toPublicParticipantConnection(connection: ServerParticipantConnection): ParticipantConnection {
     return {
-        status: connection.status
+        status: connection.status,
     };
 }
 
@@ -143,7 +144,7 @@ export function cloneChatMessage(message: SessionChatMessage): SessionChatMessag
         sentAt: message.sentAt,
 
         message: message.message,
-    }
+    };
 }
 
 export function cloneSessionParticipant(participant: ServerSessionParticipant): SessionParticipant {
@@ -156,7 +157,7 @@ export function cloneSessionParticipant(participant: ServerSessionParticipant): 
         rating: participant.rating,
         ratingAdjustment: participant.ratingAdjustment,
 
-        connection: toPublicParticipantConnection(participant.connection)
+        connection: toPublicParticipantConnection(participant.connection),
     };
 }
 
@@ -167,7 +168,7 @@ export function cloneParticipants(participants: ServerSessionParticipant[]): Ses
 export function cloneStoredSessionParticipant(participant: ServerSessionParticipant): ServerSessionParticipant {
     return {
         ...participant,
-        connection: { ...participant.connection }
+        connection: { ...participant.connection },
     };
 }
 
@@ -187,7 +188,7 @@ export function createGameSession(
         id: sessionId,
         lock: new Mutex(),
 
-        state: 'lobby',
+        state: `lobby`,
 
         createdAt: Date.now(),
         startedAt: null,
@@ -203,7 +204,7 @@ export function createGameSession(
         rematchAcceptedPlayerIds: [],
         isRatedGame: false,
 
-        gameId: '',
+        gameId: ``,
         gameState: createEmptyGameState(),
 
         chatNames: {},

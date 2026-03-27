@@ -1,10 +1,12 @@
-import net from "node:net";
-import { CronJob } from 'cron';
+import { randomUUID } from "node:crypto";
 import type { Server as HttpServer } from 'node:http';
 import { createServer } from 'node:http';
-import { randomUUID } from "node:crypto";
+import net from "node:net";
+
+import { CronJob } from 'cron';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+
 import { ServerSettingsService } from './admin/serverSettingsService';
 import { ServerConfig } from './config/serverConfig';
 import { EloRepository } from './elo/eloRepository';
@@ -36,15 +38,15 @@ export class ApplicationServer {
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
-        @inject(ServerConfig) private readonly serverConfig: ServerConfig
+        @inject(ServerConfig) private readonly serverConfig: ServerConfig,
     ) {
-        this.logger = rootLogger.child({ component: 'application-server' });
+        this.logger = rootLogger.child({ component: `application-server` });
         this.server = createServer(httpApplication.app);
         socketServerGateway.attach(this.server);
 
         httpApplication.app.use((req, res, next) => {
             const requestId = randomUUID();
-            res.on('close', () => {
+            res.on(`close`, () => {
                 this.serverConnections.delete(requestId);
             });
 
@@ -55,14 +57,14 @@ export class ApplicationServer {
 
     async start(): Promise<void> {
         this.logger.info({
-            event: 'server.config',
-            config: this.serverConfig.toLogObject()
-        }, 'Loaded server config');
+            event: `server.config`,
+            config: this.serverConfig.toLogObject(),
+        }, `Loaded server config`);
 
         this.logger.info({
-            event: 'server.starting',
-            port: this.serverConfig.port
-        }, 'Starting server');
+            event: `server.starting`,
+            port: this.serverConfig.port,
+        }, `Starting server`);
 
         await this.databaseMigrationRunner.run();
         await this.eloRepository.initialize();
@@ -70,17 +72,17 @@ export class ApplicationServer {
 
         await this.startCronJobs();
 
-        this.server.on('error', (error) => {
+        this.server.on(`error`, (error) => {
             this.logger.error({
                 err: error,
-                event: 'server.error'
-            }, 'HTTP server error');
+                event: `server.error`,
+            }, `HTTP server error`);
         });
 
-        this.server.on('close', () => {
+        this.server.on(`close`, () => {
             this.logger.info({
-                event: 'server.closed'
-            }, 'Server closed');
+                event: `server.closed`,
+            }, `Server closed`);
         });
 
         await new Promise<void>((resolve, reject) => {
@@ -88,13 +90,13 @@ export class ApplicationServer {
                 reject(error);
             };
 
-            this.server.once('error', onListenError);
+            this.server.once(`error`, onListenError);
             this.server.listen(this.serverConfig.port, () => {
-                this.server.off('error', onListenError);
+                this.server.off(`error`, onListenError);
                 this.logger.info({
-                    event: 'server.listening',
-                    port: this.serverConfig.port
-                }, 'Server listening');
+                    event: `server.listening`,
+                    port: this.serverConfig.port,
+                }, `Server listening`);
                 resolve();
             });
         });
@@ -106,7 +108,7 @@ export class ApplicationServer {
         }
 
         this.shutdownPromise = (async () => {
-            this.logger.info({ event: 'server.shutting-down' }, 'Shutting down server');
+            this.logger.info({ event: `server.shutting-down` }, `Shutting down server`);
 
             await this.shutdownHttpServer();
 
@@ -118,8 +120,8 @@ export class ApplicationServer {
             } catch (error: unknown) {
                 this.logger.error({
                     err: error,
-                    event: 'mongo.close.error'
-                }, 'Failed to close MongoDB client');
+                    event: `mongo.close.error`,
+                }, `Failed to close MongoDB client`);
                 throw error;
             }
         })();
@@ -132,13 +134,13 @@ export class ApplicationServer {
             return;
         }
 
-        this.logger.debug({ event: 'server.shutting-down' }, 'Stopping HTTP server');
+        this.logger.debug({ event: `server.shutting-down` }, `Stopping HTTP server`);
         await this.socketServerGateway.shutdownConnections();
 
         setTimeout(() => {
             /* force close connections */
             for (const connection of this.serverConnections.values()) {
-                connection.destroy(new Error("forced close due to server shutdown"));
+                connection.destroy(new Error(`forced close due to server shutdown`));
             }
         }, 5_000);
 
@@ -148,15 +150,15 @@ export class ApplicationServer {
                     if (error) {
                         this.logger.error({
                             err: error,
-                            event: 'http.close.error'
-                        }, 'Failed to shutdown the HTTP server');
+                            event: `http.close.error`,
+                        }, `Failed to shutdown the HTTP server`);
                     }
                     resolve();
                 });
             }),
             new Promise(resolve => setTimeout(resolve, 1_000)),
         ]);
-        this.logger.debug({ event: 'server.shutting-down' }, 'HTTP server stopped');
+        this.logger.debug({ event: `server.shutting-down` }, `HTTP server stopped`);
     }
 
     private scheduleCronJob(options: {
@@ -170,51 +172,51 @@ export class ApplicationServer {
             onTick: () => {
                 this.logger.debug(
                     {
-                        event: 'cronjob.execute',
+                        event: `cronjob.execute`,
                         cronName: options.name,
                     },
-                    'Executing cron job'
+                    `Executing cron job`,
                 );
 
                 options.callback()
                     .then(() => {
                         this.logger.debug({
-                            event: 'cronjob.executed',
+                            event: `cronjob.executed`,
                             cronName: options.name,
-                        }, 'Cron job executed successfully');
+                        }, `Cron job executed successfully`);
                     })
                     .catch(error => {
                         this.logger.warn({
-                            event: 'cronjob.error',
+                            event: `cronjob.error`,
                             cronName: options.name,
                             cronTime: options.time,
-                            error
-                        }, 'Cron job execution failed with error');
+                            error,
+                        }, `Cron job execution failed with error`);
                     });
-            }
+            },
         });
 
         this.cronJobs.push(job);
         this.logger.info({
-            event: 'cronjob.started',
+            event: `cronjob.started`,
             cronName: options.name,
-            cronTime: options.time
-        }, 'Started a new cron job');
+            cronTime: options.time,
+        }, `Started a new cron job`);
     }
 
     private async startCronJobs() {
         await this.stopCronJobs();
 
         this.scheduleCronJob({
-            name: "Session Tick",
-            time: '*/10 * * * * *',
+            name: `Session Tick`,
+            time: `*/10 * * * * *`,
             callback: () => this.sessionManager.tickAllSessions(),
         });
 
         this.logger.info({
-            event: 'lobby-cleanup.started',
-            cronTime: '0 * * * * *'
-        }, 'Started lobby cleanup cron job');
+            event: `lobby-cleanup.started`,
+            cronTime: `0 * * * * *`,
+        }, `Started lobby cleanup cron job`);
     }
 
     private async stopCronJobs() {

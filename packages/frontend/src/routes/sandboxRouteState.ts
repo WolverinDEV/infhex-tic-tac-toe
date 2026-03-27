@@ -1,10 +1,10 @@
-import type { SandboxGamePosition } from '@ih3t/shared'
+import type { SandboxGamePosition } from '@ih3t/shared';
 
 export type SandboxRouteInitialPosition = {
-  name: string
-  gamePosition: SandboxGamePosition
-}
+    name: string
+    gamePosition: SandboxGamePosition
+};
 
 export type SandboxRouteState = {
-  initialPosition?: SandboxRouteInitialPosition
-}
+    initialPosition?: SandboxRouteInitialPosition
+};

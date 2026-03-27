@@ -1,11 +1,12 @@
-import { inject, injectable } from 'tsyringe';
 import {
     type Leaderboard,
     type LeaderboardPlacement,
     type LeaderboardPlayer,
 } from '@ih3t/shared';
-import { AuthRepository, type AccountUserProfile } from '../auth/authRepository';
-import { EloRepository, type EloLeaderboardPlacement, type EloLeaderboardPlayer } from '../elo/eloRepository';
+import { inject, injectable } from 'tsyringe';
+
+import { type AccountUserProfile, AuthRepository } from '../auth/authRepository';
+import { type EloLeaderboardPlacement, type EloLeaderboardPlayer, EloRepository } from '../elo/eloRepository';
 import { GameHistoryRepository, type PlayerLeaderboardStats } from '../persistence/gameHistoryRepository';
 
 const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
@@ -18,7 +19,7 @@ type LeaderboardPlacementCache = {
     topPlayers: EloLeaderboardPlayer[];
     topPlayerProfiles: Map<string, AccountUserProfile>;
     topPlayerStats: Map<string, PlayerLeaderboardStats>;
-}
+};
 
 @injectable()
 export class LeaderboardService {
@@ -27,7 +28,7 @@ export class LeaderboardService {
     constructor(
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
-        @inject(AuthRepository) private readonly authRepository: AuthRepository
+        @inject(AuthRepository) private readonly authRepository: AuthRepository,
     ) { }
 
     async getLeaderboardSnapshot(targetProfileId: string | null = null, nowMs = Date.now()): Promise<Leaderboard> {
@@ -35,7 +36,7 @@ export class LeaderboardService {
         const players = placementCache.topPlayers.map((player) => this.mapLeaderboardPlayer(
             player,
             placementCache.topPlayerProfiles,
-            placementCache.topPlayerStats.get(player.profileId) ?? null
+            placementCache.topPlayerStats.get(player.profileId) ?? null,
         ));
 
         return {
@@ -44,7 +45,7 @@ export class LeaderboardService {
             refreshIntervalMs: placementCache.refreshIntervalMs,
             players,
 
-            ownPlacement: await this.getTargetLeaderboardPlayer(targetProfileId)
+            ownPlacement: await this.getTargetLeaderboardPlayer(targetProfileId),
         };
     }
 
@@ -55,7 +56,7 @@ export class LeaderboardService {
         if (this.leaderboardCache && this.leaderboardCache.generatedAt >= currentWindowStart) {
             return {
                 ...this.leaderboardCache,
-                nextRefreshAt
+                nextRefreshAt,
             };
         }
 
@@ -63,7 +64,7 @@ export class LeaderboardService {
         const topProfileIds = topPlayers.map((player) => player.profileId);
         const [topPlayerProfiles, topPlayerStats] = await Promise.all([
             this.authRepository.getUserProfilesByIds(topProfileIds),
-            this.gameHistoryRepository.getPlayerLeaderboardStatsForPlayers(topProfileIds, { ratedOnly: true })
+            this.gameHistoryRepository.getPlayerLeaderboardStatsForPlayers(topProfileIds, { ratedOnly: true }),
         ]);
 
         this.leaderboardCache = {
@@ -72,23 +73,23 @@ export class LeaderboardService {
             refreshIntervalMs: LEADERBOARD_REFRESH_INTERVAL_MS,
             topPlayers,
             topPlayerProfiles,
-            topPlayerStats
+            topPlayerStats,
         };
 
         return this.leaderboardCache;
     }
 
-    private async getTargetLeaderboardPlayer(
-        profileId: string | null,
-    ): Promise<LeaderboardPlacement | null> {
+    private async getTargetLeaderboardPlayer(profileId: string | null): Promise<LeaderboardPlacement | null> {
         if (!profileId) {
             return null;
         }
 
-        const [placement, profiles, stats] = await Promise.all([
+        const [
+            placement, profiles, stats,
+        ] = await Promise.all([
             this.eloRepository.getLeaderboardPlacement(profileId),
             this.authRepository.getUserProfilesByIds([profileId]),
-            this.gameHistoryRepository.getPlayerLeaderboardStatsForPlayers([profileId], { ratedOnly: true })
+            this.gameHistoryRepository.getPlayerLeaderboardStatsForPlayers([profileId], { ratedOnly: true }),
         ]);
         if (!placement) {
             return null;
@@ -100,16 +101,16 @@ export class LeaderboardService {
     private mapLeaderboardPlayer(
         player: EloLeaderboardPlayer,
         profiles: Map<string, AccountUserProfile>,
-        stats: PlayerLeaderboardStats | null
+        stats: PlayerLeaderboardStats | null,
     ): LeaderboardPlayer {
         const profile = profiles.get(player.profileId);
         const leaderboardPlayer = {
             profileId: player.profileId,
-            displayName: profile?.username?.trim() ?? 'Player',
+            displayName: profile?.username?.trim() ?? `Player`,
             image: profile?.image ?? null,
             elo: player.eloScore,
             gamesPlayed: stats?.gamesPlayed ?? 0,
-            gamesWon: stats?.gamesWon ?? 0
+            gamesWon: stats?.gamesWon ?? 0,
         };
 
         return leaderboardPlayer as LeaderboardPlayer;
@@ -118,11 +119,11 @@ export class LeaderboardService {
     private mapLeaderboardPlacement(
         player: EloLeaderboardPlacement,
         profiles: Map<string, AccountUserProfile>,
-        stats: PlayerLeaderboardStats | null
+        stats: PlayerLeaderboardStats | null,
     ): LeaderboardPlacement {
         return {
             ...this.mapLeaderboardPlayer(player, profiles, stats),
-            rank: player.rank
+            rank: player.rank,
         };
     }
 }

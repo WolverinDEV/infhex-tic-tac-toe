@@ -1,28 +1,29 @@
-import type { Logger } from 'pino';
-import { Collection, ObjectId, type Document } from 'mongodb';
-import { inject, injectable } from 'tsyringe';
-import { ROOT_LOGGER } from '../logger';
-import { AUTH_USERS_COLLECTION_NAME } from '../persistence/mongoCollections';
-import { MongoDatabase } from '../persistence/mongoClient';
 import { PlayerRating } from '@ih3t/shared';
+import { Collection, type Document, ObjectId } from 'mongodb';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
+
+import { ROOT_LOGGER } from '../logger';
+import { MongoDatabase } from '../persistence/mongoClient';
+import { AUTH_USERS_COLLECTION_NAME } from '../persistence/mongoCollections';
 
 type EloUserDocument = {
     _id: ObjectId;
     elo?: number;
     ratedGamesPlayed?: number;
-} & Document
+} & Document;
 
 
 export type StoredEloPlayerRating = {
     profileId: string;
-} & PlayerRating
+} & PlayerRating;
 
 
-export type EloLeaderboardPlayer = { } & StoredEloPlayerRating
+export type EloLeaderboardPlayer = { } & StoredEloPlayerRating;
 
 export type EloLeaderboardPlacement = {
     rank: number;
-} & EloLeaderboardPlayer
+} & EloLeaderboardPlayer;
 
 export const DEFAULT_PLAYER_ELO = 1000;
 const MINIMUM_PLAYER_ELO = 100;
@@ -34,9 +35,9 @@ export class EloRepository {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'elo-repository' });
+        this.logger = rootLogger.child({ component: `elo-repository` });
     }
 
     async initialize(): Promise<void> {
@@ -71,23 +72,21 @@ export class EloRepository {
         const collection = await this.getUsersCollection();
         const documents = await collection.find({
             _id: {
-                $in: validEntries.map(({ objectId }) => objectId)
-            }
+                $in: validEntries.map(({ objectId }) => objectId),
+            },
         }).toArray();
 
-        return new Map(
-            documents.map((document) => [
-                document._id.toHexString(),
-                this.mapRating(document)
-            ] as const)
-        );
+        return new Map(documents.map((document) => [
+            document._id.toHexString(),
+            this.mapRating(document),
+        ] as const));
     }
 
     async performEloAdjustment(profileId: string, delta: number): Promise<PlayerRating> {
         const collection = await this.getUsersCollection();
         const objectId = this.parseObjectId(profileId);
         if (!objectId) {
-            throw Error(`invalid profile id`)
+            throw Error(`invalid profile id`);
         }
 
         const document = await collection.findOneAndUpdate(
@@ -95,19 +94,19 @@ export class EloRepository {
             {
                 $inc: {
                     elo: delta,
-                    ratedGamesPlayed: 1
+                    ratedGamesPlayed: 1,
                 },
             },
             {
-                returnDocument: "after",
+                returnDocument: `after`,
                 projection: {
                     elo: 1,
-                    ratedGamesPlayed: 1
-                }
-            }
+                    ratedGamesPlayed: 1,
+                },
+            },
         );
         if (!document) {
-            throw Error(`invalid profile id`)
+            throw Error(`invalid profile id`);
         }
 
         return this.mapRating(document);
@@ -120,16 +119,18 @@ export class EloRepository {
 
         const collection = await this.getUsersCollection();
         const documents = await collection.find({
-            ratedGamesPlayed: { $gt: 0 }
+            ratedGamesPlayed: { $gt: 0 },
         }).sort({
             elo: -1,
             ratedGamesPlayed: -1,
-            _id: 1
-        }).limit(limit).toArray();
+            _id: 1,
+        })
+            .limit(limit)
+            .toArray();
 
         return documents.map((document) => ({
             profileId: document._id.toHexString(),
-            ...this.mapRating(document)
+            ...this.mapRating(document),
         }));
     }
 
@@ -156,20 +157,20 @@ export class EloRepository {
                 { elo: { $gt: rating.eloScore } },
                 {
                     elo: rating.eloScore,
-                    ratedGamesPlayed: { $gt: rating.gameCount }
+                    ratedGamesPlayed: { $gt: rating.gameCount },
                 },
                 {
                     elo: rating.eloScore,
                     ratedGamesPlayed: rating.gameCount,
-                    _id: { $lt: objectId }
-                }
-            ]
+                    _id: { $lt: objectId },
+                },
+            ],
         });
 
         return {
             profileId,
             ...rating,
-            rank: higherRankedPlayers + 1
+            rank: higherRankedPlayers + 1,
         };
     }
 
@@ -183,7 +184,7 @@ export class EloRepository {
             return database.collection<EloUserDocument>(AUTH_USERS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.usersCollectionPromise = null;
-            this.logger.error({ err: error, event: 'elo.users.init.failed' }, 'Failed to initialize elo users collection');
+            this.logger.error({ err: error, event: `elo.users.init.failed` }, `Failed to initialize elo users collection`);
             throw error;
         });
 
@@ -202,12 +203,12 @@ export class EloRepository {
         const normalizedElo = this.normalizeStoredElo(document.elo);
         return {
             eloScore: normalizedElo,
-            gameCount: this.normalizeStoredRatedGamesPlayed(document.ratedGamesPlayed)
+            gameCount: this.normalizeStoredRatedGamesPlayed(document.ratedGamesPlayed),
         };
     }
 
     private normalizeStoredElo(value: number | undefined): number {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (typeof value !== `number` || !Number.isFinite(value)) {
             return DEFAULT_PLAYER_ELO;
         }
 
@@ -215,7 +216,7 @@ export class EloRepository {
     }
 
     private normalizeStoredRatedGamesPlayed(value: number | undefined): number {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (typeof value !== `number` || !Number.isFinite(value)) {
             return 0;
         }
 

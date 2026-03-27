@@ -1,10 +1,11 @@
-import type { Logger } from 'pino';
-import { inject, injectable } from 'tsyringe';
 import {
     DEFAULT_SERVER_SETTINGS,
     type ServerSettings,
     zServerSettings,
 } from '@ih3t/shared';
+import type { Logger } from 'pino';
+import { inject, injectable } from 'tsyringe';
+
 import type { AccountUserProfile } from '../auth/authRepository';
 import { ROOT_LOGGER } from '../logger';
 import { ServerSettingsRepository } from '../persistence/serverSettingsRepository';
@@ -17,9 +18,9 @@ export class ServerSettingsService {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(ServerSettingsRepository) private readonly repository: ServerSettingsRepository
+        @inject(ServerSettingsRepository) private readonly repository: ServerSettingsRepository,
     ) {
-        this.logger = rootLogger.child({ component: 'server-settings-service' });
+        this.logger = rootLogger.child({ component: `server-settings-service` });
     }
 
     async initialize(): Promise<void> {
@@ -31,9 +32,9 @@ export class ServerSettingsService {
         this.initialized = true;
 
         this.logger.info({
-            event: 'server-settings.loaded',
-            maxConcurrentGames: this.settings.maxConcurrentGames
-        }, 'Loaded server settings');
+            event: `server-settings.loaded`,
+            maxConcurrentGames: this.settings.maxConcurrentGames,
+        }, `Loaded server settings`);
     }
 
     getSettings(): ServerSettings {

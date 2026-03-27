@@ -5,22 +5,23 @@ import type {
     AdapterUser,
 } from '@auth/express/adapters';
 import {
-    DEFAULT_ACCOUNT_PREFERENCES,
     type AccountPreferences,
+    DEFAULT_ACCOUNT_PREFERENCES,
     type UserRole,
     zAccountPreferences,
 } from '@ih3t/shared';
-import type { Logger } from 'pino';
 import { Collection, ObjectId } from 'mongodb';
+import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+
 import { ROOT_LOGGER } from '../logger';
+import { MongoDatabase } from '../persistence/mongoClient';
 import {
     AUTH_ACCOUNTS_COLLECTION_NAME,
     AUTH_SESSIONS_COLLECTION_NAME,
     AUTH_USERS_COLLECTION_NAME,
     AUTH_VERIFICATION_TOKENS_COLLECTION_NAME,
 } from '../persistence/mongoCollections';
-import { MongoDatabase } from '../persistence/mongoClient';
 
 type AuthUserDocument = {
     _id: ObjectId;
@@ -33,12 +34,12 @@ type AuthUserDocument = {
     registeredAt?: number;
     lastActiveAt?: number;
     elo?: number;
-}
+};
 
 type AuthAccountDocument = {
     _id: ObjectId;
     userId: ObjectId;
-    type: AdapterAccount['type'];
+    type: AdapterAccount[`type`];
     provider: string;
     providerAccountId: string;
     refresh_token?: string;
@@ -47,22 +48,22 @@ type AuthAccountDocument = {
     token_type?: string;
     scope?: string;
     id_token?: string;
-    session_state?: AdapterAccount["session_state"];
-}
+    session_state?: AdapterAccount[`session_state`];
+};
 
 type AuthSessionDocument = {
     _id: ObjectId;
     sessionToken: string;
     userId: ObjectId;
     expires: Date;
-}
+};
 
 type AuthVerificationTokenDocument = {
     _id: ObjectId;
     identifier: string;
     token: string;
     expires: Date;
-}
+};
 
 type StoredAdapterUser = AdapterUser & {
     role: UserRole;
@@ -75,7 +76,7 @@ const DEFAULT_PLAYER_ELO = 1000;
 export type AdminUserWindowStats = {
     newUsers: number;
     activeUsers: number;
-}
+};
 
 export type AccountUserProfile = {
     id: string;
@@ -85,7 +86,7 @@ export type AccountUserProfile = {
     role: UserRole;
     registeredAt: number;
     lastActiveAt: number;
-}
+};
 
 @injectable()
 export class AuthRepository implements Adapter {
@@ -98,21 +99,21 @@ export class AuthRepository implements Adapter {
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
-        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase
+        @inject(MongoDatabase) private readonly mongoDatabase: MongoDatabase,
     ) {
-        this.logger = rootLogger.child({ component: 'auth-repository' });
+        this.logger = rootLogger.child({ component: `auth-repository` });
     }
 
-    readonly createUser: NonNullable<Adapter['createUser']> = async (user) => {
+    readonly createUser: NonNullable<Adapter[`createUser`]> = async (user) => {
         const collection = await this.getUsersCollection();
         const now = Date.now();
         const document: AuthUserDocument = {
             _id: new ObjectId(),
-            role: 'user',
+            role: `user`,
             elo: DEFAULT_PLAYER_ELO,
             preferences: {
                 ...DEFAULT_ACCOUNT_PREFERENCES,
-                changelogReadAt: Date.now()
+                changelogReadAt: Date.now(),
             },
             registeredAt: now,
             lastActiveAt: now,
@@ -124,7 +125,7 @@ export class AuthRepository implements Adapter {
         return this.mapUserDocument(document);
     };
 
-    readonly getUser: NonNullable<Adapter['getUser']> = async (id) => {
+    readonly getUser: NonNullable<Adapter[`getUser`]> = async (id) => {
         const collection = await this.getUsersCollection();
         const userId = this.parseObjectId(id);
         if (!userId) {
@@ -135,13 +136,13 @@ export class AuthRepository implements Adapter {
         return document ? this.mapUserDocument(document) : null;
     };
 
-    readonly getUserByEmail: NonNullable<Adapter['getUserByEmail']> = async (email) => {
+    readonly getUserByEmail: NonNullable<Adapter[`getUserByEmail`]> = async (email) => {
         const collection = await this.getUsersCollection();
         const document = await collection.findOne({ email });
         return document ? this.mapUserDocument(document) : null;
     };
 
-    readonly getUserByAccount: NonNullable<Adapter['getUserByAccount']> = async ({
+    readonly getUserByAccount: NonNullable<Adapter[`getUserByAccount`]> = async ({
         provider,
         providerAccountId,
     }) => {
@@ -158,11 +159,11 @@ export class AuthRepository implements Adapter {
         return user;
     };
 
-    readonly updateUser: NonNullable<Adapter['updateUser']> = async (user) => {
+    readonly updateUser: NonNullable<Adapter[`updateUser`]> = async (user) => {
         const collection = await this.getUsersCollection();
         const userId = this.parseObjectId(user.id);
         if (!userId) {
-            throw new Error('Invalid user id');
+            throw new Error(`Invalid user id`);
         }
 
         const update = this.toUserUpdateDocument(user);
@@ -171,26 +172,26 @@ export class AuthRepository implements Adapter {
                 { _id: userId },
                 {
                     $set: update,
-                }
+                },
             );
         }
 
         const document = await collection.findOne({ _id: userId });
         if (!document) {
-            throw new Error('User not found');
+            throw new Error(`User not found`);
         }
 
         return this.mapUserDocument(document);
     };
 
-    readonly linkAccount: NonNullable<Adapter['linkAccount']> = async (account) => {
+    readonly linkAccount: NonNullable<Adapter[`linkAccount`]> = async (account) => {
         const collection = await this.getAccountsCollection();
         const userId = this.parseObjectId(account.userId);
         if (!userId) {
-            throw new Error('Invalid user id');
+            throw new Error(`Invalid user id`);
         }
 
-        const documentWithoutId: Omit<AuthAccountDocument, '_id'> = {
+        const documentWithoutId: Omit<AuthAccountDocument, `_id`> = {
             userId,
             ...this.toAccountDocument(account),
         };
@@ -206,17 +207,17 @@ export class AuthRepository implements Adapter {
                     _id: new ObjectId(),
                 },
             },
-            { upsert: true }
+            { upsert: true },
         );
 
         return undefined;
     };
 
-    readonly createSession: NonNullable<Adapter['createSession']> = async (session) => {
+    readonly createSession: NonNullable<Adapter[`createSession`]> = async (session) => {
         const collection = await this.getSessionsCollection();
         const userId = this.parseObjectId(session.userId);
         if (!userId) {
-            throw new Error('Invalid user id');
+            throw new Error(`Invalid user id`);
         }
 
         const document: AuthSessionDocument = {
@@ -231,7 +232,7 @@ export class AuthRepository implements Adapter {
         return this.mapSessionDocument(document);
     };
 
-    readonly getSessionAndUser: NonNullable<Adapter['getSessionAndUser']> = async (sessionToken) => {
+    readonly getSessionAndUser: NonNullable<Adapter[`getSessionAndUser`]> = async (sessionToken) => {
         const sessionsCollection = await this.getSessionsCollection();
         const usersCollection = await this.getUsersCollection();
         const sessionDocument = await sessionsCollection.findOne({ sessionToken });
@@ -250,7 +251,7 @@ export class AuthRepository implements Adapter {
         };
     };
 
-    readonly updateSession: NonNullable<Adapter['updateSession']> = async (session) => {
+    readonly updateSession: NonNullable<Adapter[`updateSession`]> = async (session) => {
         const collection = await this.getSessionsCollection();
         const update: Partial<AuthSessionDocument> = {};
 
@@ -261,7 +262,7 @@ export class AuthRepository implements Adapter {
         if (session.userId) {
             const userId = this.parseObjectId(session.userId);
             if (!userId) {
-                throw new Error('Invalid user id');
+                throw new Error(`Invalid user id`);
             }
 
             update.userId = userId;
@@ -276,20 +277,20 @@ export class AuthRepository implements Adapter {
             { sessionToken: session.sessionToken },
             {
                 $set: update,
-            }
+            },
         );
 
         const document = await collection.findOne({ sessionToken: session.sessionToken });
         return document ? this.mapSessionDocument(document) : null;
     };
 
-    readonly deleteSession: NonNullable<Adapter['deleteSession']> = async (sessionToken) => {
+    readonly deleteSession: NonNullable<Adapter[`deleteSession`]> = async (sessionToken) => {
         const collection = await this.getSessionsCollection();
         const result = await collection.findOneAndDelete({ sessionToken });
         return result ? this.mapSessionDocument(result) : null;
     };
 
-    readonly createVerificationToken: NonNullable<Adapter['createVerificationToken']> = async (verificationToken) => {
+    readonly createVerificationToken: NonNullable<Adapter[`createVerificationToken`]> = async (verificationToken) => {
         const collection = await this.getVerificationTokensCollection();
         const document: AuthVerificationTokenDocument = {
             _id: new ObjectId(),
@@ -307,7 +308,7 @@ export class AuthRepository implements Adapter {
         };
     };
 
-    readonly useVerificationToken: NonNullable<Adapter['useVerificationToken']> = async ({
+    readonly useVerificationToken: NonNullable<Adapter[`useVerificationToken`]> = async ({
         identifier,
         token,
     }) => {
@@ -358,7 +359,7 @@ export class AuthRepository implements Adapter {
                 $set: {
                     displayName: username,
                 },
-            }
+            },
         );
 
         const document = await collection.findOne({ _id: objectId });
@@ -392,7 +393,7 @@ export class AuthRepository implements Adapter {
                 $set: {
                     preferences: normalizedPreferences,
                 },
-            }
+            },
         );
 
         const document = await collection.findOne({ _id: objectId });
@@ -412,16 +413,14 @@ export class AuthRepository implements Adapter {
         const collection = await this.getUsersCollection();
         const documents = await collection.find({
             _id: {
-                $in: validEntries.map(({ objectId }) => objectId)
-            }
+                $in: validEntries.map(({ objectId }) => objectId),
+            },
         }).toArray();
 
-        return new Map(
-            documents.map((document) => {
-                const profile = this.mapAccountUserProfile(this.mapUserDocument(document));
-                return [profile.id, profile] as const;
-            })
-        );
+        return new Map(documents.map((document) => {
+            const profile = this.mapAccountUserProfile(this.mapUserDocument(document));
+            return [profile.id, profile] as const;
+        }));
     }
 
     async countUsers(): Promise<number> {
@@ -435,20 +434,20 @@ export class AuthRepository implements Adapter {
             collection.countDocuments({
                 registeredAt: {
                     $gte: startAt,
-                    $lte: endAt
-                }
+                    $lte: endAt,
+                },
             }),
             collection.countDocuments({
                 lastActiveAt: {
                     $gte: startAt,
-                    $lte: endAt
-                }
-            })
+                    $lte: endAt,
+                },
+            }),
         ]);
 
         return {
             newUsers,
-            activeUsers
+            activeUsers,
         };
     }
 
@@ -462,7 +461,7 @@ export class AuthRepository implements Adapter {
             return database.collection<AuthUserDocument>(AUTH_USERS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.usersCollectionPromise = null;
-            this.logger.error({ err: error, event: 'auth.users.init.failed' }, 'Failed to initialize auth users collection');
+            this.logger.error({ err: error, event: `auth.users.init.failed` }, `Failed to initialize auth users collection`);
             throw error;
         });
 
@@ -479,7 +478,7 @@ export class AuthRepository implements Adapter {
             return database.collection<AuthAccountDocument>(AUTH_ACCOUNTS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.accountsCollectionPromise = null;
-            this.logger.error({ err: error, event: 'auth.accounts.init.failed' }, 'Failed to initialize auth accounts collection');
+            this.logger.error({ err: error, event: `auth.accounts.init.failed` }, `Failed to initialize auth accounts collection`);
             throw error;
         });
 
@@ -496,7 +495,7 @@ export class AuthRepository implements Adapter {
             return database.collection<AuthSessionDocument>(AUTH_SESSIONS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.sessionsCollectionPromise = null;
-            this.logger.error({ err: error, event: 'auth.sessions.init.failed' }, 'Failed to initialize auth sessions collection');
+            this.logger.error({ err: error, event: `auth.sessions.init.failed` }, `Failed to initialize auth sessions collection`);
             throw error;
         });
 
@@ -513,7 +512,7 @@ export class AuthRepository implements Adapter {
             return database.collection<AuthVerificationTokenDocument>(AUTH_VERIFICATION_TOKENS_COLLECTION_NAME);
         })().catch((error: unknown) => {
             this.verificationTokensCollectionPromise = null;
-            this.logger.error({ err: error, event: 'auth.verification-tokens.init.failed' }, 'Failed to initialize auth verification token collection');
+            this.logger.error({ err: error, event: `auth.verification-tokens.init.failed` }, `Failed to initialize auth verification token collection`);
             throw error;
         });
 
@@ -534,10 +533,10 @@ export class AuthRepository implements Adapter {
         return {
             id: document._id.toHexString(),
             name: document.name ?? null,
-            email: document.email ?? '',
+            email: document.email ?? ``,
             emailVerified: document.emailVerified ?? null,
             image: document.image ?? null,
-            role: document.role ?? 'user',
+            role: document.role ?? `user`,
             registeredAt,
             lastActiveAt: this.resolveLastActiveAt(document, registeredAt),
         };
@@ -551,25 +550,21 @@ export class AuthRepository implements Adapter {
         };
     }
 
-    private mapAccountUserProfile(
-        user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }
-    ): AccountUserProfile {
+    private mapAccountUserProfile(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): AccountUserProfile {
         const registeredAt = this.normalizeTimestamp(user.registeredAt) ?? Date.now();
 
         return {
             id: user.id,
-            username: user.name?.trim() ?? 'Player',
+            username: user.name?.trim() ?? `Player`,
             email: user.email || null,
             image: user.image ?? null,
-            role: user.role ?? 'user',
+            role: user.role ?? `user`,
             registeredAt,
             lastActiveAt: this.normalizeTimestamp(user.lastActiveAt) ?? registeredAt,
         };
     }
 
-    private async touchUserLastActive(
-        user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }
-    ): Promise<StoredAdapterUser> {
+    private async touchUserLastActive(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): Promise<StoredAdapterUser> {
         const storedUser = this.toStoredAdapterUser(user);
         const now = Date.now();
         if (storedUser.lastActiveAt >= now - AuthRepository.LAST_ACTIVE_WRITE_INTERVAL_MS) {
@@ -590,8 +585,8 @@ export class AuthRepository implements Adapter {
             {
                 $set: {
                     lastActiveAt: now,
-                }
-            }
+                },
+            },
         );
 
         return {
@@ -600,34 +595,32 @@ export class AuthRepository implements Adapter {
         };
     }
 
-    private resolveRegisteredAt(document: Pick<AuthUserDocument, '_id' | 'registeredAt'>): number {
+    private resolveRegisteredAt(document: Pick<AuthUserDocument, `_id` | `registeredAt`>): number {
         return this.normalizeTimestamp(document.registeredAt)
             ?? document._id.getTimestamp().valueOf();
     }
 
     private resolveLastActiveAt(
-        document: Pick<AuthUserDocument, 'lastActiveAt'>,
-        registeredAt: number
+        document: Pick<AuthUserDocument, `lastActiveAt`>,
+        registeredAt: number,
     ): number {
         return this.normalizeTimestamp(document.lastActiveAt) ?? registeredAt;
     }
 
     private normalizeTimestamp(value: number | undefined | null): number | null {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
+        if (typeof value !== `number` || !Number.isFinite(value)) {
             return null;
         }
 
         return Math.max(0, Math.floor(value));
     }
 
-    private toStoredAdapterUser(
-        user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }
-    ): StoredAdapterUser {
+    private toStoredAdapterUser(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): StoredAdapterUser {
         const registeredAt = this.normalizeTimestamp(user.registeredAt) ?? Date.now();
 
         return {
             ...user,
-            role: user.role ?? 'user',
+            role: user.role ?? `user`,
             registeredAt,
             lastActiveAt: this.normalizeTimestamp(user.lastActiveAt) ?? registeredAt,
         };
@@ -638,8 +631,8 @@ export class AuthRepository implements Adapter {
         return result.success ? result.data : DEFAULT_ACCOUNT_PREFERENCES;
     }
 
-    private toUserDocument(user: Partial<AdapterUser>): Omit<AuthUserDocument, '_id'> {
-        const document: Omit<AuthUserDocument, '_id'> = {};
+    private toUserDocument(user: Partial<AdapterUser>): Omit<AuthUserDocument, `_id`> {
+        const document: Omit<AuthUserDocument, `_id`> = {};
 
         if (user.name !== undefined) {
             document.name = user.name ?? null;
@@ -665,8 +658,8 @@ export class AuthRepository implements Adapter {
         return document;
     }
 
-    private toAccountDocument(account: AdapterAccount): Omit<AuthAccountDocument, '_id' | 'userId'> {
-        const document: Omit<AuthAccountDocument, '_id' | 'userId'> = {
+    private toAccountDocument(account: AdapterAccount): Omit<AuthAccountDocument, `_id` | `userId`> {
+        const document: Omit<AuthAccountDocument, `_id` | `userId`> = {
             type: account.type,
             provider: account.provider,
             providerAccountId: account.providerAccountId,

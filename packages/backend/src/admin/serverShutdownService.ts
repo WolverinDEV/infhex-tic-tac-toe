@@ -1,20 +1,21 @@
 import type { ShutdownState } from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
+
 import { ROOT_LOGGER } from '../logger';
 
 const DEFAULT_SHUTDOWN_DELAY_MS = 10 * 60 * 1000;
 
-type ShutdownMode = 'gracefull' | 'deadline-reached' | 'immediate';
+type ShutdownMode = `gracefull` | `deadline-reached` | `immediate`;
 type ShutdownBlockerCallback = () => boolean;
 
 type ServerShutdownServiceEventHandlers = {
     shutdownUpdated?: (shutdown: ShutdownState | null) => void;
-}
+};
 
 export type ShutdownHook = {
     tryShutdown(): void;
-}
+};
 
 @injectable()
 export class ServerShutdownService {
@@ -27,7 +28,7 @@ export class ServerShutdownService {
     private shutdownHandler: (() => void) | null = null;
 
     constructor(@inject(ROOT_LOGGER) rootLogger: Logger) {
-        this.logger = rootLogger.child({ component: 'server-shutdown-service' });
+        this.logger = rootLogger.child({ component: `server-shutdown-service` });
     }
 
     setEventHandlers(eventHandlers: ServerShutdownServiceEventHandlers): void {
@@ -45,7 +46,7 @@ export class ServerShutdownService {
         this.shutdownBlockers.add(callback);
 
         return {
-            tryShutdown: () => this.tryShutdown("gracefull"),
+            tryShutdown: () => this.tryShutdown(`gracefull`),
         };
     }
 
@@ -69,7 +70,7 @@ export class ServerShutdownService {
         const issuedAt = Date.now();
         this.pendingShutdown = {
             scheduledAt: issuedAt,
-            gracefulTimeout: issuedAt + gracefulTimeout
+            gracefulTimeout: issuedAt + gracefulTimeout,
         };
         this.shutdownInProgress = false;
 
@@ -79,14 +80,14 @@ export class ServerShutdownService {
         this.emitShutdownUpdated();
         this.logger.info(
             {
-                event: 'shutdown.scheduled',
+                event: `shutdown.scheduled`,
                 issuedAt: issuedAt,
-                shutdownAt: this.pendingShutdown.gracefulTimeout
+                shutdownAt: this.pendingShutdown.gracefulTimeout,
             },
-            'Scheduled server shutdown'
+            `Scheduled server shutdown`,
         );
 
-        setTimeout(() => this.tryShutdown('gracefull'), 0);
+        setTimeout(() => this.tryShutdown(`gracefull`), 0);
         return { ...this.pendingShutdown };
     }
 
@@ -102,21 +103,21 @@ export class ServerShutdownService {
         this.emitShutdownUpdated();
         this.logger.info(
             {
-                event: 'shutdown.cancelled',
+                event: `shutdown.cancelled`,
                 issuedAt: cancelledShutdown.scheduledAt,
-                gracefulTimeout: cancelledShutdown.gracefulTimeout
+                gracefulTimeout: cancelledShutdown.gracefulTimeout,
             },
-            'Cancelled pending server shutdown'
+            `Cancelled pending server shutdown`,
         );
 
         return true;
     }
 
     requestImmediateShutdown(): void {
-        this.executeApplicationShutdown('immediate');
+        this.executeApplicationShutdown(`immediate`);
     }
 
-    private tryShutdown(trigger: Exclude<ShutdownMode, 'immediate'>): void {
+    private tryShutdown(trigger: Exclude<ShutdownMode, `immediate`>): void {
         if (!this.pendingShutdown || this.shutdownInProgress) {
             return;
         }
@@ -137,13 +138,13 @@ export class ServerShutdownService {
         this.clearGracefulTimeout();
         this.logger.info(
             {
-                event: 'shutdown.deadline-reached',
-                gracefulTimeout: this.pendingShutdown.gracefulTimeout
+                event: `shutdown.deadline-reached`,
+                gracefulTimeout: this.pendingShutdown.gracefulTimeout,
             },
-            'Graceful shutdown deadline reached; executing forceful shutdown'
+            `Graceful shutdown deadline reached; executing forceful shutdown`,
         );
 
-        this.executeApplicationShutdown("deadline-reached");
+        this.executeApplicationShutdown(`deadline-reached`);
     }
 
     private executeApplicationShutdown(mode: ShutdownMode): void {
@@ -155,10 +156,10 @@ export class ServerShutdownService {
         this.clearGracefulTimeout();
         this.logger.info(
             {
-                event: 'shutdown.execute',
+                event: `shutdown.execute`,
                 mode: mode,
             },
-            "Executing server shutdown"
+            `Executing server shutdown`,
         );
 
         void this.shutdownHandler?.();

@@ -1,6 +1,8 @@
 import '../env.js';
+
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { injectable } from 'tsyringe';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -8,17 +10,17 @@ const __dirname = dirname(__filename);
 
 @injectable()
 export class ServerConfig {
-    readonly frontendDistPath = this.parsePathEnv('FRONTEND_DIST_PATH') ?? resolve(__dirname, '../../../frontend/dist');
-    readonly mongoUri = this.requireEnv('MONGODB_URI');
-    readonly mongoDbName = process.env.MONGODB_DB_NAME ?? 'ih3t';
+    readonly frontendDistPath = this.parsePathEnv(`FRONTEND_DIST_PATH`) ?? resolve(__dirname, `../../../frontend/dist`);
+    readonly mongoUri = this.requireEnv(`MONGODB_URI`);
+    readonly mongoDbName = process.env.MONGODB_DB_NAME ?? `ih3t`;
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     readonly port: string | number = process.env.PORT || 3001;
-    readonly authSecret = this.requireEnv('AUTH_SECRET');
-    readonly discordClientId = this.requireFirstEnv('AUTH_DISCORD_ID', 'DISCORD_CLIENT_ID');
-    readonly discordClientSecret = this.requireFirstEnv('AUTH_DISCORD_SECRET', 'DISCORD_CLIENT_SECRET');
+    readonly authSecret = this.requireEnv(`AUTH_SECRET`);
+    readonly discordClientId = this.requireFirstEnv(`AUTH_DISCORD_ID`, `DISCORD_CLIENT_ID`);
+    readonly discordClientSecret = this.requireFirstEnv(`AUTH_DISCORD_SECRET`, `DISCORD_CLIENT_SECRET`);
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    readonly logLevel = process.env.LOG_LEVEL?.trim() || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
-    readonly prettyLogs = this.parseBoolean(process.env.LOG_PRETTY) ?? process.env.NODE_ENV !== 'production';
+    readonly logLevel = process.env.LOG_LEVEL?.trim() || (process.env.NODE_ENV === `production` ? `info` : `debug`);
+    readonly prettyLogs = this.parseBoolean(process.env.LOG_PRETTY) ?? process.env.NODE_ENV !== `production`;
 
     toLogObject() {
         return {
@@ -29,7 +31,7 @@ export class ServerConfig {
             authSecretConfigured: true,
             discordClientConfigured: true,
             logLevel: this.logLevel,
-            prettyLogs: this.prettyLogs
+            prettyLogs: this.prettyLogs,
         };
     }
 
@@ -50,7 +52,7 @@ export class ServerConfig {
             }
         }
 
-        throw new Error(`Missing required environment variable ${names.join(' or ')}`);
+        throw new Error(`Missing required environment variable ${names.join(` or `)}`);
     }
 
     private parsePathEnv(name: string): string | null {
@@ -68,11 +70,11 @@ export class ServerConfig {
         }
 
         const normalized = value.trim().toLowerCase();
-        if (normalized === 'true') {
+        if (normalized === `true`) {
             return true;
         }
 
-        if (normalized === 'false') {
+        if (normalized === `false`) {
             return false;
         }
 

@@ -1,11 +1,12 @@
-import { inject, injectable } from 'tsyringe';
 import {
     type AdminActiveGamesTimeline,
     type AdminStatsResponse,
-    type AdminUserStatsWindow,
     type AdminStatsWindow,
+    type AdminUserStatsWindow,
     zAdminStatsResponse,
 } from '@ih3t/shared';
+import { inject, injectable } from 'tsyringe';
+
 import { AuthRepository } from '../auth/authRepository';
 import { SocketServerGateway } from '../network/createSocketServer';
 import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
@@ -15,7 +16,7 @@ import { SessionManager } from '../session/sessionManager';
 type AdminStatsInterval = {
     startAt: number;
     endAt: number;
-}
+};
 
 @injectable()
 export class AdminStatsService {
@@ -26,7 +27,7 @@ export class AdminStatsService {
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
         @inject(MetricsRepository) private readonly metricsRepository: MetricsRepository,
-        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository
+        @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
     ) { }
 
     async getStats(now = new Date(), timezoneOffsetMinutes = now.getTimezoneOffset()): Promise<AdminStatsResponse> {
@@ -41,7 +42,7 @@ export class AdminStatsService {
             usersSinceMidnight,
             usersLast7Days,
             usersLastMonth,
-            activeGamesTimeline
+            activeGamesTimeline,
         ] = await Promise.all([
             this.getIntervalStats(intervals.sinceMidnight),
             this.getIntervalStats(intervals.last24Hours),
@@ -50,7 +51,7 @@ export class AdminStatsService {
             this.getUserWindowStats(intervals.sinceMidnight),
             this.getUserWindowStats(intervals.last7Days),
             this.getUserWindowStats(intervals.lastMonth),
-            this.getActiveGamesTimeline(intervals.last7Days)
+            this.getActiveGamesTimeline(intervals.last7Days),
         ]);
 
         return zAdminStatsResponse.parse({
@@ -62,26 +63,26 @@ export class AdminStatsService {
                 intervals: {
                     sinceMidnight: usersSinceMidnight,
                     last7Days: usersLast7Days,
-                    lastMonth: usersLastMonth
-                }
+                    lastMonth: usersLastMonth,
+                },
             },
             intervals: {
                 sinceMidnight,
                 last24Hours,
-                last7Days
+                last7Days,
             },
-            activeGamesTimeline
+            activeGamesTimeline,
         } satisfies AdminStatsResponse);
     }
 
     private async getIntervalStats(interval: AdminStatsInterval): Promise<AdminStatsWindow> {
         const [siteVisits, gameStats] = await Promise.all([
             this.metricsRepository.countByEventBetween(
-                'site-visited',
+                `site-visited`,
                 new Date(interval.startAt).toISOString(),
-                new Date(interval.endAt).toISOString()
+                new Date(interval.endAt).toISOString(),
             ),
-            this.gameHistoryRepository.getAdminWindowStats(interval.startAt, interval.endAt)
+            this.gameHistoryRepository.getAdminWindowStats(interval.startAt, interval.endAt),
         ]);
 
         return {
@@ -91,7 +92,7 @@ export class AdminStatsService {
             gamesPlayed: gameStats.gamesPlayed,
             timePlayedMs: gameStats.timePlayedMs,
             longestGameInMoves: gameStats.longestGameInMoves,
-            longestGameInDuration: gameStats.longestGameInDuration
+            longestGameInDuration: gameStats.longestGameInDuration,
         };
     }
 
@@ -102,7 +103,7 @@ export class AdminStatsService {
             startAt: interval.startAt,
             endAt: interval.endAt,
             newUsers: userStats.newUsers,
-            activeUsers: userStats.activeUsers
+            activeUsers: userStats.activeUsers,
         };
     }
 
@@ -111,14 +112,14 @@ export class AdminStatsService {
         const points = await this.gameHistoryRepository.getActiveGamesTimeline(
             interval.startAt,
             interval.endAt,
-            bucketSizeMs
+            bucketSizeMs,
         );
 
         return {
             startAt: interval.startAt,
             endAt: interval.endAt,
             bucketSizeMs,
-            points
+            points,
         };
     }
 
@@ -126,20 +127,20 @@ export class AdminStatsService {
         return {
             sinceMidnight: {
                 startAt: this.getMidnightTimestamp(nowMs, timezoneOffsetMinutes),
-                endAt: nowMs
+                endAt: nowMs,
             },
             last24Hours: {
                 startAt: nowMs - 24 * 60 * 60 * 1000,
-                endAt: nowMs
+                endAt: nowMs,
             },
             last7Days: {
                 startAt: nowMs - 7 * 24 * 60 * 60 * 1000,
-                endAt: nowMs
+                endAt: nowMs,
             },
             lastMonth: {
                 startAt: nowMs - 30 * 24 * 60 * 60 * 1000,
-                endAt: nowMs
-            }
+                endAt: nowMs,
+            },
         };
     }
 
