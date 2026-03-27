@@ -27,6 +27,7 @@ import SandboxWinnerBanner from '../components/sandbox/SandboxWinnerBanner'
 import { useQueryAccount, useQueryAccountPreferences } from '../query/accountClient'
 import { queryKeys } from '../query/queryDefinitions'
 import { createSandboxPosition, fetchSandboxPosition, useQuerySandboxPosition } from '../query/sandboxClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
 import {
     createDefaultSandboxPlayerModes,
     persistSandboxBotTimeoutMs,
@@ -37,6 +38,7 @@ import { useSandboxBotController } from '../sandbox/useSandboxBotController'
 import type { SandboxRouteState } from './sandboxRouteState'
 import { playTilePlacedSound } from '../soundEffects'
 import { kSandboxBotEngines, SandboxBotEngineInfo } from '../sandbox/botLoader'
+import { formatPlacementSummary, formatSandboxPlayerLabel } from '../utils/routeMetadata'
 
 interface SandboxSnapshot {
     positionName: string | null
@@ -627,29 +629,49 @@ function SandboxRoute() {
     }
 
     return (
-        <div className="relative h-full w-full overflow-hidden bg-slate-950 text-white">
-            {!isImportModalOpen && (
-                <GameBoardCanvas
-                    canvasRef={canvasRef}
-                    className={canvasClassName}
-                    handlers={canvasHandlers}
-                />
-            )}
+        <>
+            <PageMetadata
+                {...(routeSandboxPositionQuery.data
+                    ? {
+                        title: `${routeSandboxPositionQuery.data.name} • Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
+                        description: `Open the "${routeSandboxPositionQuery.data.name}" sandbox position with ${routeSandboxPositionQuery.data.gamePosition.cells.length} placed ${routeSandboxPositionQuery.data.gamePosition.cells.length === 1 ? 'cell' : 'cells'}. ${formatSandboxPlayerLabel(routeSandboxPositionQuery.data.gamePosition.currentTurnPlayer)} to move with ${formatPlacementSummary(routeSandboxPositionQuery.data.gamePosition.placementsRemaining)}.`,
+                        ogType: 'article' as const
+                    }
+                    : normalizedRoutePositionId && routeSandboxPositionQuery.error
+                        ? {
+                            title: `Sandbox Position Not Found • ${DEFAULT_PAGE_TITLE}`,
+                            description: 'The requested sandbox position could not be found. Open sandbox mode to start from a clean board or import another shared position.',
+                            ogType: 'article' as const,
+                            robots: 'noindex, nofollow' as const
+                        }
+                        : {
+                            title: `Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
+                            description: 'Play Infinity Hexagonal Tic-Tac-Toe locally with no clock, control both sides, import shared positions, and explore custom boards.'
+                        })}
+            />
+            <div className="relative h-full w-full overflow-hidden bg-slate-950 text-white">
+                {!isImportModalOpen && (
+                    <GameBoardCanvas
+                        canvasRef={canvasRef}
+                        className={canvasClassName}
+                        handlers={canvasHandlers}
+                    />
+                )}
 
-            <div className="pointer-events-none absolute inset-0">
-                <div className="flex h-full flex-col justify-between gap-4">
-                    {!isWelcomeModalVisible && !isImportModalOpen && (
-                        <SandboxTurnIndicator
-                            players={SANDBOX_PLAYERS.map(player => ({
-                                ...player,
-                                displayName: botPlayerIds.includes(player.id) ? `Bot as ${player.displayName}` : player.displayName
-                            }))}
-                            botPlayerIds={botPlayerIds}
-                            gameState={gameState}
-                            winnerId={gameState.winner?.playerId ?? null}
-                            isBotThinking={isBotBusy}
-                        />
-                    )}
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="flex h-full flex-col justify-between gap-4">
+                        {!isWelcomeModalVisible && !isImportModalOpen && (
+                            <SandboxTurnIndicator
+                                players={SANDBOX_PLAYERS.map(player => ({
+                                    ...player,
+                                    displayName: botPlayerIds.includes(player.id) ? `Bot as ${player.displayName}` : player.displayName
+                                }))}
+                                botPlayerIds={botPlayerIds}
+                                gameState={gameState}
+                                winnerId={gameState.winner?.playerId ?? null}
+                                isBotThinking={isBotBusy}
+                            />
+                        )}
 
                     {!isWelcomeModalVisible && !isImportModalOpen && (
                         <SandboxWinnerBanner
@@ -747,9 +769,10 @@ function SandboxRoute() {
                             />
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     )
 }
 

@@ -1,30 +1,22 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query'
 import {
     FINISHED_GAMES_PAGE_SIZE,
-    queryKeys
+    queryKeys,
 } from '@ih3t/shared'
 import type {
     FinishedGamesArchiveView,
     LobbyInfo,
+    SSRModule,
 } from '@ih3t/shared'
 import type express from 'express'
-import { join } from 'node:path'
+import path, { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ApiQueryService, ApiRequestError } from './rest/apiQueryService'
+import fs from "fs/promises";
 
 interface FrontendSsrDependencies {
     apiQueryService: ApiQueryService
     ssrDistPath: string
-}
-
-interface RenderAppModule {
-    renderApp: (options: { url: string; dehydratedState?: unknown }) => string | Promise<string>
-}
-
-interface FrontendRenderResult {
-    appHtml: string
-    dehydratedState: unknown
-    renderedAt: number
 }
 
 function createQueryClient() {
@@ -61,15 +53,29 @@ function parsePositiveInteger(value: string | null): number | null {
     return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null
 }
 
+
+function escapeJsonForHtml(value: string): string {
+    return value
+        .replace(/</g, '\\u003c')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029')
+}
+
 export class FrontendSsrRenderer {
-    private frontendServerRendererPromise: Promise<RenderAppModule['renderApp']> | null = null
+    private ssrModule: Promise<SSRModule> | null = null
+    private frontendIndexTemplate: Promise<string>;
 
-    constructor(private readonly dependencies: FrontendSsrDependencies) { }
+    constructor(private readonly dependencies: FrontendSsrDependencies) {
+        this.frontendIndexTemplate = this.getHtmlTemplate();
+    }
 
-    async render(req: express.Request): Promise<FrontendRenderResult> {
-        const renderedAt = Date.now()
+    private getHtmlTemplate(): Promise<string> {
+        const indexPath = path.join(this.dependencies.ssrDistPath, "client", "index.html");
+        return fs.readFile(indexPath).then(buffer => buffer.toString("utf-8"));
+    }
+
+    async render(req: express.Request): Promise<string> {
         const queryClient = createQueryClient()
-        const requestUrl = new URL(req.originalUrl || req.url, `${req.protocol}://${req.get('host')}`)
         const accountResponse = await this.dependencies.apiQueryService.getAccount(req)
         const currentUser = accountResponse.user
 
@@ -90,20 +96,33 @@ export class FrontendSsrRenderer {
             }
         }
 
+        const requestUrl = new URL(req.originalUrl || req.url, `${req.protocol}://${req.get('host')}`)
         await this.prefetchRouteData(queryClient, req, requestUrl, currentUser?.id ?? null)
 
-        const dehydratedState = dehydrate(queryClient)
-        const renderApp = await this.getFrontendServerRenderer()
-        const appHtml = await renderApp({
-            url: `${requestUrl.pathname}${requestUrl.search}`,
-            dehydratedState
-        })
+        const ssrModule = await this.getSSRModule()
 
-        return {
-            appHtml,
-            dehydratedState,
-            renderedAt
+        const timestamp = Date.now()
+        const { head, html } = ssrModule({
+            url: requestUrl.toString(),
+            timestamp,
+            queryClient
+        });
+
+        const globalVariables: Record<string, any> = {
+            __IH3T_DEHYDRATED_STATE__: dehydrate(queryClient),
+            __IH3T_RENDERED_AT__: timestamp
         }
+        const state = Object.entries(globalVariables)
+            .map(([key, value]) => `window.${key}=${escapeJsonForHtml(JSON.stringify(value))};`)
+            .join("");
+
+        const template = await this.frontendIndexTemplate;
+        const response = template
+            .replace("<!--app-head-->", head)
+            .replace("<!--app-html-->", html)
+            .replace("/*app-state*/", state);
+
+        return response;
     }
 
     private async prefetchRouteData(
@@ -114,7 +133,7 @@ export class FrontendSsrRenderer {
     ): Promise<void> {
         const path = requestUrl.pathname
 
-        if (path === '/' || path.startsWith('/admin') || path === '/account/profile' || path.startsWith("/profile/")) {
+        if (path === '/' || path.startsWith('/admin') || path === '/account/profile' || path.startsWith("/profile/") || path.startsWith('/session/')) {
             queryClient.setQueryData(queryKeys.availableSessions, sortLobbySessions(this.dependencies.apiQueryService.listSessions()))
         }
 
@@ -191,25 +210,19 @@ export class FrontendSsrRenderer {
         }
     }
 
-    private async getFrontendServerRenderer(): Promise<RenderAppModule['renderApp']> {
-        if (this.frontendServerRendererPromise) {
-            return this.frontendServerRendererPromise
+    private async getSSRModule(): Promise<SSRModule> {
+        if (this.ssrModule) {
+            return this.ssrModule
         }
 
-        this.frontendServerRendererPromise = import(
-            pathToFileURL(join(this.dependencies.ssrDistPath, 'entry-server.js')).href
-        ).then((module: unknown) => {
-            const renderApp = (module as Partial<RenderAppModule>).renderApp
-            if (typeof renderApp !== 'function') {
-                throw new Error('Frontend server bundle does not export renderApp().')
-            }
+        const moduleUrl = pathToFileURL(join(this.dependencies.ssrDistPath, 'ssr/entry-server.js')).href;
+        this.ssrModule = import(moduleUrl)
+            .then(module => module.default as SSRModule)
+            .catch((error: unknown) => {
+                this.ssrModule = null
+                throw error
+            })
 
-            return renderApp
-        }).catch((error: unknown) => {
-            this.frontendServerRendererPromise = null
-            throw error
-        })
-
-        return this.frontendServerRendererPromise
+        return this.ssrModule
     }
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { formatTimeControl } from '../utils/gameTimeControl'
 import { formatLobbyLiveDuration, formatLobbyPlayers } from '../utils/lobby'
 import CreateLobbyDialog from './CreateLobbyDialog'
-import { getInitialRenderTimestamp } from '../ssrState'
+import { useSsrCompatibleNow } from '../ssrState'
 import ScreenFooter from './ScreenFooter'
 import { useHydratedDelay } from '../useHydratedDelay'
 import ShutdownTimer from './game-screen/ShutdownTimer'
@@ -69,7 +69,7 @@ function LobbyScreen({
     onViewLeaderboard,
 }: Readonly<LobbyScreenProps>) {
     const isPlayingDisabled = !isConnected || Boolean(shutdown)
-    const [now, setNow] = useState(() => getInitialRenderTimestamp())
+    const [now, setNow] = useState(useSsrCompatibleNow())
     const [isCreateLobbyDialogOpen, setIsCreateLobbyDialogOpen] = useState(false)
     const showClientBadges = useHydratedDelay(500)
 

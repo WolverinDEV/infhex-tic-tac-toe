@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router'
 import AdminStatsScreen from '../components/AdminStatsScreen'
 import { useQueryAccount } from '../query/accountClient'
 import { useQueryAdminStats } from '../query/adminClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
 
 function AdminRoute() {
   const navigate = useNavigate()
@@ -14,13 +15,20 @@ function AdminRoute() {
 
   if (accountQuery.isLoading) {
     return (
-      <AdminStatsScreen
-        stats={null}
-        isLoading
-        errorMessage={null}
-        onRefresh={() => void adminStatsQuery.refetch()}
-        onOpenGame={(gameId) => void navigate(`/games/${encodeURIComponent(gameId)}`)}
-      />
+      <>
+        <PageMetadata
+          title={`Admin Dashboard • ${DEFAULT_PAGE_TITLE}`}
+          description="Administrative statistics for Infinity Hexagonal Tic-Tac-Toe."
+          robots="noindex, nofollow"
+        />
+        <AdminStatsScreen
+          stats={null}
+          isLoading
+          errorMessage={null}
+          onRefresh={() => void adminStatsQuery.refetch()}
+          onOpenGame={(gameId) => void navigate(`/games/${encodeURIComponent(gameId)}`)}
+        />
+      </>
     )
   }
 
@@ -29,13 +37,20 @@ function AdminRoute() {
   }
 
   return (
-    <AdminStatsScreen
-      stats={adminStatsQuery.data ?? null}
-      isLoading={adminStatsQuery.isLoading || adminStatsQuery.isRefetching}
-      errorMessage={adminStatsQuery.error instanceof Error ? adminStatsQuery.error.message : null}
-      onRefresh={() => void adminStatsQuery.refetch()}
-      onOpenGame={(gameId) => void navigate(`/games/${encodeURIComponent(gameId)}`)}
-    />
+    <>
+      <PageMetadata
+        title={`Admin Dashboard • ${DEFAULT_PAGE_TITLE}`}
+        description="Administrative statistics for Infinity Hexagonal Tic-Tac-Toe."
+        robots="noindex, nofollow"
+      />
+      <AdminStatsScreen
+        stats={adminStatsQuery.data ?? null}
+        isLoading={adminStatsQuery.isLoading || adminStatsQuery.isRefetching}
+        errorMessage={adminStatsQuery.error instanceof Error ? adminStatsQuery.error.message : null}
+        onRefresh={() => void adminStatsQuery.refetch()}
+        onOpenGame={(gameId) => void navigate(`/games/${encodeURIComponent(gameId)}`)}
+      />
+    </>
   )
 }
 

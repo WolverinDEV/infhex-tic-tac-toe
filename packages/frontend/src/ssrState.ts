@@ -1,15 +1,42 @@
-import { useEffect, useState } from "react"
+import React, { useContext, useEffect, useState } from "react"
 
-const kSsrRenderTimestamp = typeof window !== 'undefined' && typeof window.__IH3T_RENDERED_AT__ === 'number' ?
+// Indicate whatever the current render pass is SSR
+const kIsSsrRender = typeof window === "undefined" || import.meta.env.SSR ? true : false
+
+// Indicate at what timestamp the SSR has taken place.
+// `null` if the app has not been SSR.
+const kSsrRenderedTimestamp = typeof window !== 'undefined' && typeof window.__IH3T_RENDERED_AT__ === 'number' ?
     window.__IH3T_RENDERED_AT__ : null;
 
-let isHydrationRender_ = typeof window !== 'undefined'
-    && typeof window.__IH3T_RENDERED_AT__ === 'number'
-    && Boolean(document.getElementById('root')?.hasChildNodes())
+// Indicate whatever the current render pass must match the SSR (e.g. is the hydration render).
+// Will be cleared by useEffect after the first ever render.
+let isHydrationRender_ = kSsrRenderedTimestamp !== null;
 
-export function useIsSsrRender() {
-    const [status, setStatus] = useState<boolean>(isHydrationRender_ ? true : false);
-    useEffect(() => setStatus(false), []);
+
+const SsrTimestampContext = React.createContext<number | null>(null);
+export const SsrTimestampProvider = SsrTimestampContext.Provider;
+
+export function isSsrRender() {
+    return kIsSsrRender;
+}
+
+export function isHydrationRender() {
+    return isHydrationRender_;
+}
+
+export type RenderMode = "ssr" | "hydration" | "normal";
+export function getRenderMode(): RenderMode {
+    if (isSsrRender()) {
+        return "ssr"
+    } else if (isHydrationRender()) {
+        return "hydration"
+    } else {
+        return "normal"
+    }
+}
+export function useRenderMode(): RenderMode {
+    const [status, setStatus] = useState<RenderMode>(getRenderMode);
+    useEffect(() => setStatus("normal"), []);
 
     return status;
 }
@@ -21,16 +48,16 @@ export function useIsSsrRender() {
  * If the hydration render pass has already passed, Date.now() will be returned on the first render.
 */
 export function useSsrCompatibleNow() {
-    const isSsrRender = useIsSsrRender();
-    return isSsrRender ? kSsrRenderTimestamp ?? Date.now() : Date.now();
-}
+    const renderMode = useRenderMode();
+    const ssrTimestamp = useContext(SsrTimestampContext);
 
-export function getInitialRenderTimestamp() {
-    if (typeof window !== 'undefined' && typeof window.__IH3T_RENDERED_AT__ === 'number') {
-        return window.__IH3T_RENDERED_AT__
+    if (renderMode === "ssr") {
+        return ssrTimestamp ?? Date.now();
+    } else if (renderMode === "hydration") {
+        return kSsrRenderedTimestamp ?? Date.now();
+    } else {
+        return Date.now()
     }
-
-    return Date.now()
 }
 
 export function getDehydratedStateFromWindow() {

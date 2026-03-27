@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createClientRouter } from "./router";
-import { getDehydratedStateFromWindow } from "./ssrState";
+import { getDehydratedStateFromWindow, getRenderMode } from "./ssrState";
 import { queryClient } from "./query/queryClient";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import App from "./App";
@@ -22,7 +22,8 @@ const app = (
     </StrictMode>
 )
 
-if (root.hasChildNodes()) {
+const renderMode = getRenderMode();
+if (renderMode === "hydration") {
     hydrateRoot(root, app)
 } else {
     createRoot(root).render(app)

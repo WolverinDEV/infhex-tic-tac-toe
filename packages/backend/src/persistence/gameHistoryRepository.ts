@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { ROOT_LOGGER } from '../logger';
 import { GAME_HISTORY_COLLECTION_NAME } from './mongoCollections';
 import { MongoDatabase } from './mongoClient';
+import { inspect } from 'node:util';
 
 const zGameHistoryDocument = zDatabaseGame;
 type GameHistoryDocument = z.infer<typeof zGameHistoryDocument> & Document;
@@ -276,7 +277,7 @@ export class GameHistoryRepository {
                 .toArray();
 
         return zFinishedGamesPage.parse({
-            games: games.map((document) => this.mapSummary(document)),
+            games: games.map((document) => this.mapSummary(document)).filter(game => !!game),
             pagination: {
                 page,
                 pageSize,
@@ -814,8 +815,13 @@ export class GameHistoryRepository {
         return this.collectionPromise;
     }
 
-    private mapSummary(document: unknown): FinishedGameSummary {
-        const parsedDocument = zGameHistoryDocument.parse(document);
+    private mapSummary(document: unknown): FinishedGameSummary | null {
+        let parsedDocument: GameHistoryDocument;
+        try {
+            parsedDocument = zGameHistoryDocument.parse(document);
+        } catch {
+            return null
+        }
 
         return zFinishedGameSummary.parse({
             id: parsedDocument.id,
@@ -834,9 +840,13 @@ export class GameHistoryRepository {
 
     private mapRecord(document: unknown): FinishedGameRecord {
         const parsedDocument = zGameHistoryDocument.parse(document);
+        const summary = this.mapSummary(parsedDocument);
+        if (!summary) {
+            throw new Error(`Failed to parse database game`);
+        }
 
         return zFinishedGameRecord.parse({
-            ...this.mapSummary(parsedDocument),
+            ...summary,
             moves: parsedDocument.moves.map((move) => ({ ...move }))
         });
     }

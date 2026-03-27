@@ -19,6 +19,9 @@ import { useQueryAccount, useQueryAccountPreferences } from '../query/accountCli
 import { buildFinishedGamePath, buildSessionPath } from './archiveRouteState'
 import { useQueryServerShutdown } from '../query/serverClient'
 import GameOverlayFinishedPlayer from '../components/GameOverlayFinishedPlayer'
+import { useQueryAvailableSessions } from '../query/sessionClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
+import { describeLobbyInvite } from '../utils/routeMetadata'
 
 function isPlainLeftClick(event: MouseEvent<HTMLAnchorElement>) {
     return event.button === 0
@@ -159,6 +162,7 @@ function SessionRoute() {
     const shutdown = useQueryServerShutdown().data ?? null;
     const { data: account } = useQueryAccount({ enabled: true })
     const { data: accountPreferences } = useQueryAccountPreferences({ enabled: account !== null })
+    const availableSessionsQuery = useQueryAvailableSessions({ enabled: true })
 
     const blockSessionJoinRef = useRef<boolean>(false)
     const autoPlacedOpeningTileGameKeyRef = useRef<string | null>(null)
@@ -169,6 +173,9 @@ function SessionRoute() {
     const connection = useLiveGameStore(state => state.connection)
     const session = useLiveGameStore(state => state.session);
     const pendingSessionJoin = useLiveGameStore(state => state.pendingSessionJoin)
+    const metadataSession = sessionId
+        ? (availableSessionsQuery.data ?? []).find((candidateSession) => candidateSession.id === sessionId) ?? null
+        : null
 
     const autoPlaceOriginTile = accountPreferences?.preferences.autoPlaceOriginTile ?? false
     const showTilePieceMarkers = accountPreferences?.preferences.tilePieceMarkers ?? false
@@ -491,6 +498,21 @@ function SessionRoute() {
 
     return (
         <React.Fragment>
+            <PageMetadata
+                {...(metadataSession
+                    ? describeLobbyInvite(metadataSession)
+                    : !availableSessionsQuery.isLoading
+                        ? {
+                            title: `Invite Expired • ${DEFAULT_PAGE_TITLE}`,
+                            description: 'This live session is no longer active. Open the lobby to host or join another match.',
+                            robots: 'noindex, nofollow' as const
+                        }
+                        : {
+                            title: `Live Session • ${DEFAULT_PAGE_TITLE}`,
+                            description: 'Join or spectate a live Infinity Hexagonal Tic-Tac-Toe session.',
+                            robots: 'noindex, nofollow' as const
+                        })}
+            />
             {targetScreen}
             {leaveConfirmModal}
         </React.Fragment>

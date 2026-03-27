@@ -3,9 +3,7 @@ import { RouterProvider } from 'react-router'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { useEffect } from 'react'
-import { clearHydrationRenderPassFlag, useIsSsrRender } from './ssrState'
-
-export { createClientRouter, createServerRouter } from './router'
+import { clearHydrationRenderPassFlag, useRenderMode } from './ssrState'
 
 interface AppProps {
     router: Parameters<typeof RouterProvider>[0]['router']
@@ -14,13 +12,21 @@ interface AppProps {
 }
 
 function App({ router, queryClient, dehydratedState }: Readonly<AppProps>) {
-    useEffect(() => clearHydrationRenderPassFlag());
-    const isSsrRender = useIsSsrRender();
+    const renderMode = useRenderMode();
 
+    useEffect(() => clearHydrationRenderPassFlag(), []);
+
+    console.log(`Render app root as ${renderMode}`);
     return (
         <AppErrorBoundary>
+            <meta charSet="UTF-8" />
+            <link rel="icon" type="image/svg+xml" href="/favicon.png" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <meta name="theme-color" content="#111827" />
+            <meta property="og:site_name" content="Infinity Hexagonal Tic-Tac-Toe" />
+
             <QueryClientProvider client={queryClient}>
-                {!isSsrRender && <ReactQueryDevtools />}
+                {renderMode === "normal" && <ReactQueryDevtools />}
                 <HydrationBoundary state={dehydratedState}>
                     <RouterProvider router={router} />
                 </HydrationBoundary>

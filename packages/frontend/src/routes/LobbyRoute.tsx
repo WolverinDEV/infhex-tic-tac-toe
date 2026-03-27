@@ -11,12 +11,14 @@ import { hostGame } from '../query/sessionClient'
 import { useQueryAvailableSessions } from '../query/sessionClient'
 import { buildFinishedGamesPath, buildSessionPath } from './archiveRouteState'
 import { useQueryServerShutdown } from '../query/serverClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
+import { describeLobbyInvite } from '../utils/routeMetadata'
 
 function LobbyRoute() {
-    const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
-    const inviteSessionId = searchParams.get('join')
-    const connection = useLiveGameStore(state => state.connection)
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const inviteSessionId = searchParams.get('join')
+  const connection = useLiveGameStore(state => state.connection)
     const shutdown = useQueryServerShutdown().data ?? null;
     const accountQuery = useQueryAccount({ enabled: true })
     const accountPreferencesQuery = useQueryAccountPreferences({
@@ -26,6 +28,9 @@ function LobbyRoute() {
     const unreadChangelogEntries = accountQuery.data?.user && accountPreferencesQuery.data?.preferences
         ? countUnreadChangelogEntries(CHANGELOG_DAYS, accountPreferencesQuery.data.preferences.changelogReadAt)
         : 0
+  const inviteSession = inviteSessionId
+    ? (availableSessionsQuery.data ?? []).find((session) => session.id === inviteSessionId) ?? null
+    : null
 
     useEffect(() => {
         if (!inviteSessionId) {
@@ -60,21 +65,29 @@ function LobbyRoute() {
     }
 
     return (
-        <LobbyScreen
-            isConnected={connection.isConnected}
-            shutdown={shutdown}
-            account={accountQuery.data?.user ?? null}
-            isAccountLoading={accountQuery.isLoading}
-            liveSessions={availableSessionsQuery.data ?? []}
-            onHostGame={createLobby}
-            onJoinGame={joinLiveGame}
-            onOpenSandbox={() => void navigate('/sandbox')}
-            onViewFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now()))}
-            onViewLeaderboard={() => void navigate('/leaderboard')}
-            onViewChangelog={() => void navigate('/changelog')}
-            onViewOwnFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now(), 'mine'))}
-            unreadChangelogEntries={unreadChangelogEntries}
-        />
+        <>
+            <PageMetadata
+                {...(inviteSessionId ? describeLobbyInvite(inviteSession) : {
+                    title: DEFAULT_PAGE_TITLE,
+                    description: 'Play Infinity Hexagonal Tic-Tac-Toe online, host a lobby, join live matches, and review finished games move by move.'
+                })}
+            />
+            <LobbyScreen
+                isConnected={connection.isConnected}
+                shutdown={shutdown}
+                account={accountQuery.data?.user ?? null}
+                isAccountLoading={accountQuery.isLoading}
+                liveSessions={availableSessionsQuery.data ?? []}
+                onHostGame={createLobby}
+                onJoinGame={joinLiveGame}
+                onOpenSandbox={() => void navigate('/sandbox')}
+                onViewFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now()))}
+                onViewLeaderboard={() => void navigate('/leaderboard')}
+                onViewChangelog={() => void navigate('/changelog')}
+                onViewOwnFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now(), 'mine'))}
+                unreadChangelogEntries={unreadChangelogEntries}
+            />
+        </>
     )
 }
 

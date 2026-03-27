@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Leaderboard, LeaderboardPlacement, LeaderboardPlayer } from '@ih3t/shared'
 import { Link } from 'react-router'
 import { useQueryAccount } from '../query/accountClient'
-import { getInitialRenderTimestamp } from '../ssrState'
+import { useSsrCompatibleNow } from '../ssrState'
 import { formatDateTime } from '../utils/dateTime'
 import { formatRefreshCountdown } from '../utils/duration'
 import { cn } from '../utils/cn'
@@ -201,7 +201,7 @@ export function LeaderboardRefreshIndicator({
   leaderboard: Leaderboard
   isRefreshing: boolean
 }>) {
-  const [now, setNow] = useState(() => getInitialRenderTimestamp())
+  const [now, setNow] = useState(useSsrCompatibleNow())
 
   useEffect(() => {
     setNow(Date.now())

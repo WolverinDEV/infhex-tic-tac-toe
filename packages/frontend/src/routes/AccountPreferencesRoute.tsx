@@ -1,5 +1,6 @@
 import AccountPreferencesScreen from '../components/AccountPreferencesScreen'
 import { useQueryAccount, useQueryAccountPreferences } from '../query/accountClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
 
 function AccountPreferencesRoute() {
   const accountQuery = useQueryAccount({ enabled: true })
@@ -8,14 +9,21 @@ function AccountPreferencesRoute() {
   })
 
   return (
-    <AccountPreferencesScreen
-      account={accountQuery.data?.user ?? null}
-      preferences={accountPreferencesQuery.data?.preferences ?? null}
-      isLoading={accountQuery.isLoading}
-      isPreferencesLoading={Boolean(accountQuery.data?.user) && (accountPreferencesQuery.isLoading || accountPreferencesQuery.isRefetching)}
-      errorMessage={accountQuery.error instanceof Error ? accountQuery.error.message : null}
-      preferencesErrorMessage={accountPreferencesQuery.error instanceof Error ? accountPreferencesQuery.error.message : null}
-    />
+    <>
+      <PageMetadata
+        title={`Account Preferences • ${DEFAULT_PAGE_TITLE}`}
+        description="Manage your Infinity Hexagonal Tic-Tac-Toe account preferences."
+        robots="noindex, nofollow"
+      />
+      <AccountPreferencesScreen
+        account={accountQuery.data?.user ?? null}
+        preferences={accountPreferencesQuery.data?.preferences ?? null}
+        isLoading={accountQuery.isLoading}
+        isPreferencesLoading={Boolean(accountQuery.data?.user) && (accountPreferencesQuery.isLoading || accountPreferencesQuery.isRefetching)}
+        errorMessage={accountQuery.error instanceof Error ? accountQuery.error.message : null}
+        preferencesErrorMessage={accountPreferencesQuery.error instanceof Error ? accountPreferencesQuery.error.message : null}
+      />
+    </>
   )
 }
 

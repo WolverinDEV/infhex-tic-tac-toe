@@ -13,6 +13,7 @@ import { useQueryAccount } from '../query/accountClient'
 import { useQueryAdminServerSettings } from '../query/adminClient'
 import { useQueryAvailableSessions } from '../query/sessionClient'
 import { useQueryServerShutdown } from '../query/serverClient'
+import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata'
 
 function showSuccessToast(message: string) {
   toast.success(message, {
@@ -154,8 +155,54 @@ function AdminControlsRoute() {
 
   if (accountQuery.isLoading) {
     return (
+      <>
+        <PageMetadata
+          title={`Admin Controls • ${DEFAULT_PAGE_TITLE}`}
+          description="Administrative controls for Infinity Hexagonal Tic-Tac-Toe."
+          robots="noindex, nofollow"
+        />
+        <AdminControlsScreen
+          isAuthorizing
+          shutdown={shutdown}
+          maxConcurrentGames={maxConcurrentGames}
+          currentConcurrentGames={currentConcurrentGames}
+          delayMinutes={delayMinutes}
+          messageDraft={messageDraft}
+          isScheduling={isScheduling}
+          isCancelling={isCancelling}
+          isSendingMessage={isSendingMessage}
+          isLoadingServerSettings={false}
+          serverSettingsErrorMessage={null}
+          isSavingServerSettings={isSavingServerSettings}
+          activeGames={[]}
+          isLoadingActiveGames={false}
+          terminatingSessionId={terminatingSessionId}
+          onMaxConcurrentGamesChange={setMaxConcurrentGames}
+          onDelayMinutesChange={setDelayMinutes}
+          onMessageDraftChange={setMessageDraft}
+          onSaveServerSettings={() => void handleSaveServerSettings()}
+          onSchedule={() => void handleSchedule()}
+          onCancel={() => void handleCancel()}
+          onSendMessage={() => void handleSendMessage()}
+          onTerminateGame={(sessionId) => void handleTerminateGame(sessionId)}
+        />
+      </>
+    )
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />
+  }
+
+  return (
+    <>
+      <PageMetadata
+        title={`Admin Controls • ${DEFAULT_PAGE_TITLE}`}
+        description="Administrative controls for Infinity Hexagonal Tic-Tac-Toe."
+        robots="noindex, nofollow"
+      />
       <AdminControlsScreen
-        isAuthorizing
+        isAuthorizing={false}
         shutdown={shutdown}
         maxConcurrentGames={maxConcurrentGames}
         currentConcurrentGames={currentConcurrentGames}
@@ -164,11 +211,11 @@ function AdminControlsRoute() {
         isScheduling={isScheduling}
         isCancelling={isCancelling}
         isSendingMessage={isSendingMessage}
-        isLoadingServerSettings={false}
-        serverSettingsErrorMessage={null}
+        isLoadingServerSettings={adminServerSettingsQuery.isLoading}
+        serverSettingsErrorMessage={adminServerSettingsQuery.error instanceof Error ? adminServerSettingsQuery.error.message : null}
         isSavingServerSettings={isSavingServerSettings}
-        activeGames={[]}
-        isLoadingActiveGames={false}
+        activeGames={activeGames}
+        isLoadingActiveGames={availableSessionsQuery.isLoading}
         terminatingSessionId={terminatingSessionId}
         onMaxConcurrentGamesChange={setMaxConcurrentGames}
         onDelayMinutesChange={setDelayMinutes}
@@ -179,39 +226,7 @@ function AdminControlsRoute() {
         onSendMessage={() => void handleSendMessage()}
         onTerminateGame={(sessionId) => void handleTerminateGame(sessionId)}
       />
-    )
-  }
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />
-  }
-
-  return (
-    <AdminControlsScreen
-      isAuthorizing={false}
-      shutdown={shutdown}
-      maxConcurrentGames={maxConcurrentGames}
-      currentConcurrentGames={currentConcurrentGames}
-      delayMinutes={delayMinutes}
-      messageDraft={messageDraft}
-      isScheduling={isScheduling}
-      isCancelling={isCancelling}
-      isSendingMessage={isSendingMessage}
-      isLoadingServerSettings={adminServerSettingsQuery.isLoading}
-      serverSettingsErrorMessage={adminServerSettingsQuery.error instanceof Error ? adminServerSettingsQuery.error.message : null}
-      isSavingServerSettings={isSavingServerSettings}
-      activeGames={activeGames}
-      isLoadingActiveGames={availableSessionsQuery.isLoading}
-      terminatingSessionId={terminatingSessionId}
-      onMaxConcurrentGamesChange={setMaxConcurrentGames}
-      onDelayMinutesChange={setDelayMinutes}
-      onMessageDraftChange={setMessageDraft}
-      onSaveServerSettings={() => void handleSaveServerSettings()}
-      onSchedule={() => void handleSchedule()}
-      onCancel={() => void handleCancel()}
-      onSendMessage={() => void handleSendMessage()}
-      onTerminateGame={(sessionId) => void handleTerminateGame(sessionId)}
-    />
+    </>
   )
 }
 

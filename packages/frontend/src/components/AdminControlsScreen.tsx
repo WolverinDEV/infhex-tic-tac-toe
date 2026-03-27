@@ -4,7 +4,7 @@ import { formatDateTime } from '../utils/dateTime'
 import { formatCountdownDuration } from '../utils/duration'
 import { formatTimeControl } from '../utils/gameTimeControl'
 import { formatActiveSessionDuration, formatLobbyPlayers } from '../utils/lobby'
-import { getInitialRenderTimestamp } from '../ssrState'
+import { useSsrCompatibleNow } from '../ssrState'
 import PageCorpus from './PageCorpus'
 
 interface AdminControlsScreenProps {
@@ -47,7 +47,7 @@ function renderConcurrentGamesSummary(maxConcurrentGames: string, currentConcurr
 }
 
 function ShutdownSummary({ shutdown }: { shutdown: ShutdownState | null }) {
-  const [now, setNow] = useState(() => getInitialRenderTimestamp())
+  const [now, setNow] = useState(useSsrCompatibleNow())
 
   useEffect(() => {
     if (!shutdown) {
@@ -111,7 +111,7 @@ function AdminControlsScreen({
   onSendMessage,
   onTerminateGame,
 }: AdminControlsScreenProps) {
-  const [now, setNow] = useState(() => getInitialRenderTimestamp())
+  const [now, setNow] = useState(useSsrCompatibleNow())
 
   useEffect(() => {
     if (activeGames.length === 0) {

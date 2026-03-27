@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export * from "./botInterface";
 export * from "./botWorkerProtocol";
+export * from "./ssr";
 
 export const PLACE_CELL_HEX_RADIUS = 8;
 const WINNING_LINE_LENGTH = 6;
