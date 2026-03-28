@@ -93,6 +93,7 @@ export class HttpApplication {
         });
 
         if (this.frontendSsrRenderer) {
+            const frontendSsrRenderer = this.frontendSsrRenderer;
             app.use(express.static(this.frontendDistPath, { index: false }));
             app.get(/^(?!\/api(?:\/|$)|\/socket\.io(?:\/|$)).*/, async (req, res) => {
                 const joinRedirectUrl = this.resolveJoinRedirectUrl(req);
@@ -107,7 +108,7 @@ export class HttpApplication {
                     return;
                 }
 
-                const html = await this.frontendSsrRenderer.render(req);
+                const html = await frontendSsrRenderer.render(req);
                 res.type(`html`).send(html);
             });
         } else {
