@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { toast } from 'react-toastify';
 
 import { useQueryAccount } from '../query/accountClient';
-import { signInWithDiscord, signOutAccount } from '../query/authClient';
+import { signOutAccount } from '../query/authClient';
 import AccountPicture from './AccountPicture';
 import AppErrorBoundary from './AppErrorBoundary';
 
@@ -114,15 +114,6 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
         document.addEventListener(`keydown`, handleKeyDown);
         return () => document.removeEventListener(`keydown`, handleKeyDown);
     }, []);
-
-    const handleSignIn = async () => {
-        try {
-            await signInWithDiscord();
-        } catch (error) {
-            console.error(`Failed to start Discord sign in:`, error);
-            showErrorToast(error instanceof Error ? error.message : `Failed to start Discord sign in.`);
-        }
-    };
 
     const handleSignOut = async () => {
         try {
@@ -249,24 +240,13 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                                 )}
                             </div>
                         ) : (
-                            <button
-                                type="button"
-                                aria-label="Sign In With Discord"
-                                onClick={() => void handleSignIn()}
-                                className="inline-flex self-start items-center gap-2 rounded-lg bg-[#5865F2] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#6f7cff] sm:px-4 sm:text-sm lg:self-auto"
+                            <NavLink
+                                to="/login"
+                                aria-label="Sign In"
+                                className="inline-flex self-start items-center rounded-lg bg-sky-400 px-3 py-2 text-xs font-medium text-slate-950 transition hover:bg-sky-300 sm:px-4 sm:text-sm lg:self-auto"
                             >
-                                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current sm:h-4.5 sm:w-4.5">
-                                    <path d="M20.32 4.37A18.13 18.13 0 0 0 15.8 3a12.2 12.2 0 0 0-.58 1.18 16.56 16.56 0 0 0-6.43 0A12.2 12.2 0 0 0 8.21 3a18.05 18.05 0 0 0-4.53 1.37C.81 8.65.03 12.83.42 16.96A18.24 18.24 0 0 0 5.98 19.8c.45-.61.85-1.26 1.2-1.95-.66-.25-1.3-.56-1.9-.92.16-.12.31-.25.46-.38 3.67 1.69 7.65 1.69 11.27 0 .15.13.3.26.46.38-.61.36-1.25.67-1.91.92.35.69.75 1.34 1.2 1.95a18.17 18.17 0 0 0 5.57-2.84c.45-4.79-.77-8.93-3.66-12.59ZM8.68 14.46c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Zm6.64 0c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Z" />
-                                </svg>
-
-                                <span className="sm:hidden">
-                                    Sign In
-                                </span>
-
-                                <span className="hidden sm:inline">
-                                    Sign In With Discord
-                                </span>
-                            </button>
+                                Sign In
+                            </NavLink>
                         )}
                     </div>
 

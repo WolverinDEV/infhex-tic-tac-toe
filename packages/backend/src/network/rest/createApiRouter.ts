@@ -1,4 +1,6 @@
 import {
+    type AccountBotResponse,
+    type AccountBotsResponse,
     type AccountPreferencesResponse,
     type AccountResponse,
     type AdminBroadcastMessageResponse,
@@ -7,19 +9,25 @@ import {
     type AdminStatsResponse,
     type AdminTerminateSessionResponse,
     type CreateSandboxPositionResponse,
+    type CreateAccountBotRequest,
     type CreateSessionResponse,
     DEFAULT_LOBBY_OPTIONS,
     type LobbyOptions,
+    zRegisterCredentialsRequest,
     type ServerSettings,
+    type UpdateAccountBotRequest,
     zAdminBroadcastMessageRequest,
     zAdminScheduleShutdownRequest,
     zAdminUpdateServerSettingsRequest,
+    zCreateAccountBotRequest,
     zCreateSandboxPositionRequest,
     zLobbyVisibility,
     zSandboxPositionId,
+    zUpdateAccountBotRequest,
     zUpdateAccountPreferencesRequest,
     zUpdateAccountProfileRequest,
 } from '@ih3t/shared';
+import { hash } from 'bcryptjs';
 import express from 'express';
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
@@ -27,7 +35,8 @@ import { z } from 'zod';
 import { AdminStatsService } from '../../admin/adminStatsService';
 import { ServerSettingsService } from '../../admin/serverSettingsService';
 import { ServerShutdownService } from '../../admin/serverShutdownService';
-import { type AccountUserProfile, AuthRepository } from '../../auth/authRepository';
+import { type AccountUserProfile, AuthRepository, AuthRepositoryError } from '../../auth/authRepository';
+import { AccountBotError, AccountBotService } from '../../bots/accountBotService';
 import { AuthService } from '../../auth/authService';
 import { SandboxPositionService } from '../../sandbox/sandboxPositionService';
 import { SessionError, SessionManager } from '../../session/sessionManager';
@@ -79,6 +88,9 @@ const zCreateSessionRequestInput = z.object({
         timeControl: zGameTimeControlInput.optional(),
         rated: z.coerce.boolean().optional(),
     }).optional(),
+    botPlayerIds: z.array(z.string().trim().min(1))
+        .max(2)
+        .optional(),
 });
 
 @injectable()
@@ -89,6 +101,7 @@ export class ApiRouter {
         @inject(ApiQueryService) private readonly apiQueryService: ApiQueryService,
         @inject(AuthService) private readonly authService: AuthService,
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
+        @inject(AccountBotService) private readonly accountBotService: AccountBotService,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
         @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(AdminStatsService) private readonly adminStatsService: AdminStatsService,
@@ -97,6 +110,28 @@ export class ApiRouter {
         @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService,
     ) {
         const router = express.Router();
+
+        router.post(`/auth/register`, express.json(), async (req, res) => {
+            try {
+                const registration = zRegisterCredentialsRequest.parse(req.body ?? {});
+                const passwordHash = await hash(registration.password, 12);
+                const user = await this.authRepository.createCredentialsUser(registration, passwordHash);
+                const response: AccountResponse = { user };
+                res.status(201).json(response);
+            } catch (error: unknown) {
+                if (error instanceof AuthRepositoryError) {
+                    res.status(409).json({ error: error.message });
+                    return;
+                }
+
+                if (error instanceof z.ZodError) {
+                    res.status(400).json({ error: error.issues[0]?.message ?? `Invalid registration request.` });
+                    return;
+                }
+
+                throw error;
+            }
+        });
 
         router.get(`/account`, async (req, res) => {
             res.json(await this.apiQueryService.getAccount(req));
@@ -115,10 +150,23 @@ export class ApiRouter {
             }
         });
 
+        router.get(`/account/bots`, async (req, res) => {
+            try {
+                res.json(await this.apiQueryService.getAccountBots(req));
+            } catch (error: unknown) {
+                if (error instanceof ApiRequestError) {
+                    res.status(error.statusCode).json({ error: error.message });
+                    return;
+                }
+
+                throw error;
+            }
+        });
+
         router.patch(`/account`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to update your account.` });
+                res.status(401).json({ error: `Sign in to update your account.` });
                 return;
             }
 
@@ -135,6 +183,11 @@ export class ApiRouter {
                 };
                 res.json(response);
             } catch (error: unknown) {
+                if (error instanceof AuthRepositoryError) {
+                    res.status(409).json({ error: error.message });
+                    return;
+                }
+
                 if (error instanceof SessionError) {
                     res.status(400).json({ error: error.message });
                     return;
@@ -147,7 +200,7 @@ export class ApiRouter {
         router.patch(`/account/preferences`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to update your account preferences.` });
+                res.status(401).json({ error: `Sign in to update your account preferences.` });
                 return;
             }
 
@@ -160,6 +213,74 @@ export class ApiRouter {
 
             const response: AccountPreferencesResponse = {
                 preferences: updatedPreferences,
+            };
+            res.json(response);
+        });
+
+        router.post(`/account/bots`, express.json(), async (req, res) => {
+            const user = await this.authService.getUserFromRequest(req);
+            if (!user) {
+                res.status(401).json({ error: `Sign in to create bots.` });
+                return;
+            }
+
+            try {
+                const request = this.parseCreateAccountBotRequest(req.body);
+                const bot = await this.accountBotService.createBot(user.id, request);
+                const response: AccountBotResponse = { bot };
+                res.json(response);
+            } catch (error: unknown) {
+                if (error instanceof AccountBotError) {
+                    res.status(400).json({ error: error.message });
+                    return;
+                }
+
+                throw error;
+            }
+        });
+
+        router.put(`/account/bots/:botId`, express.json(), async (req, res) => {
+            const user = await this.authService.getUserFromRequest(req);
+            if (!user) {
+                res.status(401).json({ error: `Sign in to update bots.` });
+                return;
+            }
+
+            try {
+                const request = this.parseUpdateAccountBotRequest(req.body);
+                const bot = await this.accountBotService.updateBot(user.id, String(req.params.botId ?? ``).trim(), request);
+                if (!bot) {
+                    res.status(404).json({ error: `Bot not found.` });
+                    return;
+                }
+
+                const response: AccountBotResponse = { bot };
+                res.json(response);
+            } catch (error: unknown) {
+                if (error instanceof AccountBotError) {
+                    res.status(400).json({ error: error.message });
+                    return;
+                }
+
+                throw error;
+            }
+        });
+
+        router.delete(`/account/bots/:botId`, async (req, res) => {
+            const user = await this.authService.getUserFromRequest(req);
+            if (!user) {
+                res.status(401).json({ error: `Sign in to delete bots.` });
+                return;
+            }
+
+            const deleted = await this.accountBotService.deleteBot(user.id, String(req.params.botId ?? ``).trim());
+            if (!deleted) {
+                res.status(404).json({ error: `Bot not found.` });
+                return;
+            }
+
+            const response: AccountBotsResponse = {
+                bots: await this.accountBotService.listBots(user.id),
             };
             res.json(response);
         });
@@ -244,7 +365,7 @@ export class ApiRouter {
         router.post(`/sandbox-positions`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to share sandbox positions.` });
+                res.status(401).json({ error: `Sign in to share sandbox positions.` });
                 return;
             }
 
@@ -369,24 +490,34 @@ export class ApiRouter {
 
         router.post(`/sessions`, express.json(), async (req, res) => {
             try {
-                const lobbyOptions = this.parseLobbyOptions(req.body);
-                const currentUser = lobbyOptions.rated
+                const createSessionRequest = this.parseCreateSessionRequest(req.body);
+                const currentUser = (createSessionRequest.lobbyOptions.rated || createSessionRequest.botPlayerIds.length > 0)
                     ? await this.authService.getUserFromRequest(req)
                     : null;
 
-                if (lobbyOptions.rated && !currentUser) {
-                    res.status(401).json({ error: `Sign in with Discord to create rated lobbies.` });
+                if (createSessionRequest.lobbyOptions.rated && !currentUser) {
+                    res.status(401).json({ error: `Sign in to create rated lobbies.` });
                     return;
                 }
 
+                if (createSessionRequest.botPlayerIds.length > 0 && !currentUser) {
+                    res.status(401).json({ error: `Sign in to seat your bots in a lobby.` });
+                    return;
+                }
+
+                const bots = currentUser
+                    ? await this.accountBotService.requireOwnedBots(currentUser.id, createSessionRequest.botPlayerIds)
+                    : [];
+
                 const response: CreateSessionResponse = this.sessionManager.createSession({
                     client: getRequestClientInfo(req),
-                    lobbyOptions,
+                    lobbyOptions: createSessionRequest.lobbyOptions,
+                    bots,
                 });
 
                 res.json(response);
             } catch (error: unknown) {
-                if (error instanceof SessionError) {
+                if (error instanceof SessionError || error instanceof AccountBotError) {
                     res.status(409).json({ error: error.message });
                     return;
                 }
@@ -398,7 +529,10 @@ export class ApiRouter {
         this.router = router;
     }
 
-    private parseLobbyOptions(body: unknown): LobbyOptions {
+    private parseCreateSessionRequest(body: unknown): {
+        lobbyOptions: LobbyOptions;
+        botPlayerIds: string[];
+    } {
         const request = zCreateSessionRequestInput.parse(body ?? {});
 
         const visibility = request.lobbyOptions?.visibility;
@@ -406,9 +540,12 @@ export class ApiRouter {
         const rated = request.lobbyOptions?.rated ?? DEFAULT_LOBBY_OPTIONS.rated;
 
         return {
-            visibility: visibility ?? DEFAULT_LOBBY_OPTIONS.visibility,
-            timeControl,
-            rated,
+            lobbyOptions: {
+                visibility: visibility ?? DEFAULT_LOBBY_OPTIONS.visibility,
+                timeControl,
+                rated,
+            },
+            botPlayerIds: request.botPlayerIds ?? [],
         };
     }
 
@@ -418,6 +555,14 @@ export class ApiRouter {
 
     private parseAccountPreferencesUpdate(body: unknown): AccountPreferencesResponse[`preferences`] {
         return zUpdateAccountPreferencesRequest.parse(body ?? {}).preferences;
+    }
+
+    private parseCreateAccountBotRequest(body: unknown): CreateAccountBotRequest {
+        return zCreateAccountBotRequest.parse(body ?? {});
+    }
+
+    private parseUpdateAccountBotRequest(body: unknown): UpdateAccountBotRequest {
+        return zUpdateAccountBotRequest.parse(body ?? {});
     }
 
     private parseAdminServerSettingsUpdate(body: unknown): ServerSettings {

@@ -11,6 +11,7 @@ import { ShutdownTimer } from './ShutdownTimer';
 export type HudPlayerInfo = {
     playerId: string,
     profileId: string | null,
+    isBot: boolean,
 
     displayColor: string,
     displayName: string,
@@ -200,7 +201,7 @@ function GameScreenHud({
                     </HudInfoBlock>
 
                     <HudInfoBlock label="Players">
-                        {players.map(({ playerId, profileId, displayColor, displayName, isConnected, rankingEloScore }) => {
+                        {players.map(({ playerId, profileId, isBot, displayColor, displayName, isConnected, rankingEloScore }) => {
                             let formattedName;
                             if (gameOptions.rated && !hideEloInHud) {
                                 formattedName = `${displayName} (${rankingEloScore})`;
@@ -242,6 +243,12 @@ function GameScreenHud({
                                     {playerId === localPlayerId && (
                                         <span className="rounded-md border border-white/10 bg-white/6 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                                             You
+                                        </span>
+                                    )}
+
+                                    {isBot && (
+                                        <span className="rounded-md border border-sky-300/20 bg-sky-300/10 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-100">
+                                            Bot
                                         </span>
                                     )}
                                 </div>

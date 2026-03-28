@@ -1,4 +1,4 @@
-import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyVisibility } from '@ih3t/shared';
+import type { AccountBot, AccountProfile, CreateSessionRequest, GameTimeControl, LobbyVisibility } from '@ih3t/shared';
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatGameTimeSeconds } from '../utils/gameTimeControl';
@@ -7,6 +7,7 @@ type CreateLobbyDialogProps = {
     isOpen: boolean
     onClose: () => void
     account: AccountProfile | null
+    accountBots: AccountBot[]
     onCreateLobby: (request: CreateSessionRequest) => void
 };
 
@@ -93,6 +94,7 @@ function CreateLobbyDialog({
     isOpen,
     onClose,
     account,
+    accountBots,
     onCreateLobby,
 }: Readonly<CreateLobbyDialogProps>) {
     const canCreateRatedLobby = Boolean(account);
@@ -102,10 +104,21 @@ function CreateLobbyDialog({
     const [turnTimeStepIndex, setTurnTimeStepIndex] = useState(TURN_TIME_STEP_SECONDS.indexOf(TURN_TIME_DEFAULT));
     const [matchTimeStepIndex, setMatchTimeStepIndex] = useState(MATCH_TIME_STEP_MINUTES.indexOf(MATCH_TIME_DEFAULT));
     const [incrementStepIndex, setIncrementStepIndex] = useState(INCREMENT_STEP_SECONDS.indexOf(INCREMENT_DEFAULT));
+    const [selectedBotIds, setSelectedBotIds] = useState<string[]>([]);
 
     useEffect(() => {
         setRated(canCreateRatedLobby);
     }, [canCreateRatedLobby]);
+
+    useEffect(() => {
+        if (selectedBotIds.length > 0) {
+            setRated(false);
+        }
+    }, [selectedBotIds.length]);
+
+    useEffect(() => {
+        setSelectedBotIds((currentBotIds) => currentBotIds.filter((botId) => accountBots.some((bot) => bot.id === botId)));
+    }, [accountBots]);
 
     const turnTimeSeconds = TURN_TIME_STEP_SECONDS[turnTimeStepIndex];
     const matchTimeMinutes = MATCH_TIME_STEP_MINUTES[matchTimeStepIndex];
@@ -145,6 +158,21 @@ function CreateLobbyDialog({
                 timeControl: selectedTimeControl,
                 rated,
             },
+            botPlayerIds: selectedBotIds,
+        });
+    };
+
+    const toggleBot = (botId: string) => {
+        setSelectedBotIds((currentBotIds) => {
+            if (currentBotIds.includes(botId)) {
+                return currentBotIds.filter((currentBotId) => currentBotId !== botId);
+            }
+
+            if (currentBotIds.length >= 2) {
+                return currentBotIds;
+            }
+
+            return [...currentBotIds, botId];
         });
     };
 
@@ -197,12 +225,12 @@ function CreateLobbyDialog({
 
                                     <SelectableOptions
                                         onClick={() => {
-                                            if (canCreateRatedLobby) {
+                                            if (canCreateRatedLobby && selectedBotIds.length === 0) {
                                                 setRated(true);
                                             }
                                         }}
                                         selected={rated}
-                                        disabled={!canCreateRatedLobby}
+                                        disabled={!canCreateRatedLobby || selectedBotIds.length > 0}
                                         title="Rated"
                                         description="Rated game with ELO"
                                     />
@@ -211,6 +239,12 @@ function CreateLobbyDialog({
                                 {!canCreateRatedLobby && (
                                     <div className="mt-2.5 rounded-[0.9rem] border border-amber-300/20 bg-amber-300/10 px-3 py-2.5 text-xs leading-5 text-amber-50/85">
                                         Rated lobbies are for authenticated players only.
+                                    </div>
+                                )}
+
+                                {selectedBotIds.length > 0 && (
+                                    <div className="mt-2.5 rounded-[0.9rem] border border-sky-300/20 bg-sky-300/10 px-3 py-2.5 text-xs leading-5 text-sky-50/85">
+                                        Bot-seated lobbies are always casual.
                                     </div>
                                 )}
                             </section>
@@ -380,6 +414,51 @@ function CreateLobbyDialog({
                                         </div>
                                     </fieldset>
                                 </div>
+                            </section>
+
+                            <section className="p-0">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                            Bot Seats
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
+                                        {selectedBotIds.length}
+                                        /2 selected
+                                    </div>
+                                </div>
+
+                                {!account ? (
+                                    <div className="mt-2.5 rounded-[0.9rem] border border-white/10 bg-white/6 px-3 py-2.5 text-xs leading-5 text-slate-300">
+                                        Sign in with Discord to seat bots in a lobby.
+                                    </div>
+                                ) : accountBots.length === 0 ? (
+                                    <div className="mt-2.5 rounded-[0.9rem] border border-white/10 bg-white/6 px-3 py-2.5 text-xs leading-5 text-slate-300">
+                                        No bots saved yet. Add bots from your account preferences page, then come back here to seat them.
+                                    </div>
+                                ) : (
+                                    <div className="mt-2.5 grid gap-2">
+                                        {accountBots.map((bot) => {
+                                            const selected = selectedBotIds.includes(bot.id);
+                                            const disabled = !selected && selectedBotIds.length >= 2;
+
+                                            return (
+                                                <SelectableOptions
+                                                    key={bot.id}
+                                                    onClick={() => toggleBot(bot.id)}
+                                                    selected={selected}
+                                                    disabled={disabled}
+                                                    title={bot.name}
+                                                    description={bot.capabilities.meta.name
+                                                        ? `${bot.capabilities.meta.name} • ${bot.endpoint}`
+                                                        : bot.endpoint}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </section>
                         </div>
 

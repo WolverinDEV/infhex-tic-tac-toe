@@ -19,7 +19,7 @@ import { ApiRouter } from './rest/createApiRouter';
 export class HttpApplication {
     readonly app: express.Application;
     private readonly frontendDistPath: string;
-    private readonly frontendSsrRenderer: FrontendSsrRenderer;
+    private readonly frontendSsrRenderer: FrontendSsrRenderer | null;
 
     constructor(
         @inject(ROOT_LOGGER) rootLogger: Logger,
@@ -33,10 +33,12 @@ export class HttpApplication {
         const logger = rootLogger.child({ component: `http-application` });
         const corsOptions = corsConfiguration.options;
         this.frontendDistPath = `${serverConfig.frontendDistPath}/client`;
-        this.frontendSsrRenderer = new FrontendSsrRenderer({
-            apiQueryService,
-            ssrDistPath: serverConfig.frontendDistPath,
-        });
+        this.frontendSsrRenderer = existsSync(this.frontendDistPath)
+            ? new FrontendSsrRenderer({
+                apiQueryService,
+                ssrDistPath: serverConfig.frontendDistPath,
+            })
+            : null;
 
         app.set(`trust proxy`, true);
 
@@ -90,7 +92,8 @@ export class HttpApplication {
             });
         });
 
-        if (existsSync(this.frontendDistPath)) {
+        if (this.frontendSsrRenderer) {
+            const frontendSsrRenderer = this.frontendSsrRenderer;
             app.use(express.static(this.frontendDistPath, { index: false }));
             app.get(/^(?!\/api(?:\/|$)|\/socket\.io(?:\/|$)).*/, async (req, res) => {
                 const joinRedirectUrl = this.resolveJoinRedirectUrl(req);
@@ -105,9 +108,14 @@ export class HttpApplication {
                     return;
                 }
 
-                const html = await this.frontendSsrRenderer.render(req);
+                const html = await frontendSsrRenderer.render(req);
                 res.type(`html`).send(html);
             });
+        } else {
+            logger.warn({
+                event: `frontend.dist.missing`,
+                frontendDistPath: this.frontendDistPath,
+            }, `Frontend dist is missing; SSR routes are disabled until the frontend is built`);
         }
 
         this.app = app;

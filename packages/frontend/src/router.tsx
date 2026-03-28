@@ -7,6 +7,7 @@ import RouteErrorScreen from './components/RouteErrorScreen';
 import AccountPreferencesRoute from './routes/AccountPreferencesRoute';
 import AdminControlsRoute from './routes/AdminControlsRoute';
 import AdminRoute from './routes/AdminRoute';
+import AuthRoute from './routes/AuthRoute';
 import ChangelogRoute from './routes/ChangelogRoute';
 import FinishedGameRoute from './routes/FinishedGameRoute';
 import FinishedGamesRoute from './routes/FinishedGamesRoute';
@@ -48,6 +49,7 @@ export function createAppRoutes() {
                     <Route path="/" element={<LobbyRoute />} />
                     <Route path="/games" element={<FinishedGamesRoute />} />
                     <Route path="/games/:gameId" element={<FinishedGameRoute />} />
+                    <Route path="/login" element={<AuthRoute />} />
                     <Route path="/changelog" element={<ChangelogRoute />} />
                     <Route path="/rules" element={<RulesRoute />} />
                     <Route path="/account/profile" element={<ProfileRoute />} />

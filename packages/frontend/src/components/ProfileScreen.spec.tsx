@@ -172,55 +172,8 @@ async function setRenderTimestamp(page: { addInitScript: (callback: (value: numb
   }, renderTimestamp)
 }
 
-test('starts the Discord sign-in flow for private account access', async ({ mount, page }) => {
+test('links private account access to the login screen', async ({ mount, page }) => {
   await setRenderTimestamp(page)
-
-  await page.route('**/auth/csrf', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        csrfToken: 'csrf-token-123',
-      }),
-    })
-  })
-
-  await page.evaluate(() => {
-    const originalSubmit = HTMLFormElement.prototype.submit
-
-      ; (window as typeof window & {
-        __profileSignInSubmission: {
-          action: string
-          method: string
-          values: Record<string, string>
-        } | null
-        __restoreProfileFormSubmit?: () => void
-      }).__profileSignInSubmission = null
-
-    HTMLFormElement.prototype.submit = function submit() {
-      ; (window as typeof window & {
-        __profileSignInSubmission: {
-          action: string
-          method: string
-          values: Record<string, string>
-        } | null
-      }).__profileSignInSubmission = {
-        action: this.action,
-        method: this.method,
-        values: Object.fromEntries(
-          Array.from(this.elements)
-            .filter((element): element is HTMLInputElement => element instanceof HTMLInputElement)
-            .map((input) => [input.name, input.value])
-        ),
-      }
-    }
-
-      ; (window as typeof window & {
-        __restoreProfileFormSubmit?: () => void
-      }).__restoreProfileFormSubmit = () => {
-        HTMLFormElement.prototype.submit = originalSubmit
-      }
-  })
 
   const component = await mount(
     <ProfileScreen
@@ -239,40 +192,7 @@ test('starts the Discord sign-in flow for private account access', async ({ moun
   )
 
   await expect(component.getByRole('heading', { name: 'Sign In Required' })).toBeVisible()
-  await component.getByRole('button', { name: 'Sign In With Discord' }).click()
-
-  await expect.poll(async () => {
-    return await page.evaluate(() => {
-      return (window as typeof window & {
-        __profileSignInSubmission: {
-          action: string
-          method: string
-          values: Record<string, string>
-        } | null
-      }).__profileSignInSubmission
-    })
-  }).not.toBeNull()
-
-  const submission = await page.evaluate(() => {
-    return (window as typeof window & {
-      __profileSignInSubmission: {
-        action: string
-        method: string
-        values: Record<string, string>
-      } | null
-    }).__profileSignInSubmission
-  })
-
-  expect(submission?.action).toMatch(/\/auth\/signin\/discord$/)
-  expect(submission?.method).toBe('post')
-  expect(submission?.values.csrfToken).toBe('csrf-token-123')
-  expect(submission?.values.callbackUrl).toBe(page.url())
-
-  await page.evaluate(() => {
-    ; (window as typeof window & {
-      __restoreProfileFormSubmit?: () => void
-    }).__restoreProfileFormSubmit?.()
-  })
+  await expect(component.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/login')
 })
 
 test('matches the full profile statistics screen', async ({ mount, page }) => {

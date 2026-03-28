@@ -124,7 +124,7 @@ function FinishedGamesScreen({
                         </div>
 
                         <div className="mt-2 leading-6 text-amber-50/85">
-                            Sign in with Discord to unlock your own match history.
+                            Sign in to unlock your own match history.
                         </div>
                     </div>
                 )}

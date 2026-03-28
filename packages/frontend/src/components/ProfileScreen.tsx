@@ -2,7 +2,6 @@ import type { AccountEloHistory, AccountStatistics, FinishedGamesPage, FinishedG
 import { type ReactNode, useMemo } from 'react';
 import React from 'react';
 import { Link } from 'react-router';
-import { toast } from 'react-toastify';
 import {
     CartesianGrid,
     Line,
@@ -13,7 +12,6 @@ import {
     YAxis,
 } from 'recharts';
 
-import { signInWithDiscord } from '../query/authClient';
 import { buildFinishedGamePath, buildSessionPath } from '../routes/archiveRouteState';
 import { useSsrCompatibleNow } from '../ssrState';
 import {
@@ -37,12 +35,6 @@ import AccountPicture from './AccountPicture';
 import PageCorpus from './PageCorpus';
 
 const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-function showErrorToast(message: string) {
-    toast.error(message, {
-        toastId: `error:${message}`,
-    });
-}
 
 type ProfileScreenProps = {
     account: PublicAccountProfile | null
@@ -585,15 +577,6 @@ function ProfileScreen({
     const intlFormatProvider = useIntlFormatProvider();
     const now = useSsrCompatibleNow();
 
-    const handleSignIn = async () => {
-        try {
-            await signInWithDiscord();
-        } catch (error) {
-            console.error(`Failed to start Discord sign in:`, error);
-            showErrorToast(error instanceof Error ? error.message : `Failed to start Discord sign in.`);
-        }
-    };
-
     const isMissingPublicProfile = isPublicView && errorMessage === `Profile not found.`;
     const memberSinceLabel = account ? formatCalendarDate(intlFormatProvider, account.registeredAt) : null;
     const lastSeenLabel = account ? formatRelativeTimeFrom(intlFormatProvider, account.lastActiveAt, now) : null;
@@ -660,15 +643,15 @@ function ProfileScreen({
                                 </h2>
 
                                 <p className="mt-4 text-sm leading-6 text-amber-50/85 sm:text-base">
-                                    Sign in with Discord to view your account details and competitive standing.
+                                    Sign in to view your account details and competitive standing.
                                 </p>
 
-                                <button
-                                    onClick={() => void handleSignIn()}
-                                    className="mt-6 rounded-full bg-[#5865F2] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-[#6f7cff]"
+                                <Link
+                                    to="/login"
+                                    className="mt-6 inline-flex rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200"
                                 >
-                                    Sign In With Discord
-                                </button>
+                                    Sign In
+                                </Link>
                             </section>
                         </div>
                     )
@@ -689,7 +672,7 @@ function ProfileScreen({
                                                 </span>
 
                                                 <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-200">
-                                                    Discord Account
+                                                    Account
                                                 </span>
                                             </div>
 

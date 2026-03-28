@@ -67,6 +67,7 @@ function GameScreen({
         return players.map<HudPlayerInfo>(player => ({
             playerId: player.id,
             profileId: player.profileId,
+            isBot: player.isBot ?? false,
 
             displayName: player.displayName,
             displayColor: getPlayerTileColor(gameState.playerTiles, player.id),
