@@ -1,4 +1,5 @@
 import type {
+    AccountBotsResponse,
     AccountPreferencesResponse,
     AccountResponse,
     FinishedGameRecord,
@@ -16,6 +17,7 @@ import type express from 'express';
 import { inject, injectable } from 'tsyringe';
 
 import { type AccountUserProfile, AuthRepository } from '../../auth/authRepository';
+import { AccountBotService } from '../../bots/accountBotService';
 import { AuthService } from '../../auth/authService';
 import { EloRepository } from '../../elo/eloRepository';
 import { LeaderboardService } from '../../leaderboard/leaderboardService';
@@ -45,6 +47,7 @@ export class ApiQueryService {
     constructor(
         @inject(AuthService) private readonly authService: AuthService,
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
+        @inject(AccountBotService) private readonly accountBotService: AccountBotService,
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(LeaderboardService) private readonly leaderboardService: LeaderboardService,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
@@ -70,6 +73,17 @@ export class ApiQueryService {
         }
 
         return { preferences };
+    }
+
+    async getAccountBots(req: express.Request): Promise<AccountBotsResponse> {
+        const user = await this.authService.getUserFromRequest(req);
+        if (!user) {
+            throw new ApiRequestError(401, `Sign in with Discord to manage your bots.`);
+        }
+
+        return {
+            bots: await this.accountBotService.listBots(user.id),
+        };
     }
 
     async getProfile(profileId: string): Promise<ProfileResponse | null> {

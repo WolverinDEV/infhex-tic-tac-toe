@@ -30,6 +30,7 @@ test('submits casual match defaults for guests', async ({ mount }) => {
         closeCount += 1
       }}
       account={null}
+      accountBots={[]}
       onCreateLobby={(request) => {
         createRequest = request
       }}
@@ -51,6 +52,7 @@ test('submits casual match defaults for guests', async ({ mount }) => {
       },
       rated: false,
     },
+    botPlayerIds: [],
   })
 
   await component.getByRole('button', { name: /^Cancel$/i }).click()
@@ -65,6 +67,7 @@ test('submits a rated private turn-based lobby for authenticated players', async
       isOpen
       onClose={() => { }}
       account={authenticatedAccount}
+      accountBots={[]}
       onCreateLobby={(request) => {
         createRequest = request
       }}
@@ -91,6 +94,7 @@ test('submits a rated private turn-based lobby for authenticated players', async
       },
       rated: true,
     },
+    botPlayerIds: [],
   })
 })
 
@@ -100,6 +104,7 @@ test('matches the authenticated lobby dialog screenshot', async ({ mount }) => {
       isOpen
       onClose={() => { }}
       account={authenticatedAccount}
+      accountBots={[]}
       onCreateLobby={() => { }}
     />
   )

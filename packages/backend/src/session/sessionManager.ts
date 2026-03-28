@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 
 import type {
+    AccountBot,
     BoardCell,
     CreateSessionResponse,
     GameState,
@@ -21,6 +22,7 @@ import { inject, injectable } from 'tsyringe';
 
 import { ServerSettingsService } from '../admin/serverSettingsService';
 import { ServerShutdownService, type ShutdownHook } from '../admin/serverShutdownService';
+import { AccountBotService } from '../bots/accountBotService';
 import { EloHandler } from '../elo/eloHandler';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
@@ -88,6 +90,7 @@ export class SessionManager {
     private eventHandlers: SessionManagerEventHandlers = {};
     private readonly logger: Logger;
     private readonly sessions = new Map<string, ServerGameSession>();
+    private readonly activeBotTurns = new Set<string>();
     private readonly shutdownHook: ShutdownHook;
 
     constructor(
@@ -96,6 +99,7 @@ export class SessionManager {
         @inject(GameSimulation) private readonly simulation: GameSimulation,
         @inject(GameTimeControlManager) private readonly timeControl: GameTimeControlManager,
         @inject(EloHandler) private readonly eloHandler: EloHandler,
+        @inject(AccountBotService) private readonly accountBotService: AccountBotService,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
@@ -183,8 +187,17 @@ export class SessionManager {
     createSession(params: CreateSessionParams): CreateSessionResponse {
         this.assertNewGameCreationAllowed(`lobby`);
 
+        if (params.lobbyOptions.rated && params.bots && params.bots.length > 0) {
+            throw new SessionError(`Bots can only be used in casual games.`);
+        }
+
         const sessionId = this.createSessionId();
         const session = createGameSession(sessionId, params.lobbyOptions);
+
+        if (params.bots?.length) {
+            session.players = params.bots.map((bot) => this.createBotParticipant(session, bot));
+            session.hadPlayers = session.players.length > 0;
+        }
 
         this.sessions.set(session.id, session);
 
@@ -208,6 +221,11 @@ export class SessionManager {
             createdAt: new Date(session.createdAt).toISOString(),
             client: params.client,
         });
+
+        if (session.players.length > 0) {
+            this.emitLobbyUpdated(session);
+            void this.tickSession(session);
+        }
 
         return { sessionId };
     }
@@ -266,6 +284,9 @@ export class SessionManager {
                     deviceId: params.deviceId,
                     profileId: params.profile?.id ?? null,
                     displayName,
+                    isBot: false,
+                    botId: null,
+                    botOwnerProfileId: null,
 
                     rating: playerRating,
                     ratingAdjustment: null,
@@ -286,6 +307,9 @@ export class SessionManager {
                     deviceId: params.deviceId,
                     profileId: params.profile?.id ?? null,
                     displayName: params.displayName,
+                    isBot: false,
+                    botId: null,
+                    botOwnerProfileId: null,
 
                     rating: playerRating,
                     ratingAdjustment: null,
@@ -352,6 +376,7 @@ export class SessionManager {
 
     async placeCell(session: ServerGameSession, playerId: string, x: number, y: number) {
         await session.lock.runExclusive(async () => await this.placeCellLocked(session, playerId, x, y));
+        this.triggerBotTurnIfNeeded(session.id);
     }
 
     private async placeCellLocked(session: ServerGameSession, playerId: string, x: number, y: number) {
@@ -457,6 +482,11 @@ export class SessionManager {
             if (!session.rematchAcceptedPlayerIds.includes(participantId)) {
                 session.rematchAcceptedPlayerIds = [...session.rematchAcceptedPlayerIds, participantId];
             }
+            for (const botPlayer of session.players.filter((player) => player.isBot)) {
+                if (!session.rematchAcceptedPlayerIds.includes(botPlayer.id)) {
+                    session.rematchAcceptedPlayerIds = [...session.rematchAcceptedPlayerIds, botPlayer.id];
+                }
+            }
             this.emitSessionUpdated(session, [`state`]);
 
             return {
@@ -500,7 +530,9 @@ export class SessionManager {
                         id: newParticipantId,
                         deviceId: player.deviceId,
 
-                        connection: { status: `disconnected`, timestamp: Date.now() },
+                        connection: player.isBot
+                            ? ({ status: `connected`, socketId: this.getBotSocketId(player.botId ?? newParticipantId) } satisfies ServerParticipantConnection)
+                            : ({ status: `disconnected`, timestamp: Date.now() } satisfies ServerParticipantConnection),
                         displayName: player.displayName,
 
                         rating: player.ratingAdjusted ?? player.rating,
@@ -508,6 +540,9 @@ export class SessionManager {
                         ratingAdjusted: null,
 
                         profileId: player.profileId,
+                        isBot: player.isBot,
+                        botId: player.botId,
+                        botOwnerProfileId: player.botOwnerProfileId,
                     };
                 });
                 rematchSession.players.reverse();
@@ -528,6 +563,9 @@ export class SessionManager {
                         ratingAdjusted: null,
 
                         profileId: player.profileId,
+                        isBot: player.isBot,
+                        botId: player.botId,
+                        botOwnerProfileId: player.botOwnerProfileId,
                     };
                 });
 
@@ -638,6 +676,7 @@ export class SessionManager {
 
     private async tickSession(session: ServerGameSession) {
         await session.lock.runExclusive(async () => this.tickSessionLocked(session));
+        this.triggerBotTurnIfNeeded(session.id);
     }
 
     private deleteSession(session: ServerGameSession, reason: string) {
@@ -655,6 +694,7 @@ export class SessionManager {
         );
 
         this.timeControl.clearSession(session.id);
+        this.activeBotTurns.delete(session.id);
         this.sessions.delete(session.id);
         this.eventHandlers.lobbyRemoved?.({ id: session.id });
         this.shutdownHook.tryShutdown();
@@ -815,6 +855,7 @@ export class SessionManager {
         });
 
         this.timeControl.clearSession(session.id);
+        this.activeBotTurns.delete(session.id);
 
         /* finished sessions are removed from the list */
         this.eventHandlers.lobbyRemoved?.({ id: session.id });
@@ -1206,6 +1247,220 @@ export class SessionManager {
         return participantId;
     }
 
+    private createBotParticipant(session: ServerGameSession, bot: AccountBot): ServerSessionParticipant {
+        return {
+            id: this.createParticipantId(session),
+            deviceId: `bot:${bot.id}`,
+            profileId: null,
+            displayName: bot.name,
+            isBot: true,
+            botId: bot.id,
+            botOwnerProfileId: bot.ownerProfileId,
+            rating: {
+                eloScore: 0,
+                gameCount: 0,
+            },
+            ratingAdjustment: null,
+            ratingAdjusted: null,
+            connection: {
+                status: `connected`,
+                socketId: this.getBotSocketId(bot.id),
+            },
+        };
+    }
+
+    private getBotSocketId(botId: string): string {
+        return `bot:${botId}`;
+    }
+
+    private triggerBotTurnIfNeeded(sessionId: string): void {
+        const session = this.sessions.get(sessionId);
+        if (!session || session.state !== `in-game` || this.activeBotTurns.has(sessionId)) {
+            return;
+        }
+
+        const currentPlayer = session.players.find((player) => player.id === session.gameState.currentTurnPlayerId);
+        if (!currentPlayer?.isBot) {
+            return;
+        }
+
+        this.activeBotTurns.add(sessionId);
+        void this.runBotTurnLoop(sessionId)
+            .catch((error: unknown) => {
+                this.logger.error({ err: error, sessionId, event: `bot-turn.failed` }, `Bot turn loop failed`);
+            })
+            .finally(() => {
+                this.activeBotTurns.delete(sessionId);
+
+                const activeSession = this.sessions.get(sessionId);
+                const activeBotPlayer = activeSession?.players.find((player) => player.id === activeSession.gameState.currentTurnPlayerId);
+                if (activeSession?.state === `in-game` && activeBotPlayer?.isBot) {
+                    queueMicrotask(() => this.triggerBotTurnIfNeeded(sessionId));
+                }
+            });
+    }
+
+    private async runBotTurnLoop(sessionId: string): Promise<void> {
+        while (true) {
+            const session = this.sessions.get(sessionId);
+            if (!session) {
+                return;
+            }
+
+            const pendingTurn = await session.lock.runExclusive(async () => this.getPendingBotTurnLocked(session));
+            if (!pendingTurn) {
+                return;
+            }
+
+            if (pendingTurn.kind === `opening-origin`) {
+                await this.placeCell(session, pendingTurn.playerId, 0, 0);
+                continue;
+            }
+
+            const bot = await this.accountBotService.getBotById(pendingTurn.botId);
+            if (!bot) {
+                await this.forfeitBotTurn(session, pendingTurn.playerId, `Bot configuration no longer exists.`);
+                return;
+            }
+
+            let move;
+            try {
+                move = await this.accountBotService.requestMove(bot, pendingTurn.request);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : `Bot request failed.`;
+                await this.forfeitBotTurn(session, pendingTurn.playerId, message);
+                return;
+            }
+
+            const applyResult = await session.lock.runExclusive(async () => {
+                if (session.state !== `in-game` || session.gameState.currentTurnPlayerId !== pendingTurn.playerId) {
+                    return { status: `stale` } as const;
+                }
+
+                const currentPlayer = session.players.find((player) => player.id === pendingTurn.playerId);
+                if (!currentPlayer?.isBot || currentPlayer.botId !== pendingTurn.botId) {
+                    return { status: `stale` } as const;
+                }
+
+                if (move.pieces[0].x === move.pieces[1].x && move.pieces[0].y === move.pieces[1].y) {
+                    return { status: `invalid`, message: `Bot returned the same placement twice.` } as const;
+                }
+
+                try {
+                    await this.placeCellLocked(session, pendingTurn.playerId, move.pieces[0].x, move.pieces[0].y);
+                    if (session.state !== `in-game`) {
+                        return { status: `done` } as const;
+                    }
+
+                    await this.placeCellLocked(session, pendingTurn.playerId, move.pieces[1].x, move.pieces[1].y);
+                    return { status: `applied` } as const;
+                } catch (error: unknown) {
+                    if (error instanceof SessionError) {
+                        return { status: `invalid`, message: error.message } as const;
+                    }
+
+                    throw error;
+                }
+            });
+
+            if (applyResult.status === `stale` || applyResult.status === `done`) {
+                return;
+            }
+
+            if (applyResult.status === `invalid`) {
+                await this.forfeitBotTurn(session, pendingTurn.playerId, applyResult.message);
+                return;
+            }
+        }
+    }
+
+    private getPendingBotTurnLocked(session: ServerGameSession):
+        | {
+            kind: `opening-origin`;
+            playerId: string;
+        }
+        | {
+            kind: `stateless-turn`;
+            playerId: string;
+            botId: string;
+            request: Parameters<AccountBotService[`requestMove`]>[1];
+        }
+        | null {
+        if (session.state !== `in-game`) {
+            return null;
+        }
+
+        const currentPlayerId = session.gameState.currentTurnPlayerId;
+        if (!currentPlayerId) {
+            return null;
+        }
+
+        const currentPlayer = session.players.find((player) => player.id === currentPlayerId);
+        if (!currentPlayer?.isBot || !currentPlayer.botId) {
+            return null;
+        }
+
+        if (session.gameState.cells.length === 0 && session.gameState.placementsRemaining === 1) {
+            return {
+                kind: `opening-origin`,
+                playerId: currentPlayerId,
+            };
+        }
+
+        const playerOneId = session.players[0]?.id;
+        const playerTwoId = session.players[1]?.id;
+        if (!playerOneId || !playerTwoId) {
+            return null;
+        }
+
+        const currentPlayerIndex = session.players.findIndex((player) => player.id === currentPlayerId);
+        if (currentPlayerIndex === -1) {
+            return null;
+        }
+
+        const timeLimitSeconds = session.gameState.currentTurnExpiresAt
+            ? Math.max(0.1, (session.gameState.currentTurnExpiresAt - Date.now()) / 1000)
+            : undefined;
+
+        return {
+            kind: `stateless-turn`,
+            playerId: currentPlayerId,
+            botId: currentPlayer.botId,
+            request: {
+                toMove: currentPlayerIndex === 0 ? `x` : `o`,
+                cells: session.gameState.cells.map((cell) => ({
+                    x: cell.x,
+                    y: cell.y,
+                    piece: cell.occupiedBy === playerOneId ? `x` : `o`,
+                })),
+                timeLimitSeconds,
+            },
+        };
+    }
+
+    private async forfeitBotTurn(session: ServerGameSession, playerId: string, reason: string): Promise<void> {
+        this.logger.warn({
+            event: `bot-turn.forfeit`,
+            sessionId: session.id,
+            playerId,
+            reason,
+        }, `Bot forfeited the game`);
+
+        await session.lock.runExclusive(async () => {
+            if (session.state !== `in-game`) {
+                return;
+            }
+
+            const botPlayer = session.players.find((player) => player.id === playerId);
+            if (!botPlayer?.isBot) {
+                return;
+            }
+
+            const winningPlayerId = session.players.find((player) => player.id !== playerId)?.id ?? null;
+            await this.finishSessionLocked(session, `surrender`, winningPlayerId);
+        });
+    }
+
     private toSessionInfo(session: ServerGameSession): SessionInfo {
         let state: SessionState;
         switch (session.state) {
@@ -1260,6 +1515,9 @@ export class SessionManager {
             players: session.players.map((player) => ({
                 displayName: player.displayName,
                 profileId: player.profileId,
+                isBot: player.isBot,
+                botId: player.botId,
+                botOwnerProfileId: player.botOwnerProfileId,
                 elo: player.rating.eloScore,
             })),
 
@@ -1290,7 +1548,10 @@ export class SessionManager {
         return session.players.map((player, playerIndex) => ({
             playerId: player.id,
             displayName: player.displayName || `Player ${playerIndex + 1}`,
-            profileId: player.profileId ?? player.id,
+            profileId: player.profileId,
+            isBot: player.isBot,
+            botId: player.botId,
+            botOwnerProfileId: player.botOwnerProfileId,
             elo: player.rating?.eloScore ?? null,
             eloChange: null,
         }));

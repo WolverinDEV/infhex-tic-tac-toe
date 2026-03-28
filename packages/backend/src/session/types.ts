@@ -1,4 +1,5 @@
 import {
+    AccountBot,
     cloneGameState,
     createEmptyGameState,
     EventLobbyRemoved,
@@ -83,6 +84,7 @@ export type JoinSessionParams = {
 export type CreateSessionParams = {
     client: RequestClientInfo;
     lobbyOptions: LobbyOptions;
+    bots?: AccountBot[];
 };
 
 export type ParticipantLeftEvent = {
@@ -153,6 +155,9 @@ export function cloneSessionParticipant(participant: ServerSessionParticipant): 
 
         displayName: participant.displayName,
         profileId: participant.profileId,
+        isBot: participant.isBot,
+        botId: participant.botId,
+        botOwnerProfileId: participant.botOwnerProfileId,
 
         rating: participant.rating,
         ratingAdjustment: participant.ratingAdjustment,

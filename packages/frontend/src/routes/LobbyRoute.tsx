@@ -6,7 +6,7 @@ import LobbyScreen from '../components/LobbyScreen';
 import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata';
 import { joinSession } from '../liveGameClient';
 import { useLiveGameStore } from '../liveGameStore';
-import { useQueryAccount, useQueryAccountPreferences } from '../query/accountClient';
+import { useQueryAccount, useQueryAccountBots, useQueryAccountPreferences } from '../query/accountClient';
 import { useQueryServerShutdown } from '../query/serverClient';
 import { hostGame } from '../query/sessionClient';
 import { useQueryAvailableSessions } from '../query/sessionClient';
@@ -19,6 +19,9 @@ function LobbyRoute() {
     const shutdown = useQueryServerShutdown().data ?? null;
     const accountQuery = useQueryAccount({ enabled: true });
     const accountPreferencesQuery = useQueryAccountPreferences({
+        enabled: !accountQuery.isLoading && Boolean(accountQuery.data?.user),
+    });
+    const accountBotsQuery = useQueryAccountBots({
         enabled: !accountQuery.isLoading && Boolean(accountQuery.data?.user),
     });
     const availableSessionsQuery = useQueryAvailableSessions({ enabled: true });
@@ -61,6 +64,7 @@ function LobbyRoute() {
                 isConnected={connection.isConnected}
                 shutdown={shutdown}
                 account={accountQuery.data?.user ?? null}
+                accountBots={accountBotsQuery.data?.bots ?? []}
                 isAccountLoading={accountQuery.isLoading}
                 liveSessions={availableSessionsQuery.data ?? []}
                 onHostGame={createLobby}

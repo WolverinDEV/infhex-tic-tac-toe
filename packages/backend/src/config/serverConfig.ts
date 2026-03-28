@@ -21,6 +21,7 @@ export class ServerConfig {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     readonly logLevel = process.env.LOG_LEVEL?.trim() || (process.env.NODE_ENV === `production` ? `info` : `debug`);
     readonly prettyLogs = this.parseBoolean(process.env.LOG_PRETTY) ?? process.env.NODE_ENV !== `production`;
+    readonly botHttpTimeoutMs = this.parseIntegerEnv(`BOT_HTTP_TIMEOUT_MS`) ?? 15_000;
 
     toLogObject() {
         return {
@@ -32,6 +33,7 @@ export class ServerConfig {
             discordClientConfigured: true,
             logLevel: this.logLevel,
             prettyLogs: this.prettyLogs,
+            botHttpTimeoutMs: this.botHttpTimeoutMs,
         };
     }
 
@@ -79,5 +81,15 @@ export class ServerConfig {
         }
 
         return null;
+    }
+
+    private parseIntegerEnv(name: string): number | null {
+        const value = process.env[name]?.trim();
+        if (!value) {
+            return null;
+        }
+
+        const parsed = Number.parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
     }
 }
