@@ -797,6 +797,18 @@ const zNormalizedUsername = z.string()
         message: `Your username contains unsupported characters.`,
     });
 
+export const zCredentialsPassword = z.string()
+    .min(8, {
+        message: `Your password must be at least 8 characters long.`,
+    })
+    .max(72, {
+        message: `Your password must be at most 72 characters long.`,
+    })
+    .refine((password) => !/[\p{C}]/u.test(password), {
+        message: `Your password contains unsupported characters.`,
+    });
+export type CredentialsPassword = z.infer<typeof zCredentialsPassword>;
+
 export const zAccountEloHistoryPoint = z.object({
     timestamp: zTimestamp,
     elo: z.number().int()
@@ -1022,6 +1034,12 @@ export const zUpdateAccountProfileRequest = z.object({
     username: zNormalizedUsername,
 });
 export type UpdateAccountProfileRequest = z.infer<typeof zUpdateAccountProfileRequest>;
+
+export const zRegisterCredentialsRequest = z.object({
+    username: zNormalizedUsername,
+    password: zCredentialsPassword,
+});
+export type RegisterCredentialsRequest = z.infer<typeof zRegisterCredentialsRequest>;
 
 export const zUpdateAccountPreferencesRequest = z.object({
     preferences: zAccountPreferences,

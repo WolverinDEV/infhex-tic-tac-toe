@@ -1,10 +1,10 @@
 import type { AccountPreferences, AccountProfile } from '@ih3t/shared';
 import { useState } from 'react';
 import React from 'react';
+import { Link } from 'react-router';
 import { toast } from 'react-toastify';
 
 import { updateAccountPreferences } from '../query/accountClient';
-import { signInWithDiscord } from '../query/authClient';
 import PageCorpus from './PageCorpus';
 
 function showErrorToast(message: string) {
@@ -104,15 +104,6 @@ function AccountPreferencesScreen({
 }: Readonly<AccountPreferencesScreenProps>) {
     const [savingPreferenceKey, setSavingPreferenceKey] = useState<keyof AccountPreferences | null>(null);
 
-    const handleSignIn = async () => {
-        try {
-            await signInWithDiscord();
-        } catch (error) {
-            console.error(`Failed to start Discord sign in:`, error);
-            showErrorToast(error instanceof Error ? error.message : `Failed to start Discord sign in.`);
-        }
-    };
-
     async function handlePreferenceToggle<PreferenceKey extends keyof AccountPreferences>(
         key: PreferenceKey,
         nextValue: AccountPreferences[PreferenceKey],
@@ -167,15 +158,15 @@ function AccountPreferencesScreen({
                             </h2>
 
                             <p className="mt-4 text-sm leading-6 text-amber-50/85 sm:text-base">
-                                Sign in with Discord to manage your account preferences.
+                                Sign in to manage your account preferences.
                             </p>
 
-                            <button
-                                onClick={() => void handleSignIn()}
-                                className="mt-6 rounded-full bg-[#5865F2] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-[#6f7cff]"
+                            <Link
+                                to="/login"
+                                className="mt-6 inline-flex rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-amber-200"
                             >
-                                Sign In With Discord
-                            </button>
+                                Sign In
+                            </Link>
                         </section>
                     </div>
                 ) : (

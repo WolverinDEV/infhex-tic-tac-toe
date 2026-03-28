@@ -10,6 +10,7 @@ import {
     type CreateSessionResponse,
     DEFAULT_LOBBY_OPTIONS,
     type LobbyOptions,
+    zRegisterCredentialsRequest,
     type ServerSettings,
     zAdminBroadcastMessageRequest,
     zAdminScheduleShutdownRequest,
@@ -20,6 +21,7 @@ import {
     zUpdateAccountPreferencesRequest,
     zUpdateAccountProfileRequest,
 } from '@ih3t/shared';
+import { hash } from 'bcryptjs';
 import express from 'express';
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
@@ -27,7 +29,7 @@ import { z } from 'zod';
 import { AdminStatsService } from '../../admin/adminStatsService';
 import { ServerSettingsService } from '../../admin/serverSettingsService';
 import { ServerShutdownService } from '../../admin/serverShutdownService';
-import { type AccountUserProfile, AuthRepository } from '../../auth/authRepository';
+import { type AccountUserProfile, AuthRepository, AuthRepositoryError } from '../../auth/authRepository';
 import { AuthService } from '../../auth/authService';
 import { SandboxPositionService } from '../../sandbox/sandboxPositionService';
 import { SessionError, SessionManager } from '../../session/sessionManager';
@@ -98,6 +100,28 @@ export class ApiRouter {
     ) {
         const router = express.Router();
 
+        router.post(`/auth/register`, express.json(), async (req, res) => {
+            try {
+                const registration = zRegisterCredentialsRequest.parse(req.body ?? {});
+                const passwordHash = await hash(registration.password, 12);
+                const user = await this.authRepository.createCredentialsUser(registration, passwordHash);
+                const response: AccountResponse = { user };
+                res.status(201).json(response);
+            } catch (error: unknown) {
+                if (error instanceof AuthRepositoryError) {
+                    res.status(409).json({ error: error.message });
+                    return;
+                }
+
+                if (error instanceof z.ZodError) {
+                    res.status(400).json({ error: error.issues[0]?.message ?? `Invalid registration request.` });
+                    return;
+                }
+
+                throw error;
+            }
+        });
+
         router.get(`/account`, async (req, res) => {
             res.json(await this.apiQueryService.getAccount(req));
         });
@@ -118,7 +142,7 @@ export class ApiRouter {
         router.patch(`/account`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to update your account.` });
+                res.status(401).json({ error: `Sign in to update your account.` });
                 return;
             }
 
@@ -135,6 +159,11 @@ export class ApiRouter {
                 };
                 res.json(response);
             } catch (error: unknown) {
+                if (error instanceof AuthRepositoryError) {
+                    res.status(409).json({ error: error.message });
+                    return;
+                }
+
                 if (error instanceof SessionError) {
                     res.status(400).json({ error: error.message });
                     return;
@@ -147,7 +176,7 @@ export class ApiRouter {
         router.patch(`/account/preferences`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to update your account preferences.` });
+                res.status(401).json({ error: `Sign in to update your account preferences.` });
                 return;
             }
 
@@ -244,7 +273,7 @@ export class ApiRouter {
         router.post(`/sandbox-positions`, express.json(), async (req, res) => {
             const user = await this.authService.getUserFromRequest(req);
             if (!user) {
-                res.status(401).json({ error: `Sign in with Discord to share sandbox positions.` });
+                res.status(401).json({ error: `Sign in to share sandbox positions.` });
                 return;
             }
 
@@ -375,7 +404,7 @@ export class ApiRouter {
                     : null;
 
                 if (lobbyOptions.rated && !currentUser) {
-                    res.status(401).json({ error: `Sign in with Discord to create rated lobbies.` });
+                    res.status(401).json({ error: `Sign in to create rated lobbies.` });
                     return;
                 }
 

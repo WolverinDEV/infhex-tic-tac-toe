@@ -61,7 +61,7 @@ export class ApiQueryService {
     async getAccountPreferences(req: express.Request): Promise<AccountPreferencesResponse> {
         const user = await this.authService.getUserFromRequest(req);
         if (!user) {
-            throw new ApiRequestError(401, `Sign in with Discord to view your account preferences.`);
+            throw new ApiRequestError(401, `Sign in to view your account preferences.`);
         }
 
         const preferences = await this.authRepository.getAccountPreferences(user.id);

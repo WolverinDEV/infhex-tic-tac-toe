@@ -11,12 +11,14 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@auth/core": "0.41.1",
         "@auth/express": "^0.12.1",
         "@auth/mongodb-adapter": "^3.11.1",
         "@ih3t/shared": "workspace:*",
         "@tanstack/react-query": "^5.91.2",
         "@types/cors": "^2.8.19",
         "async-mutex": "^0.5.0",
+        "bcryptjs": "^3.0.3",
         "cors": "^2.8.6",
         "cron": "^4.4.0",
         "dotenv": "^17.3.1",

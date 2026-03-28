@@ -225,7 +225,7 @@ export class SessionManager {
 
         const profileId = params.profile?.id ?? null;
         if (session.gameOptions.rated && !profileId) {
-            throw new SessionError(`Sign in with Discord to join rated games.`);
+            throw new SessionError(`Sign in to join rated games.`);
         }
 
 

@@ -4,13 +4,15 @@ import type {
     AdapterSession,
     AdapterUser,
 } from '@auth/express/adapters';
+import { compare } from 'bcryptjs';
 import {
     type AccountPreferences,
     DEFAULT_ACCOUNT_PREFERENCES,
+    type RegisterCredentialsRequest,
     type UserRole,
     zAccountPreferences,
 } from '@ih3t/shared';
-import { Collection, ObjectId } from 'mongodb';
+import { Collection, MongoServerError, ObjectId } from 'mongodb';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 
@@ -39,9 +41,10 @@ type AuthUserDocument = {
 type AuthAccountDocument = {
     _id: ObjectId;
     userId: ObjectId;
-    type: AdapterAccount[`type`];
+    type: AdapterAccount[`type`] | `credentials`;
     provider: string;
     providerAccountId: string;
+    passwordHash?: string;
     refresh_token?: string;
     access_token?: string;
     expires_at?: number;
@@ -72,11 +75,22 @@ type StoredAdapterUser = AdapterUser & {
 };
 
 const DEFAULT_PLAYER_ELO = 1000;
+const CREDENTIALS_PROVIDER_ID = `credentials`;
 
 export type AdminUserWindowStats = {
     newUsers: number;
     activeUsers: number;
 };
+
+export class AuthRepositoryError extends Error {
+    constructor(
+        readonly code: `username_taken`,
+        message: string,
+    ) {
+        super(message);
+        this.name = `AuthRepositoryError`;
+    }
+}
 
 export type AccountUserProfile = {
     id: string;
@@ -346,24 +360,147 @@ export class AuthRepository implements Adapter {
         return document ? this.mapAccountUserProfile(this.mapUserDocument(document)) : null;
     }
 
-    async updateUsername(userId: string, username: string): Promise<AccountUserProfile | null> {
+    async getAuthenticatedUserProfileById(userId: string): Promise<AccountUserProfile | null> {
         const collection = await this.getUsersCollection();
         const objectId = this.parseObjectId(userId);
         if (!objectId) {
             return null;
         }
 
-        await collection.updateOne(
+        const document = await collection.findOne({ _id: objectId });
+        if (!document) {
+            return null;
+        }
+
+        const user = await this.touchUserLastActive(this.mapUserDocument(document));
+        return this.mapAccountUserProfile(user);
+    }
+
+    async updateUsername(userId: string, username: string): Promise<AccountUserProfile | null> {
+        const objectId = this.parseObjectId(userId);
+        if (!objectId) {
+            return null;
+        }
+
+        const [usersCollection, accountsCollection] = await Promise.all([
+            this.getUsersCollection(),
+            this.getAccountsCollection(),
+        ]);
+        const credentialsAccount = await accountsCollection.findOne({
+            userId: objectId,
+            provider: CREDENTIALS_PROVIDER_ID,
+        });
+
+        if (credentialsAccount) {
+            try {
+                await accountsCollection.updateOne(
+                    { _id: credentialsAccount._id },
+                    {
+                        $set: {
+                            providerAccountId: this.normalizeCredentialsUsernameKey(username),
+                        },
+                    },
+                );
+            } catch (error: unknown) {
+                if (error instanceof MongoServerError && error.code === 11000) {
+                    throw new AuthRepositoryError(`username_taken`, `That username is already in use.`);
+                }
+
+                throw error;
+            }
+        }
+
+        await usersCollection.updateOne(
             { _id: objectId },
             {
                 $set: {
-                    displayName: username,
+                    name: username,
                 },
             },
         );
 
-        const document = await collection.findOne({ _id: objectId });
+        const document = await usersCollection.findOne({ _id: objectId });
         return document ? this.mapAccountUserProfile(this.mapUserDocument(document)) : null;
+    }
+
+    async createCredentialsUser(
+        registration: RegisterCredentialsRequest,
+        passwordHash: string,
+    ): Promise<AccountUserProfile> {
+        const [usersCollection, accountsCollection] = await Promise.all([
+            this.getUsersCollection(),
+            this.getAccountsCollection(),
+        ]);
+        let createdUserId: ObjectId | null = null;
+
+        try {
+            const now = Date.now();
+            const userDocument: AuthUserDocument = {
+                _id: new ObjectId(),
+                name: registration.username,
+                role: `user`,
+                elo: DEFAULT_PLAYER_ELO,
+                preferences: {
+                    ...DEFAULT_ACCOUNT_PREFERENCES,
+                    changelogReadAt: Date.now(),
+                },
+                registeredAt: now,
+                lastActiveAt: now,
+            };
+            createdUserId = userDocument._id;
+
+            await usersCollection.insertOne(userDocument);
+
+            await accountsCollection.insertOne({
+                _id: new ObjectId(),
+                userId: createdUserId,
+                type: CREDENTIALS_PROVIDER_ID,
+                provider: CREDENTIALS_PROVIDER_ID,
+                providerAccountId: this.normalizeCredentialsUsernameKey(registration.username),
+                passwordHash,
+            });
+
+            return this.mapAccountUserProfile(this.mapUserDocument(userDocument));
+        } catch (error: unknown) {
+            if (createdUserId) {
+                await usersCollection.deleteOne({ _id: createdUserId }).catch((cleanupError: unknown) => {
+                    this.logger.warn({
+                        err: cleanupError,
+                        event: `auth.credentials.cleanup.failed`,
+                        userId: createdUserId?.toHexString(),
+                    }, `Failed to clean up partially created credentials user`);
+                });
+            }
+
+            if (error instanceof MongoServerError && error.code === 11000) {
+                throw new AuthRepositoryError(`username_taken`, `That username is already in use.`);
+            }
+
+            throw error;
+        }
+    }
+
+    async verifyCredentialsUser(username: string, password: string): Promise<AdapterUser | null> {
+        const [accountsCollection, usersCollection] = await Promise.all([
+            this.getAccountsCollection(),
+            this.getUsersCollection(),
+        ]);
+        const accountDocument = await accountsCollection.findOne({
+            provider: CREDENTIALS_PROVIDER_ID,
+            providerAccountId: this.normalizeCredentialsUsernameKey(username),
+        });
+
+        if (!accountDocument?.passwordHash) {
+            return null;
+        }
+
+        const passwordMatches = await compare(password, accountDocument.passwordHash);
+        if (!passwordMatches) {
+            return null;
+        }
+
+        const userDocument = await usersCollection.findOne({ _id: accountDocument.userId });
+        return userDocument ? this.mapUserDocument(userDocument) : null;
     }
 
     async getAccountPreferences(userId: string): Promise<AccountPreferences | null> {
@@ -613,6 +750,11 @@ export class AuthRepository implements Adapter {
         }
 
         return Math.max(0, Math.floor(value));
+    }
+
+    private normalizeCredentialsUsernameKey(username: string): string {
+        return username.trim().replace(/\s+/g, ` `)
+            .toLowerCase();
     }
 
     private toStoredAdapterUser(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): StoredAdapterUser {
