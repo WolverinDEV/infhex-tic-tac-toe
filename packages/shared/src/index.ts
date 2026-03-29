@@ -511,6 +511,9 @@ export const zSessionParticipant = z.object({
 
     displayName: z.string(),
     profileId: zIdentifier.nullable(),
+    isBot: z.boolean().optional(),
+    botId: zIdentifier.nullable().optional(),
+    botOwnerProfileId: zIdentifier.nullable().optional(),
 
     rating: zPlayerRating,
     ratingAdjustment: zPlayerRatingAdjustment.nullable().default(null),
@@ -520,6 +523,9 @@ export type SessionParticipant = z.infer<typeof zSessionParticipant>;
 export const zLobbyListParticipant = z.object({
     displayName: z.string(),
     profileId: zIdentifier.nullable(),
+    isBot: z.boolean().optional(),
+    botId: zIdentifier.nullable().optional(),
+    botOwnerProfileId: zIdentifier.nullable().optional(),
     elo: z.number().int(),
 });
 export type LobbyListParticipant = z.infer<typeof zLobbyListParticipant>;
@@ -538,6 +544,9 @@ export type LobbyInfo = z.infer<typeof zLobbyInfo>;
 
 export const zCreateSessionRequest = z.object({
     lobbyOptions: zLobbyOptions.optional(),
+    botPlayerIds: z.array(zIdentifier)
+        .max(2)
+        .optional(),
 });
 export type CreateSessionRequest = z.infer<typeof zCreateSessionRequest>;
 
@@ -611,7 +620,10 @@ export type GameMove = z.infer<typeof zGameMove>;
 export const zDatabaseGamePlayer = z.object({
     playerId: zIdentifier,
     displayName: z.string(),
-    profileId: zIdentifier,
+    profileId: zIdentifier.nullable(),
+    isBot: z.boolean().optional(),
+    botId: zIdentifier.nullable().optional(),
+    botOwnerProfileId: zIdentifier.nullable().optional(),
     elo: z.number().int()
         .nullable()
         .default(null),
@@ -857,6 +869,90 @@ export const zAccountPreferences = z.object({
 export type AccountPreferences = z.infer<typeof zAccountPreferences>;
 
 export const DEFAULT_ACCOUNT_PREFERENCES: AccountPreferences = zAccountPreferences.parse({});
+
+export const zAccountBotName = z.string().trim()
+    .min(1)
+    .max(48);
+export type AccountBotName = z.infer<typeof zAccountBotName>;
+
+export const zAccountBotEndpoint = z.string().trim()
+    .url()
+    .refine((value) => {
+        try {
+            const url = new URL(value);
+            return url.protocol === `http:` || url.protocol === `https:`;
+        } catch {
+            return false;
+        }
+    }, {
+        message: `Bot endpoint must use http or https.`,
+    });
+export type AccountBotEndpoint = z.infer<typeof zAccountBotEndpoint>;
+
+export const zAccountBotCapabilities = z.object({
+    statelessApiRoot: z.string().trim()
+        .min(1),
+    moveTimeLimit: z.boolean().default(false),
+    discoveredAt: zTimestamp,
+    meta: z.object({
+        name: z.string().trim()
+            .min(1)
+            .nullable()
+            .default(null),
+        description: z.string().trim()
+            .min(1)
+            .nullable()
+            .default(null),
+        author: z.string().trim()
+            .min(1)
+            .nullable()
+            .default(null),
+        version: z.string().trim()
+            .min(1)
+            .nullable()
+            .default(null),
+    }),
+});
+export type AccountBotCapabilities = z.infer<typeof zAccountBotCapabilities>;
+
+export const zAccountBot = z.object({
+    id: zIdentifier,
+    ownerProfileId: zIdentifier,
+    name: zAccountBotName,
+    endpoint: zAccountBotEndpoint,
+    createdAt: zTimestamp,
+    updatedAt: zTimestamp,
+    capabilities: zAccountBotCapabilities,
+});
+export type AccountBot = z.infer<typeof zAccountBot>;
+
+export const zCreateAccountBotRequest = z.object({
+    bot: z.object({
+        name: zAccountBotName,
+        endpoint: z.string().trim()
+            .min(1),
+    }),
+});
+export type CreateAccountBotRequest = z.infer<typeof zCreateAccountBotRequest>;
+
+export const zUpdateAccountBotRequest = z.object({
+    bot: z.object({
+        name: zAccountBotName,
+        endpoint: z.string().trim()
+            .min(1),
+    }),
+});
+export type UpdateAccountBotRequest = z.infer<typeof zUpdateAccountBotRequest>;
+
+export const zAccountBotsResponse = z.object({
+    bots: z.array(zAccountBot),
+});
+export type AccountBotsResponse = z.infer<typeof zAccountBotsResponse>;
+
+export const zAccountBotResponse = z.object({
+    bot: zAccountBot,
+});
+export type AccountBotResponse = z.infer<typeof zAccountBotResponse>;
 
 export const zAccountProfile = z.object({
     id: zIdentifier,

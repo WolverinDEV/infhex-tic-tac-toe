@@ -151,6 +151,7 @@ function createLobbyScreenProps(overrides: Partial<LobbyScreenProps> = {}) {
     isConnected: true,
     shutdown: null,
     account: signedInAccount,
+    accountBots: [],
     isAccountLoading: false,
     liveSessions: [openLobby, ratedLobby, activeLobby],
     unreadChangelogEntries: 2,

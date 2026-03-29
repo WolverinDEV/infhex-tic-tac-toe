@@ -1,9 +1,13 @@
 import type {
+    AccountBotResponse,
+    AccountBotsResponse,
     AccountPreferences,
     AccountPreferencesResponse,
     AccountResponse,
+    CreateAccountBotRequest,
     ProfileResponse,
     ProfileStatisticsResponse,
+    UpdateAccountBotRequest,
     UpdateAccountPreferencesRequest,
     UpdateAccountProfileRequest,
 } from '@ih3t/shared';
@@ -23,6 +27,10 @@ async function fetchProfile(profileId: string) {
 
 async function fetchAccountPreferences() {
     return await fetchJson<AccountPreferencesResponse>(`/api/account/preferences`);
+}
+
+async function fetchAccountBots() {
+    return await fetchJson<AccountBotsResponse>(`/api/account/bots`);
 }
 
 async function fetchProfileStatistics(profileId: string) {
@@ -69,6 +77,45 @@ export async function updateAccountPreferences(preferences: AccountPreferences) 
     }
 }
 
+export async function createAccountBot(bot: CreateAccountBotRequest[`bot`]) {
+    const response = await fetchJson<AccountBotResponse>(`/api/account/bots`, {
+        method: `POST`,
+        headers: {
+            'Content-Type': `application/json`,
+        },
+        body: JSON.stringify({ bot } satisfies CreateAccountBotRequest),
+    });
+
+    queryClient.setQueryData<AccountBotsResponse>(queryKeys.accountBots, (previous) => ({
+        bots: [response.bot, ...(previous?.bots ?? [])],
+    }));
+    return response;
+}
+
+export async function updateAccountBot(botId: string, bot: UpdateAccountBotRequest[`bot`]) {
+    const response = await fetchJson<AccountBotResponse>(`/api/account/bots/${encodeURIComponent(botId)}`, {
+        method: `PUT`,
+        headers: {
+            'Content-Type': `application/json`,
+        },
+        body: JSON.stringify({ bot } satisfies UpdateAccountBotRequest),
+    });
+
+    queryClient.setQueryData<AccountBotsResponse>(queryKeys.accountBots, (previous) => ({
+        bots: (previous?.bots ?? []).map((existingBot) => existingBot.id === response.bot.id ? response.bot : existingBot),
+    }));
+    return response;
+}
+
+export async function deleteAccountBot(botId: string) {
+    const response = await fetchJson<AccountBotsResponse>(`/api/account/bots/${encodeURIComponent(botId)}`, {
+        method: `DELETE`,
+    });
+
+    queryClient.setQueryData(queryKeys.accountBots, response);
+    return response;
+}
+
 export function useQueryAccount(options?: { enabled?: boolean }) {
     return useQuery({
         queryKey: queryKeys.account,
@@ -82,6 +129,15 @@ export function useQueryAccountPreferences(options?: { enabled?: boolean }) {
     return useQuery({
         queryKey: queryKeys.accountPreferences,
         queryFn: fetchAccountPreferences,
+        enabled: options?.enabled,
+        staleTime: 10 * 60 * 1000,
+    });
+}
+
+export function useQueryAccountBots(options?: { enabled?: boolean }) {
+    return useQuery({
+        queryKey: queryKeys.accountBots,
+        queryFn: fetchAccountBots,
         enabled: options?.enabled,
         staleTime: 10 * 60 * 1000,
     });

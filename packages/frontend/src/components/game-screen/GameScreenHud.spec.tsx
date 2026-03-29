@@ -22,6 +22,7 @@ function createProps(overrides: Partial<GameScreenHudProps> = {}): GameScreenHud
       {
         playerId: 'player-1',
         profileId: null,
+        isBot: false,
         displayColor: '#38bdf8',
         displayName: 'Alpha',
         isConnected: true,
@@ -30,6 +31,7 @@ function createProps(overrides: Partial<GameScreenHudProps> = {}): GameScreenHud
       {
         playerId: 'player-2',
         profileId: null,
+        isBot: false,
         displayColor: '#f97316',
         displayName: 'Bravo',
         isConnected: true,

@@ -98,7 +98,8 @@ function formatPlayerLabel(player: LobbyInfo[`players`][number] | undefined, rat
         return null;
     }
 
-    return rated ? `${player.displayName} (${player.elo})` : player.displayName;
+    const baseLabel = rated ? `${player.displayName} (${player.elo})` : player.displayName;
+    return player.isBot ? `${baseLabel} [Bot]` : baseLabel;
 }
 
 function formatSessionStatusLabel(session: LobbyInfo, now: number) {

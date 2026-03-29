@@ -1,4 +1,4 @@
-import type { AccountProfile, CreateSessionRequest, LobbyInfo, ShutdownState } from '@ih3t/shared';
+import type { AccountBot, AccountProfile, CreateSessionRequest, LobbyInfo, ShutdownState } from '@ih3t/shared';
 import { useEffect, useState } from 'react';
 
 import { useSsrCompatibleNow } from '../ssrState';
@@ -12,6 +12,7 @@ type LobbyScreenProps = {
     isConnected: boolean
     shutdown: ShutdownState | null
     account: AccountProfile | null
+    accountBots: AccountBot[]
     isAccountLoading: boolean
     liveSessions: LobbyInfo[]
     unreadChangelogEntries: number
@@ -37,6 +38,7 @@ function LobbyScreen({
     isConnected,
     shutdown,
     account,
+    accountBots,
     isAccountLoading,
     liveSessions,
     unreadChangelogEntries,
@@ -65,6 +67,7 @@ function LobbyScreen({
                 isOpen={isCreateLobbyDialogOpen}
                 onClose={() => setIsCreateLobbyDialogOpen(false)}
                 account={account}
+                accountBots={accountBots}
                 onCreateLobby={onHostGame}
             />
 
