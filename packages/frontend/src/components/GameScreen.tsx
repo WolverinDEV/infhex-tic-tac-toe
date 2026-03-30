@@ -22,6 +22,9 @@ type GameScreenProps = {
     shutdown: ShutdownState | null
     showConnectionUnstableBadge?: boolean
     onPlaceCell: (x: number, y: number) => void
+    onRequestDraw?: () => void
+    onAcceptDraw?: () => void
+    onDeclineDraw?: () => void
     onLeave: () => void
     leaveLabel?: string
     overlay?: ReactNode
@@ -46,6 +49,9 @@ function GameScreen({
     shutdown,
     showConnectionUnstableBadge = false,
     onPlaceCell,
+    onRequestDraw,
+    onAcceptDraw,
+    onDeclineDraw,
     onLeave,
     leaveLabel,
     overlay,
@@ -163,10 +169,16 @@ function GameScreen({
 
                         occupiedCellCount={gameState.cells.length}
                         renderableCellCount={renderableCellCount}
+                        turnCount={gameState.turnCount}
+                        drawRequestByPlayerId={gameState.drawRequestByPlayerId}
+                        drawRequestAvailableAfterTurn={gameState.drawRequestAvailableAfterTurn}
 
                         shutdown={shutdown}
                         showConnectionUnstableBadge={showConnectionUnstableBadge}
 
+                        onRequestDraw={onRequestDraw}
+                        onAcceptDraw={onAcceptDraw}
+                        onDeclineDraw={onDeclineDraw}
                         leaveLabel={leaveLabel}
                         onLeave={onLeave}
                         onResetView={resetView}

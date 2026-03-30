@@ -320,6 +320,33 @@ export function surrenderGame() {
     socket.emit(`surrender-session`, state.session.id);
 }
 
+export function requestSessionDraw() {
+    const { session } = useLiveGameStore.getState();
+    if (!session) {
+        return;
+    }
+
+    socket?.emit(`request-session-draw`, session.id);
+}
+
+export function acceptSessionDraw() {
+    const { session } = useLiveGameStore.getState();
+    if (!session) {
+        return;
+    }
+
+    socket?.emit(`accept-session-draw`, session.id);
+}
+
+export function declineSessionDraw() {
+    const { session } = useLiveGameStore.getState();
+    if (!session) {
+        return;
+    }
+
+    socket?.emit(`decline-session-draw`, session.id);
+}
+
 export function returnToLobby() {
     const state = useLiveGameStore.getState();
     if (state.session) {

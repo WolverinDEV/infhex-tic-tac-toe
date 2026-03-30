@@ -15,7 +15,7 @@ import type {
     SessionParticipantRole,
     SessionState,
 } from '@ih3t/shared';
-import { buildPlayerTileConfigMap } from '@ih3t/shared';
+import { buildPlayerTileConfigMap, DRAW_REQUEST_RETRY_TURNS } from '@ih3t/shared';
 import type { Logger } from 'pino';
 import { inject, injectable } from 'tsyringe';
 
@@ -346,6 +346,64 @@ export class SessionManager {
 
             const winningPlayerId = session.players.find((player) => player.id !== participantId)?.id ?? null;
             await this.finishSessionLocked(session, `surrender`, winningPlayerId);
+        });
+    }
+
+    async requestDraw(session: ServerGameSession, participantId: string) {
+        await session.lock.runExclusive(async () => {
+            this.assertCanParticipateInDraw(session, participantId);
+
+            if (session.gameState.drawRequestByPlayerId) {
+                if (session.gameState.drawRequestByPlayerId === participantId) {
+                    throw new SessionError(`Your draw request is already waiting for a response.`);
+                }
+
+                throw new SessionError(`Your opponent already offered a draw. Accept or decline it.`);
+            }
+
+            if (session.gameState.turnCount < session.gameState.drawRequestAvailableAfterTurn) {
+                const remainingTurns = session.gameState.drawRequestAvailableAfterTurn - session.gameState.turnCount;
+                throw new SessionError(`A draw can be requested again after ${remainingTurns} more completed turns.`);
+            }
+
+            session.gameState.drawRequestByPlayerId = participantId;
+            this.emitGameState(session);
+        });
+    }
+
+    async acceptDraw(session: ServerGameSession, participantId: string) {
+        await session.lock.runExclusive(async () => {
+            this.assertCanParticipateInDraw(session, participantId);
+
+            const requestedByPlayerId = session.gameState.drawRequestByPlayerId;
+            if (!requestedByPlayerId) {
+                throw new SessionError(`There is no draw request to accept.`);
+            }
+
+            if (requestedByPlayerId === participantId) {
+                throw new SessionError(`You cannot accept your own draw request.`);
+            }
+
+            await this.finishSessionLocked(session, `draw-agreement`, null);
+        });
+    }
+
+    async declineDraw(session: ServerGameSession, participantId: string) {
+        await session.lock.runExclusive(async () => {
+            this.assertCanParticipateInDraw(session, participantId);
+
+            const requestedByPlayerId = session.gameState.drawRequestByPlayerId;
+            if (!requestedByPlayerId) {
+                throw new SessionError(`There is no draw request to decline.`);
+            }
+
+            if (requestedByPlayerId === participantId) {
+                throw new SessionError(`You cannot decline your own draw request.`);
+            }
+
+            session.gameState.drawRequestByPlayerId = null;
+            session.gameState.drawRequestAvailableAfterTurn = session.gameState.turnCount + DRAW_REQUEST_RETRY_TURNS;
+            this.emitGameState(session);
         });
     }
 
@@ -782,6 +840,7 @@ export class SessionManager {
 
         this.timeControl.freezeActiveTurnState(session, finishedAt);
         session.gameState = this.simulation.getPublicGameState(session.gameState);
+        session.gameState.drawRequestByPlayerId = null;
         session.finishReason = reason;
         session.winningPlayerId = winningPlayerId;
         session.rematchAcceptedPlayerIds = [];
@@ -1298,6 +1357,16 @@ export class SessionManager {
 
     private buildPlayerTiles(session: ServerGameSession): Record<string, PlayerTileConfig> {
         return buildPlayerTileConfigMap(session.players.map((player) => player.id));
+    }
+
+    private assertCanParticipateInDraw(session: ServerGameSession, participantId: string): void {
+        if (session.state !== `in-game`) {
+            throw new SessionError(`Draw agreements are only available during an active game.`);
+        }
+
+        if (!session.players.some((participant) => participant.id === participantId)) {
+            throw new SessionError(`Only active players can manage draw agreements.`);
+        }
     }
 
     private isRatedGameEnabled(session: ServerGameSession): boolean {

@@ -24,7 +24,7 @@ function GameOverlayFinishedSpectator({
 }: Readonly<GameOverlayFinishedSpectatorProps>) {
     const winnerName = players.find(player => player.id === state.winningPlayerId)?.displayName ?? null;
 
-    const title = getSpectatorResultTitle(winnerName);
+    const title = getSpectatorResultTitle(state.finishReason, winnerName);
     const message = getSpectatorResultMessage(state.finishReason, winnerName);
     const rematchStatus = getSpectatorRematchStatus(players, state);
 

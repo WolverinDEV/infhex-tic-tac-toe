@@ -302,6 +302,33 @@ export class SocketServerGateway {
             });
         });
 
+        this.bindSocketHandler(socket, `request-session-draw`, z.any(), async () => {
+            await participationMutex.runExclusive(async () => {
+                const { sessionId, participantId } = this.requireParticipation(socket.id);
+                const session = this.sessionManager.requireSession(sessionId);
+
+                await this.sessionManager.requestDraw(session, participantId);
+            });
+        });
+
+        this.bindSocketHandler(socket, `accept-session-draw`, z.any(), async () => {
+            await participationMutex.runExclusive(async () => {
+                const { sessionId, participantId } = this.requireParticipation(socket.id);
+                const session = this.sessionManager.requireSession(sessionId);
+
+                await this.sessionManager.acceptDraw(session, participantId);
+            });
+        });
+
+        this.bindSocketHandler(socket, `decline-session-draw`, z.any(), async () => {
+            await participationMutex.runExclusive(async () => {
+                const { sessionId, participantId } = this.requireParticipation(socket.id);
+                const session = this.sessionManager.requireSession(sessionId);
+
+                await this.sessionManager.declineDraw(session, participantId);
+            });
+        });
+
         this.bindSocketHandler(socket, `request-rematch`, z.any(), async () => {
             await participationMutex.runExclusive(async () => {
                 const { sessionId, participantId } = this.requireParticipation(socket.id);

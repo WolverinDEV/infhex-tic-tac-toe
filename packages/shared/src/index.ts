@@ -6,6 +6,8 @@ export * from "./ssr";
 
 export const PLACE_CELL_HEX_RADIUS = 8;
 const WINNING_LINE_LENGTH = 6;
+export const DRAW_REQUEST_MIN_TURNS = 50;
+export const DRAW_REQUEST_RETRY_TURNS = 15;
 export type { ChangelogDay, ChangelogEntry, ChangelogEntryKind } from './changelogTypes';
 export { CHANGELOG_COMMIT_COUNT, CHANGELOG_DAYS, CHANGELOG_GENERATED_AT } from './generatedChangelog';
 export type { FinishedGamesArchiveView } from './queryKeys';
@@ -47,7 +49,7 @@ export const zCellOccupant = z.string().brand<`CellOccupant`>();
 export type CellOccupant = z.infer<typeof zCellOccupant>;
 
 export const zSessionFinishReason = z.enum([
-    `disconnect`, `surrender`, `timeout`, `terminated`, `six-in-a-row`,
+    `disconnect`, `surrender`, `timeout`, `terminated`, `six-in-a-row`, `draw-agreement`,
 ]);
 export type SessionFinishReason = z.infer<typeof zSessionFinishReason>;
 
@@ -251,7 +253,12 @@ export const zGameState = z.object({
     currentTurnPlayerId: zIdentifier.nullable(),
     placementsRemaining: z.number().int()
         .nonnegative(),
+    turnCount: z.number().int()
+        .nonnegative(),
     currentTurnExpiresAt: zTimestamp.nullable(),
+    drawRequestByPlayerId: zIdentifier.nullable(),
+    drawRequestAvailableAfterTurn: z.number().int()
+        .nonnegative(),
     playerTimeRemainingMs: z.record(z.string(), z.number().int()
         .nonnegative()),
 });
@@ -326,7 +333,10 @@ export function createEmptyGameState(): GameState {
         playerTiles: {},
         currentTurnPlayerId: null,
         placementsRemaining: 0,
+        turnCount: 0,
         currentTurnExpiresAt: null,
+        drawRequestByPlayerId: null,
+        drawRequestAvailableAfterTurn: DRAW_REQUEST_MIN_TURNS,
         playerTimeRemainingMs: {},
     };
 }
@@ -358,7 +368,10 @@ export function initializeGameState(gameState: GameState, playerIds: readonly st
     gameState.cells = [];
     gameState.winner = null;
     gameState.playerTiles = buildPlayerTileConfigMap(playerIds);
+    gameState.turnCount = 0;
     gameState.currentTurnExpiresAt = null;
+    gameState.drawRequestByPlayerId = null;
+    gameState.drawRequestAvailableAfterTurn = DRAW_REQUEST_MIN_TURNS;
     gameState.playerTimeRemainingMs = {};
     setCurrentTurn(gameState, playerIds[0] ?? null, 1);
 }
@@ -409,6 +422,7 @@ export function applyGameMove(gameState: GameState, params: ApplyGameMoveParams)
         occupiedBy: zCellOccupant.parse(playerId),
     });
     gameState.placementsRemaining -= 1;
+    gameState.turnCount = getCompletedTurnCount(gameState.cells.length);
 
     const winningLine = findWinningLine(gameState, playerId, x, y);
     if (winningLine) {
@@ -427,6 +441,14 @@ export function applyGameMove(gameState: GameState, params: ApplyGameMoveParams)
     return {
         turnCompleted,
     };
+}
+
+export function getCompletedTurnCount(moveCount: number): number {
+    if (moveCount <= 0) {
+        return 0;
+    }
+
+    return 1 + Math.floor((moveCount - 1) / 2);
 }
 
 function setCurrentTurn(gameState: GameState, playerId: string | null, placementsRemaining: number): void {
@@ -761,6 +783,9 @@ export const zClientToServerEvents = z.custom<{
     'join-session': (request: JoinSessionRequest) => void;
     'leave-session': (sessionId: string) => void;
     'surrender-session': (sessionId: string) => void;
+    'request-session-draw': (sessionId: string) => void;
+    'accept-session-draw': (sessionId: string) => void;
+    'decline-session-draw': (sessionId: string) => void;
     'place-cell': (data: PlaceCellRequest) => void;
     'send-session-chat-message': (data: SessionChatMessageRequest) => void;
     'request-rematch': (sessionId: string) => void;

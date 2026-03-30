@@ -199,13 +199,13 @@ export function createGameSession(
 
         gameOptions: cloneGameOptions(gameOptions),
 
-        finishReason: null,
-        winningPlayerId: null,
-        rematchAcceptedPlayerIds: [],
-        isRatedGame: false,
+    finishReason: null,
+    winningPlayerId: null,
+    rematchAcceptedPlayerIds: [],
+    isRatedGame: false,
 
-        gameId: ``,
-        gameState: createEmptyGameState(),
+    gameId: ``,
+    gameState: createEmptyGameState(),
 
         chatNames: {},
         chatMessages: [],

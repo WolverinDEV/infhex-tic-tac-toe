@@ -273,6 +273,7 @@ function FinishedGameReplayView({
         [game, visibleMoveCount],
     );
     const gameResult = game.gameResult ?? null;
+    const isDraw = gameResult?.reason === `draw-agreement`;
     const highlightedCells = useMemo(
         () => activeMove ? [{ x: activeMove.x, y: activeMove.y }] : [],
         [activeMove],
@@ -556,6 +557,12 @@ function FinishedGameReplayView({
                                                     {gameResult?.winningPlayerId === player.playerId && (
                                                         <span className="rounded-full border border-amber-200/30 bg-amber-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-black">
                                                             Winner
+                                                        </span>
+                                                    )}
+
+                                                    {isDraw && (
+                                                        <span className="rounded-full border border-sky-200/30 bg-sky-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-950">
+                                                            Draw
                                                         </span>
                                                     )}
                                                 </div>

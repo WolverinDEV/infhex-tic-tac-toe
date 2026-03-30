@@ -10,9 +10,12 @@ import GameScreen from '../components/GameScreen';
 import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata';
 import WaitingScreen from '../components/WaitingScreen';
 import {
+    acceptSessionDraw,
+    declineSessionDraw,
     joinSession,
     leaveSession,
     placeCell,
+    requestSessionDraw,
     requestRematch,
     sendSessionChatMessage,
     surrenderGame,
@@ -467,6 +470,9 @@ function SessionRoute() {
                 hideEloInHud={hideEloInHud}
 
                 onPlaceCell={placeCell}
+                onRequestDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? requestSessionDraw : undefined}
+                onAcceptDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? acceptSessionDraw : undefined}
+                onDeclineDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? declineSessionDraw : undefined}
                 onSendChatMessage={session.localParticipantRole === `player` ? sendSessionChatMessage : undefined}
 
                 leaveLabel={session.localParticipantRole === `player` ? `Surrender` : `Leave Game`}

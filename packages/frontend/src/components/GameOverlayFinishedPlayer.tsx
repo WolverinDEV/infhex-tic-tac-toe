@@ -80,7 +80,7 @@ type RematchState = {
 };
 
 function getRematchState(state: SessionStateFinished, players: SessionParticipant[], localPlayerId: string): RematchState {
-    if (!state.winningPlayerId) {
+    if (state.finishReason === `terminated`) {
         return {
             enabled: false,
             status: `This result does not support a rematch.`,
@@ -122,11 +122,12 @@ function GameOverlayFinishedPlayer({
     onReviewGame,
     onRequestRematch,
 }: Readonly<GameOverlayFinishedPlayerProps>) {
+    const isDraw = state.finishReason === `draw-agreement`;
     const isWin = state.winningPlayerId === localPlayerId;
     const currentPlayer = players.find(player => player.id === localPlayerId) ?? null;
 
     const eloAdjustment = currentPlayer?.ratingAdjustment
-        ? isWin ? currentPlayer.ratingAdjustment.eloGain : currentPlayer.ratingAdjustment.eloLoss : 0;
+        ? isDraw ? 0 : isWin ? currentPlayer.ratingAdjustment.eloGain : currentPlayer.ratingAdjustment.eloLoss : 0;
 
     const eloSummary = currentPlayer?.rating !== null && currentPlayer?.ratingAdjustment !== null ? {
         currentElo: currentPlayer!.rating.eloScore + eloAdjustment,
@@ -139,12 +140,21 @@ function GameOverlayFinishedPlayer({
     );
 
     const rematch = getRematchState(state, players, localPlayerId);
-    const theme = isWin ? {
+    const theme = isDraw ? {
+        shell: `bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.2),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(253,224,71,0.14),_transparent_28%),rgba(2,6,23,0.72)]`,
+        card: `border-sky-200/20 bg-slate-950/80 shadow-[0_28px_120px_rgba(8,47,73,0.52)]`,
+        badge: `border-sky-200/30 text-sky-100`,
+        accent: `from-sky-300/90 via-sky-200/40 to-amber-200/0`,
+        eloValue: `text-sky-50`,
+        eloChangeValue: `text-sky-200`,
+        primaryButton: `bg-sky-300 text-slate-950 hover:bg-sky-200`,
+        secondaryButton: `border-sky-200/25 bg-sky-950/55 text-white hover:bg-sky-950/80`,
+        subtleButton: `border-white/12 bg-white/7 text-white hover:bg-white/15`,
+    } : isWin ? {
         shell: `bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.22),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.16),_transparent_28%),rgba(2,6,23,0.72)]`,
         card: `border-emerald-200/20 bg-slate-950/80 shadow-[0_28px_120px_rgba(5,46,22,0.52)]`,
         badge: `border-emerald-200/30 text-emerald-100`,
         accent: `from-emerald-300/90 via-emerald-200/40 to-amber-200/0`,
-        status: `border-emerald-300/16 bg-emerald-400/10 text-emerald-50`,
         eloValue: `text-emerald-50`,
         eloChangeValue: `text-emerald-200`,
         primaryButton: `bg-emerald-300 text-slate-950 hover:bg-emerald-200`,
@@ -155,7 +165,6 @@ function GameOverlayFinishedPlayer({
         card: `border-rose-200/20 bg-slate-950/80 shadow-[0_28px_120px_rgba(76,5,25,0.54)]`,
         badge: `border-rose-200/30 text-rose-100`,
         accent: `from-rose-300/90 via-rose-200/40 to-amber-200/0`,
-        status: `border-rose-300/16 bg-rose-400/10 text-rose-50`,
         eloValue: `text-rose-50`,
         eloChangeValue: `text-rose-200`,
         primaryButton: `bg-rose-300 text-slate-950 hover:bg-rose-200`,
@@ -174,15 +183,15 @@ function GameOverlayFinishedPlayer({
 
                         <div className="relative">
                             <div className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${theme.badge}`}>
-                                {isWin ? `Victory Locked In` : `Match Slipped Away`}
+                                {isDraw ? `Draw Agreed` : isWin ? `Victory Locked In` : `Match Slipped Away`}
                             </div>
 
                             <h1 className="mt-5 max-w-2xl text-4xl font-black uppercase tracking-[0.08em] text-white sm:text-5xl lg:text-6xl">
-                                {isWin ? `You've Won` : `You Lost`}
+                                {isDraw ? `Match Drawn` : isWin ? `You've Won` : `You Lost`}
                             </h1>
 
                             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
-                                {getPlayerResultMessage(isWin ? `win` : `lose`, state.finishReason)}
+                                {getPlayerResultMessage(isDraw ? `draw` : isWin ? `win` : `lose`, state.finishReason)}
                             </p>
 
                             {eloSummary && (
@@ -202,7 +211,9 @@ function GameOverlayFinishedPlayer({
                                     </div>
 
                                     <p className="mt-3 max-w-sm text-sm leading-6 text-white/62">
-                                        {eloSummary.eloChange >= 0
+                                        {eloSummary.eloChange === 0
+                                            ? `The match ended level, so your rating stayed where it is.`
+                                            : eloSummary.eloChange >= 0
                                             ? `Strong finish. Your rating climbed, and you are building momentum.`
                                             : `Tough result, but every match sharpens your game. The next climb starts here.`}
                                     </p>

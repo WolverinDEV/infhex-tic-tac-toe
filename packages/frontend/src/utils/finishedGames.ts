@@ -8,6 +8,9 @@ const RESULT_LABELS: Record<ResultLabelKey, string> = {
     'disconnect-neutral': `Won by disconnect`,
     'disconnect-win': `Won by disconnect`,
     'disconnect-loss': `Lost due to disconnect`,
+    'draw-agreement-neutral': `Draw agreed`,
+    'draw-agreement-win': `Draw agreed`,
+    'draw-agreement-loss': `Draw agreed`,
     'surrender-neutral': `Won by surrender`,
     'surrender-win': `Won by surrender`,
     'surrender-loss': `Lost due to surrender`,
@@ -42,6 +45,13 @@ export function getPersonalResultLabel(game: FinishedGameSummary, currentProfile
     const ownPlayerId = getOwnPlayerId(game, currentProfileId);
     const reason = game.gameResult?.reason ?? `terminated`;
     const winningPlayerId = game.gameResult?.winningPlayerId ?? null;
+
+    if (reason === `draw-agreement`) {
+        return {
+            label: getResultLabel(reason, `neutral`),
+            tone: `neutral` as const,
+        };
+    }
 
     if (!ownPlayerId || !winningPlayerId || !game.gameResult) {
         return {

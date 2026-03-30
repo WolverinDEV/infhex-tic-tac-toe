@@ -1,7 +1,9 @@
 import type { LobbyOptions, PlayerRatingAdjustment, ShutdownState } from '@ih3t/shared';
+import { DRAW_REQUEST_MIN_TURNS } from '@ih3t/shared';
 import { useState } from 'react';
 import React from 'react';
 import { NavLink } from 'react-router';
+import { toast } from 'react-toastify';
 
 import { formatTimeControl } from '../../utils/gameTimeControl';
 import GameHudShell from './GameHudShell';
@@ -31,11 +33,17 @@ type GameScreenHudProps = {
 
     occupiedCellCount: number
     renderableCellCount: number
+    turnCount: number
+    drawRequestByPlayerId: string | null
+    drawRequestAvailableAfterTurn: number
 
     gameOptions: LobbyOptions
 
     shutdown: ShutdownState | null
 
+    onRequestDraw?: () => void
+    onAcceptDraw?: () => void
+    onDeclineDraw?: () => void
     leaveLabel?: string
     onLeave: () => void
     onResetView: () => void
@@ -63,6 +71,34 @@ function OfflineIcon() {
     );
 }
 
+function InfoIcon() {
+    return (
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 10v5" />
+            <path d="M12 7.5h.01" />
+        </svg>
+    );
+}
+
+function showDrawUnavailableToast(remainingTurns: number) {
+    const message = remainingTurns === 1
+        ? `A draw can be requested in 1 more completed turn.`
+        : `A draw can be requested in ${remainingTurns} more completed turns.`;
+
+    toast.error(message, {
+        toastId: `draw-unavailable:${remainingTurns}`,
+    });
+}
+
+function isMobilePointer() {
+    if (typeof window === `undefined` || typeof window.matchMedia !== `function`) {
+        return false;
+    }
+
+    return window.matchMedia(`(hover: none), (pointer: coarse)`).matches;
+}
+
 function GameScreenHud({
     sessionId,
 
@@ -74,17 +110,100 @@ function GameScreenHud({
     rankingAdjustment,
 
     occupiedCellCount,
-    renderableCellCount,
+    turnCount,
+    drawRequestByPlayerId,
+    drawRequestAvailableAfterTurn,
 
     shutdown,
     gameOptions,
 
+    onRequestDraw,
+    onAcceptDraw,
+    onDeclineDraw,
     leaveLabel = `Leave Game`,
     onLeave,
     onResetView,
 }: Readonly<GameScreenHudProps>) {
     const isSpectator = !players.some(player => player.playerId === localPlayerId);
     const [isHudOpen, setIsHudOpen] = useState(true);
+    const opponent = players.find(player => player.playerId !== localPlayerId) ?? null;
+    const requestedByLocalPlayer = Boolean(localPlayerId) && drawRequestByPlayerId === localPlayerId;
+    const requestedByOpponent = Boolean(opponent) && drawRequestByPlayerId === opponent?.playerId;
+    const turnsUntilDrawRequest = Math.max(0, drawRequestAvailableAfterTurn - turnCount);
+
+    let hideSurrenderButton = false;
+    let drawActionArea: React.ReactNode = null;
+
+    if (!isSpectator && localPlayerId) {
+        if (requestedByLocalPlayer) {
+            drawActionArea = (
+                <button
+                    disabled
+                    className="min-w-36 flex-1 rounded-full border border-white/15 bg-white/8 px-4 py-2 font-medium text-slate-300 md:flex-none"
+                >
+                    Waiting For Reply
+                </button>
+            );
+        } else if (requestedByOpponent) {
+            hideSurrenderButton = true;
+            drawActionArea = (
+                <React.Fragment>
+                    <button
+                        onClick={onDeclineDraw}
+                        className="min-w-36 flex-1 rounded-full border border-amber-300/25 bg-amber-400/10 px-4 py-2 font-medium text-amber-50 shadow-lg hover:bg-amber-400/20 md:flex-none"
+                    >
+                        Decline Draw
+                    </button>
+                    <button
+                        onClick={onAcceptDraw}
+                        className="min-w-36 flex-1 rounded-full bg-emerald-500 px-4 py-2 font-medium shadow-lg hover:bg-emerald-400 md:flex-none"
+                    >
+                        Accept Draw
+                    </button>
+                </React.Fragment>
+            );
+        } else if (turnsUntilDrawRequest > 0) {
+            const drawHint = drawRequestAvailableAfterTurn === DRAW_REQUEST_MIN_TURNS
+                ? `A draw can be offered once ${DRAW_REQUEST_MIN_TURNS} completed turns have been played.`
+                : `A new draw request can be made after ${turnsUntilDrawRequest} more completed turns.`;
+
+            drawActionArea = (
+                <div className="group relative min-w-36 flex-1 md:flex-none">
+                    <button
+                        onClick={() => {
+                            if (isMobilePointer()) {
+                                showDrawUnavailableToast(turnsUntilDrawRequest);
+                            }
+                        }}
+                        className="w-full rounded-full border border-white/15 bg-white/8 px-4 py-2 font-medium text-slate-300 md:flex-none"
+                    >
+                        Draw
+                    </button>
+
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-20 hidden w-60 -translate-x-1/2 pb-2 group-hover:block">
+                        <div className="rounded-2xl border border-slate-200/15 bg-slate-950/95 px-3 py-2 text-xs leading-5 text-slate-200 shadow-[0_14px_40px_rgba(2,6,23,0.55)] backdrop-blur">
+                            <div className="flex items-start gap-2">
+                                <span className="mt-0.5 shrink-0 text-sky-200">
+                                    <InfoIcon />
+                                </span>
+
+                                <span>{drawHint}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        } else {
+            drawActionArea = (
+                <button
+                    onClick={onRequestDraw}
+                    className="min-w-36 flex-1 rounded-full bg-white/12 px-4 py-2 font-medium text-white shadow-lg hover:bg-white/18 md:flex-none"
+                >
+                    Draw
+                </button>
+            );
+        }
+    }
 
     return (
         <React.Fragment>
@@ -142,8 +261,72 @@ function GameScreenHud({
 
                         <div className="text-slate-300">
                             Clock
+                            {` `}
                             {formatTimeControl(gameOptions.timeControl)}
                         </div>
+                    </HudInfoBlock>
+
+                    <HudInfoBlock label="Game">
+                        <div className="text-white">
+                            {turnCount}
+                            {` `}
+                            turns completed
+                        </div>
+                        <div className="text-slate-300">
+                            {occupiedCellCount}
+                            {` `}
+                            cells occupied
+                        </div>
+                    </HudInfoBlock>
+
+                    <HudInfoBlock label="Players">
+                        {players.map(({ playerId, profileId, displayColor, displayName, isConnected, rankingEloScore }) => {
+                            let formattedName;
+                            if (gameOptions.rated && !hideEloInHud) {
+                                formattedName = `${displayName} (${rankingEloScore})`;
+                            } else {
+                                formattedName = displayName;
+                            }
+
+                            return (
+                                <div key={playerId} className="mt-1 flex items-center gap-2.5 text-white">
+                                    <span
+                                        className="h-3.5 w-3.5 rounded-full border border-white/20 shrink-0"
+                                        style={{ backgroundColor: displayColor }}
+                                    />
+
+                                    {profileId ? (
+                                        <NavLink
+                                            to={`/profile/${profileId}`}
+                                            className="overflow-hidden overscroll-contain text-ellipsis min-w-0"
+                                            title={formattedName}
+                                        >
+                                            {formattedName}
+                                        </NavLink>
+                                    ) : (
+                                        <span title={formattedName} className="overflow-hidden overscroll-contain text-ellipsis min-w-0"                >
+                                            {formattedName}
+                                        </span>
+                                    )}
+
+                                    {!isConnected && (
+                                        <span
+                                            title={`${displayName} is offline`}
+                                            aria-label={`${displayName} is offline`}
+                                            className="flex h-5 w-5 items-center justify-center rounded-full border border-amber-300/25 bg-amber-400/10 text-amber-100"
+                                        >
+                                            <OfflineIcon />
+                                        </span>
+                                    )}
+
+                                    {playerId === localPlayerId && (
+                                        <span className="rounded-md border border-white/10 bg-white/6 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                            You
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </HudInfoBlock>
 
                     <HudInfoBlock label="Ranking">
@@ -198,79 +381,21 @@ function GameScreenHud({
                             </div>
                         )}
                     </HudInfoBlock>
-
-                    <HudInfoBlock label="Players">
-                        {players.map(({ playerId, profileId, displayColor, displayName, isConnected, rankingEloScore }) => {
-                            let formattedName;
-                            if (gameOptions.rated && !hideEloInHud) {
-                                formattedName = `${displayName} (${rankingEloScore})`;
-                            } else {
-                                formattedName = displayName;
-                            }
-
-                            return (
-                                <div key={playerId} className="mt-1 flex items-center gap-2.5 text-white">
-                                    <span
-                                        className="h-3.5 w-3.5 rounded-full border border-white/20 shrink-0"
-                                        style={{ backgroundColor: displayColor }}
-                                    />
-
-                                    {profileId ? (
-                                        <NavLink
-                                            to={`/profile/${profileId}`}
-                                            className="overflow-hidden overscroll-contain text-ellipsis min-w-0"
-                                            title={formattedName}
-                                        >
-                                            {formattedName}
-                                        </NavLink>
-                                    ) : (
-                                        <span title={formattedName} className="overflow-hidden overscroll-contain text-ellipsis min-w-0"                >
-                                            {formattedName}
-                                        </span>
-                                    )}
-
-                                    {!isConnected && (
-                                        <span
-                                            title={`${displayName} is offline`}
-                                            aria-label={`${displayName} is offline`}
-                                            className="flex h-5 w-5 items-center justify-center rounded-full border border-amber-300/25 bg-amber-400/10 text-amber-100"
-                                        >
-                                            <OfflineIcon />
-                                        </span>
-                                    )}
-
-                                    {playerId === localPlayerId && (
-                                        <span className="rounded-md border border-white/10 bg-white/6 px-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                                            You
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </HudInfoBlock>
-
-                    <HudInfoBlock label="Cells">
-                        <div className="text-white">
-                            {renderableCellCount}
-                            {` `}
-                            active
-                        </div>
-
-                        <div className="text-slate-300">
-                            {occupiedCellCount}
-                            {` `}
-                            occupied
-                        </div>
-                    </HudInfoBlock>
                 </div>
 
-                <div className="pointer-events-auto mt-4 grid grid-cols-2 gap-2">
-                    <button
-                        onClick={onLeave}
-                        className="min-w-36 flex-1 rounded-full bg-red-500 px-4 py-2 font-medium shadow-lg hover:bg-red-400 md:flex-none"
-                    >
-                        {leaveLabel}
-                    </button>
+                <div className="pointer-events-auto mt-4 gap-2 grid grid-cols-2 items-end">
+                    {!hideSurrenderButton && (
+                        <button
+                            onClick={onLeave}
+                            className="min-w-36 flex-1 rounded-full bg-red-500 px-4 py-2 font-medium shadow-lg hover:bg-red-400 md:flex-none"
+                        >
+                            {leaveLabel}
+                        </button>
+                    )}
+
+                    {drawActionArea}
+
+                    {drawActionArea && (<div />)}
 
                     <button
                         onClick={onResetView}
