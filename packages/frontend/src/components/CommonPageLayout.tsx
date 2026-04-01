@@ -13,6 +13,7 @@ function showErrorToast(message: string) {
     });
 }
 
+const OFFICIAL_DISCORD_INVITE_URL = `https://discord.gg/mBAmFyFE6z`;
 
 const heroHexGridStyle: CSSProperties = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='104' viewBox='0 0 120 104' fill='none'%3E%3Cg stroke='rgba(148,163,184,0.16)' stroke-width='1'%3E%3Cpath d='M30 1l29 17v34L30 69 1 52V18L30 1Z'/%3E%3Cpath d='M89 1l29 17v34L89 69 60 52V18L89 1Z'/%3E%3Cpath d='M60 35l29 17v34l-29 17L31 86V52l29-17Z'/%3E%3C/g%3E%3C/svg%3E")`,
@@ -42,8 +43,7 @@ function NavigationLink({
             end={end}
             className={({ isActive }) => `rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
                 ? `bg-sky-400/12 text-sky-100`
-                : `text-slate-300 hover:bg-sky-400/8 hover:text-sky-50`
-            }`}
+                : `text-slate-300 hover:bg-sky-400/8 hover:text-sky-50`}`}
         >
             {label}
         </NavLink>
@@ -53,23 +53,64 @@ function NavigationLink({
 function MenuLink({
     to,
     label,
+    target,
     onSelect,
 }: Readonly<{
     to: string
     label: string
-    onSelect: () => void
+    target?: string
+    onSelect?: () => void
 }>) {
     return (
         <NavLink
             to={to}
+            target={target}
             onClick={onSelect}
             className={({ isActive }) => `block rounded-xl px-3 py-2.5 text-sm transition ${isActive
                 ? `bg-sky-400/12 text-sky-100`
-                : `text-slate-300 hover:bg-sky-400/8 hover:text-sky-50`
-            }`}
+                : `text-slate-300 hover:bg-sky-400/8 hover:text-sky-50`}`
+            }
         >
             {label}
         </NavLink>
+    );
+}
+
+function DiscordLink({
+    className = ``,
+}: Readonly<{
+    className?: string
+}>) {
+    return (
+        <a
+            href={OFFICIAL_DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open the official Discord server in a new tab"
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-sky-300/20 bg-slate-900/70 px-3 py-2 text-xs font-medium text-sky-100 transition hover:border-sky-300/40 hover:bg-sky-400/10 hover:text-white sm:px-4 sm:text-sm ${className}`.trim()}
+        >
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0 stroke-current sm:h-4.5 sm:w-4.5">
+                <path
+                    d="M7 5h6v6M13 5 6 12"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.8"
+                />
+
+                <path
+                    d="M5.5 8.5v5a1 1 0 0 0 1 1h5"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.8"
+                />
+            </svg>
+
+            <span>
+                Discord Server
+            </span>
+        </a>
     );
 }
 
@@ -165,12 +206,14 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                     </NavLink>
 
                     <div className="flex flex-row items-center gap-4 ml-auto">
-                        <nav className="hidden lg:flex flex-wrap items-center gap-2" aria-label="Primary">
+                        <nav className="hidden xl:flex flex-wrap items-center gap-2" aria-label="Primary">
                             <NavigationLink to="/rules" label="Rules" />
                             <NavigationLink to="/sandbox" label="Sandbox" />
                             <NavigationLink to="/games" label="Match History" />
                             <NavigationLink to="/leaderboard" label="Leaderboard" />
+                            <DiscordLink />
                         </nav>
+
 
                         {accountQuery.isLoading ? (
                             <div className="self-start rounded-lg px-3 py-2 text-sm text-slate-400 lg:self-auto">
@@ -259,13 +302,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                                     <path d="M20.32 4.37A18.13 18.13 0 0 0 15.8 3a12.2 12.2 0 0 0-.58 1.18 16.56 16.56 0 0 0-6.43 0A12.2 12.2 0 0 0 8.21 3a18.05 18.05 0 0 0-4.53 1.37C.81 8.65.03 12.83.42 16.96A18.24 18.24 0 0 0 5.98 19.8c.45-.61.85-1.26 1.2-1.95-.66-.25-1.3-.56-1.9-.92.16-.12.31-.25.46-.38 3.67 1.69 7.65 1.69 11.27 0 .15.13.3.26.46.38-.61.36-1.25.67-1.91.92.35.69.75 1.34 1.2 1.95a18.17 18.17 0 0 0 5.57-2.84c.45-4.79-.77-8.93-3.66-12.59ZM8.68 14.46c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Zm6.64 0c-1.1 0-2-.99-2-2.21s.88-2.21 2-2.21c1.11 0 2.01 1 2 2.21 0 1.22-.89 2.21-2 2.21Z" />
                                 </svg>
 
-                                <span className="sm:hidden">
-                                    Sign In
-                                </span>
-
-                                <span className="hidden sm:inline">
-                                    Sign In With Discord
-                                </span>
+                                Sign In
                             </button>
                         )}
                     </div>
@@ -278,7 +315,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                             setIsAccountMenuOpen(false);
                             setIsMobileMenuOpen((open) => !open);
                         }}
-                        className="lg:hidden cursor-pointer h-15 w-15 inline-flex items-center justify-center rounded-lg text-amber-50 transition hover:bg-sky-400/8"
+                        className="xl:hidden cursor-pointer h-15 w-15 inline-flex items-center justify-center rounded-lg text-amber-50 transition hover:bg-sky-400/8"
                     >
                         <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5">
                             {isMobileMenuOpen ? (
@@ -303,12 +340,13 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                 </div>
 
                 {isMobileMenuOpen && (
-                    <div className="border-t border-white/10 px-4 py-4 sm:px-6 lg:hidden absolute bg-slate-950 right-0 left-0 z-50 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl">
+                    <div className="border-t border-white/10 px-4 py-4 sm:px-6 xl:hidden absolute bg-slate-950 right-0 left-0 z-50 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl">
                         <div className="mx-auto w-full max-w-368 space-y-2 rounded-2xl p-2 shadow-[0_18px_50px_rgba(2,6,23,0.4)]">
                             <MenuLink to="/rules" label="Rules" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to="/games" label="Match History" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to="/sandbox" label="Sandbox" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to="/leaderboard" label="Leaderboard" onSelect={() => setIsMobileMenuOpen(false)} />
+                            <MenuLink to={OFFICIAL_DISCORD_INVITE_URL} label="Discord Server" target="_blank" />
                         </div>
                     </div>
                 )}
