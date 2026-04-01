@@ -58,7 +58,7 @@ function GameHudShell({
             className={cn(
                 `pointer-events-auto z-20`,
                 `w-auto md:w-full md:max-w-md`,
-                `overflow-hidden`,
+                `max-h-[calc(100dvh-4.75em)] overflow-y-auto overscroll-contain`,
                 `bg-slate-800`,
                 `px-4 py-4`,
                 `ml-auto`,

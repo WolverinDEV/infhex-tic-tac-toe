@@ -92,23 +92,7 @@ function SandboxBotPanel({
             }
             role="right"
         >
-
-            <div className="pointer-events-auto absolute right-3 top-3 z-10">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close bot controls"
-                    title="Close bot controls"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700/95 shadow-lg transition hover:bg-slate-600"
-                >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M6 6 18 18" />
-                        <path d="M18 6 6 18" />
-                    </svg>
-                </button>
-            </div>
-
-            <div className="pr-12">
+            <div>
                 <div className="text-[11px] uppercase tracking-[0.24em] text-sky-300">
                     Sandbox Bot
                 </div>
