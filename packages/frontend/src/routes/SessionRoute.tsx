@@ -26,6 +26,7 @@ import { useQueryServerShutdown } from '../query/serverClient';
 import { useQuerySessionInfo } from '../query/sessionClient';
 import { describeSessionInvite } from '../utils/routeMetadata';
 import { buildFinishedGamePath, buildSessionPath } from './archiveRouteState';
+import type { SandboxRouteState } from './sandboxRouteState';
 
 function isPlainLeftClick(event: MouseEvent<HTMLAnchorElement>) {
     return event.button === 0
@@ -336,6 +337,20 @@ function SessionRoute() {
         void navigate(`/`);
     };
 
+    const leaveSessionAndOpenOfflineBotGame = () => {
+        blockSessionJoinRef.current = true;
+
+        leaveSession();
+        void navigate(`/sandbox`, {
+            state: {
+                botGame: {
+                    engineName: `seal`,
+                    botPlayerSlot: `player-2`,
+                },
+            } satisfies SandboxRouteState,
+        });
+    };
+
     const handleFinishedGameReviewClick = (
         event: MouseEvent<HTMLAnchorElement>,
         finishedGameId: string,
@@ -397,6 +412,7 @@ function SessionRoute() {
 
 
                 onInviteFriend={() => void inviteFriend()}
+                onPlayOffline={session.gameOptions.visibility === `public` ? leaveSessionAndOpenOfflineBotGame : undefined}
                 onCancel={leaveSessionAndNavigate}
             />
         );

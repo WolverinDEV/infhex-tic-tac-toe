@@ -197,7 +197,9 @@ function SandboxRoute() {
     const lastInvalidRoutePositionIdRef = useRef<string | null>(null);
     const lastAppliedLocationKeyRef = useRef<string | null>(null);
     const normalizedRoutePositionId = normalizeSandboxPositionId(routePositionId);
-    const routeInitialPosition = (location.state as SandboxRouteState | null)?.initialPosition ?? null;
+    const routeState = location.state as SandboxRouteState | null;
+    const routeInitialPosition = routeState?.initialPosition ?? null;
+    const routeBotGame = routeState?.botGame ?? null;
 
     const initialBoardState = loadedSnapshot?.gameState ?? cleanBoardStateRef.current;
     const initialBoardStateKey = getSandboxPositionKey(initialBoardState);
@@ -448,6 +450,48 @@ function SandboxRoute() {
         setIsWelcomeModalVisible(false);
     }, [
         location.key, routeInitialPosition, routePositionId,
+    ]);
+
+    useEffect(() => {
+        if (routePositionId || routeInitialPosition || !routeBotGame) {
+            return;
+        }
+
+        if (lastAppliedLocationKeyRef.current === location.key) {
+            return;
+        }
+
+        lastAppliedLocationKeyRef.current = location.key;
+        lastLoadedPositionIdRef.current = null;
+        lastInvalidRoutePositionIdRef.current = null;
+        setLoadedSnapshot(null);
+        setBotPlayerModes({
+            'player-1': routeBotGame.botPlayerSlot === `player-1` ? `bot` : `human`,
+            'player-2': routeBotGame.botPlayerSlot === `player-2` ? `bot` : `human`,
+        });
+        setSelectedBotEngine(
+            kSandboxBotEngines.find((engine) => engine.name === routeBotGame.engineName)
+            ?? kSandboxBotEngines[0]
+            ?? null,
+        );
+        setIsWelcomeModalVisible(false);
+        setIsBotPanelOpen(false);
+        setIsBotFactoryModalOpen(false);
+        setIsWinnerBannerVisible(false);
+        setIsImportModalOpen(false);
+        setImportModalError(null);
+        setShareModalError(null);
+        setIsShareModalOpen(false);
+
+        const nextGameState = createSandboxGameState();
+        previousCellCountRef.current = nextGameState.cells.length;
+        latestGameStateRef.current = nextGameState;
+        latestGameHistoryRef.current = [];
+        setGameHistory([]);
+        setGameState(nextGameState);
+        resetView();
+    }, [
+        location.key, resetView, routeBotGame, routeInitialPosition, routePositionId,
     ]);
 
     useEffect(() => {

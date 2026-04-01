@@ -9,10 +9,21 @@ type WaitingScreenProps = {
     localPlayerName: string,
     gameOptions: LobbyOptions
     onInviteFriend: () => void
+    onPlayOffline?: () => void
     onCancel: () => void
 };
 
-function WaitingScreen({ sessionId, playerCount, localPlayerName, gameOptions, onInviteFriend, onCancel }: Readonly<WaitingScreenProps>) {
+function WaitingScreen({
+    sessionId,
+    playerCount,
+    localPlayerName,
+    gameOptions,
+    onInviteFriend,
+    onPlayOffline,
+    onCancel,
+}: Readonly<WaitingScreenProps>) {
+    const showOfflinePlayButton = gameOptions.visibility === `public` && playerCount < 2 && Boolean(onPlayOffline);
+
     return (
         <div className="max-w-368 mx-auto flex flex-1 flex-col px-4 py-4 text-white sm:px-6 sm:py-6">
             <div className="mx-auto flex gap-4 flex-col lg:flex-row lg:gap-8 lg:min-h-0 h-full flex-1 mt-4 lg:mt-[8vh]">
@@ -41,7 +52,7 @@ function WaitingScreen({ sessionId, playerCount, localPlayerName, gameOptions, o
                         <div className={`mx-auto inline-flex items-center rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] ${gameOptions.visibility === `private`
                             ? `border-amber-300/40 bg-amber-300/10 text-amber-100`
                             : `border-sky-300/35 bg-sky-300/10 text-sky-100`
-                        }`}
+                            }`}
                         >
                             {gameOptions.visibility === `private` ? `Private Lobby` : `Public Lobby`}
                         </div>
@@ -110,6 +121,15 @@ function WaitingScreen({ sessionId, playerCount, localPlayerName, gameOptions, o
                             >
                                 Cancel Lobby
                             </button>
+
+                            {showOfflinePlayButton && (
+                                <button
+                                    onClick={onPlayOffline}
+                                    className="rounded-full border border-emerald-300/35 bg-emerald-400/12 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-50 transition hover:-translate-y-0.5 hover:bg-emerald-400/20"
+                                >
+                                    Play Offline Vs Bot
+                                </button>
+                            )}
                         </div>
                     </div>
                 </section>
