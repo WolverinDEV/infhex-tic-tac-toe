@@ -46,8 +46,8 @@ function Modal({ open, onClose, title, children }: {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-                <div className="mb-4 flex items-center justify-between">
+            <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+                <div className="flex shrink-0 items-center justify-between">
                     <h3 className="text-sm font-bold uppercase tracking-[0.06em] text-white">
                         {title}
                     </h3>
@@ -57,7 +57,9 @@ function Modal({ open, onClose, title, children }: {
                     </button>
                 </div>
 
-                {children}
+                <div className="mt-4 min-h-0 overflow-y-auto pr-1">
+                    {children}
+                </div>
             </div>
         </div>
     );
