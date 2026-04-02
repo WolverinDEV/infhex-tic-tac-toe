@@ -84,10 +84,22 @@ function countCheckedInParticipants(tournament: TournamentRecord): number {
 }
 
 function getMinimumParticipantsToStart(format: TournamentFormat): number {
-    return 4;
+    return format === `swiss` ? 2 : 4;
 }
 
 function canUserAccessTournamentRegistration(tournament: TournamentRecord, userId: string | null): boolean {
+    if (!userId) {
+        return false;
+    }
+
+    if (tournament.whitelist.length > 0 && !tournament.whitelist.some((entry) => entry.profileId === userId)) {
+        return false;
+    }
+
+    if (tournament.blacklist.some((entry) => entry.profileId === userId)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -174,7 +186,20 @@ function getParticipantSnapshot(tournament: TournamentRecord, profileId: string 
         return null;
     }
 
-    return tournament.participants.find((participant) => participant.profileId === profileId) ?? null;
+    let fallback: TournamentParticipant | null = null;
+    for (let index = tournament.participants.length - 1; index >= 0; index -= 1) {
+        const participant = tournament.participants[index];
+        if (participant?.profileId !== profileId) {
+            continue;
+        }
+
+        fallback ??= participant;
+        if (isActiveParticipant(participant)) {
+            return participant;
+        }
+    }
+
+    return fallback;
 }
 
 function getMatchById(tournament: TournamentRecord, matchId: string): TournamentMatch {
@@ -327,6 +352,10 @@ function calculateEliminationStandings(tournament: TournamentRecord): Tournament
     const runnerUpId = tournament.format === `double-elimination`
         ? finalMatch?.loserProfileId ?? null
         : seFinal?.loserProfileId ?? null;
+    const thirdPlaceMatch = tournament.matches.find((match) => match.bracket === `third-place` && match.state === `completed`) ?? null;
+    const thirdPlaceWinnerId = thirdPlaceMatch?.winnerProfileId ?? null;
+    const fourthPlaceId = thirdPlaceMatch?.loserProfileId ?? null;
+
     // Assign placement scores — higher is better
     // For SE: eliminated in round R of total T rounds → placement group = T - R + 1
     //   Round T (final) loser = 2nd, Round T-1 (semi) losers = 3rd, etc.
@@ -341,6 +370,8 @@ function calculateEliminationStandings(tournament: TournamentRecord): Tournament
     function getPlacementScore(profileId: string): number {
         if (profileId === championId) return Number.MAX_SAFE_INTEGER;
         if (profileId === runnerUpId) return Number.MAX_SAFE_INTEGER - 1;
+        if (profileId === thirdPlaceWinnerId) return Number.MAX_SAFE_INTEGER - 2;
+        if (profileId === fourthPlaceId) return Number.MAX_SAFE_INTEGER - 3;
 
         const elim = eliminationRound.get(profileId);
         if (!elim) return 0; // dropped/DQ'd before playing
@@ -527,12 +558,13 @@ export class TournamentService {
             const timeoutChanged = tournament.status === `live`
                 ? this.checkMatchTimeouts(tournament)
                 : false;
+            const participantStatusChanged = this.refreshParticipantStatuses(tournament);
             if (changed) {
                 tournament.updatedAt = Date.now();
                 await this.tournamentRepository.saveTournament(tournament);
                 this.broadcastTournamentUpdate(tournament);
                 tournament = await this.tournamentRepository.getTournament(tournamentId) ?? tournament;
-            } else if (timeoutChanged) {
+            } else if (timeoutChanged || participantStatusChanged) {
                 tournament.updatedAt = Date.now();
                 await this.tournamentRepository.saveTournament(tournament);
                 this.broadcastTournamentUpdate(tournament);
@@ -752,7 +784,11 @@ export class TournamentService {
                 replacesProfileId: null,
             } satisfies TournamentParticipant;
 
-            tournament.participants.push(nextRegistrationState);
+            if (existingParticipant) {
+                Object.assign(existingParticipant, nextRegistrationState);
+            } else {
+                tournament.participants.push(nextRegistrationState);
+            }
 
             tournament.updatedAt = Date.now();
             const activityMessage = isWaitlist
@@ -1098,7 +1134,7 @@ export class TournamentService {
             this.assertCanManageTournament(user, tournament);
             const match = getMatchById(tournament, matchId);
 
-            if (match.state === `completed`) {
+            if (match.state === `completed` || match.state === `pending`) {
                 throw new SessionError(`Only active matches can be reopened automatically in v1.`);
             }
 
@@ -2051,6 +2087,10 @@ export class TournamentService {
             return this.refreshSwissParticipantStatuses(tournament);
         }
 
+        if (tournament.format === `single-elimination`) {
+            return this.refreshSingleEliminationParticipantStatuses(tournament);
+        }
+
         return this.refreshDoubleEliminationParticipantStatuses(tournament);
     }
 
@@ -2538,7 +2578,7 @@ export class TournamentService {
             const timeoutWarningMessage = `Match ${match.order} in round ${match.round} timed out — waiting for player(s) to join.`;
             const alreadyWarned = tournament.activity.some((activity) =>
                 activity.type === `timeout-warning`
-                && activity.message === `match ${match.order} in round ${match.round} timed out — waiting for player(s) to join.`
+                && activity.message === timeoutWarningMessage
                 && activity.timestamp >= match.startedAt!);
             if (alreadyWarned) {
                 continue;
