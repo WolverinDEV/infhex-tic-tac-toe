@@ -191,7 +191,7 @@ export function LeaderboardSection({
                 </div>
             ) : (
                 <div className="mt-4 space-y-2 sm:mt-5 sm:space-y-2.5">
-                    {[...leaderboard.players, ...leaderboard.players, ...leaderboard.players].map((player, index) => (
+                    {leaderboard.players.map((player, index) => (
                         <LeaderboardCard
                             key={`${player.profileId}-${index}`}
                             display={leaderboard.ownPlacement?.profileId === player.profileId ? `self` : `normal`}
