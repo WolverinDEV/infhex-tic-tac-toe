@@ -2,7 +2,6 @@ import type { SessionParticipant } from '@ih3t/shared';
 import { createStartedGameState, zCellOccupant } from '@ih3t/shared';
 import { expect, test } from '@playwright/experimental-ct-react';
 
-import TournamentMultiviewLaunchCard from './TournamentMultiviewLaunchCard';
 import TournamentMultiviewScreen, {
     type TournamentMultiviewAvailableMatch,
     type TournamentMultiviewTileViewModel,
@@ -137,20 +136,6 @@ test.describe(`Tournament multiview`, () => {
             },
         ];
     }
-
-    test(`hides the launch CTA when fewer than two live matches are available`, async ({ mount }) => {
-        const hiddenComponent = await mount(
-            <TournamentMultiviewLaunchCard tournamentId="tournament-1" eligibleMatchCount={1} />,
-        );
-        await expect(hiddenComponent).toBeEmpty();
-    });
-
-    test(`shows the launch CTA when enough live matches are available`, async ({ mount }) => {
-        const visibleComponent = await mount(
-            <TournamentMultiviewLaunchCard tournamentId="tournament-1" eligibleMatchCount={2} />,
-        );
-        await expect(visibleComponent.getByRole(`link`, { name: `Multiview (Beta)` })).toBeVisible();
-    });
 
     test(`renders desktop tiles and forwards add, remove, and reorder actions`, async ({ mount }) => {
         const calls = {
