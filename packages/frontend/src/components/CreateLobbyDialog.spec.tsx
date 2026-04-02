@@ -36,8 +36,8 @@ test('submits casual match defaults for guests', async ({ mount }) => {
     />
   )
 
-  await expect(component.getByText('Rated lobbies are for authenticated players only.')).toBeVisible()
-  await expect(component.getByRole('button', { name: /with ELO/i })).toBeDisabled()
+  await expect(component.getByRole('button', { name: /^Customize Match$/i })).toBeVisible()
+  await expect(component.getByText('Rated lobbies are for authenticated players only.')).toHaveCount(0)
 
   await component.getByRole('button', { name: /^Create Lobby$/i }).click()
 
@@ -73,6 +73,7 @@ test('submits a rated private turn-based lobby for authenticated players', async
   )
 
   await expect(component.getByText('Rated lobbies are for authenticated players only.')).toHaveCount(0)
+  await component.getByRole('button', { name: /^Customize Match$/i }).click()
   await expect(component.getByRole('button', { name: /with ELO/i })).toBeEnabled()
 
   await component.getByRole('button', { name: /Private Lobby/i }).click()

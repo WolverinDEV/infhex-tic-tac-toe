@@ -1,7 +1,7 @@
 import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyFirstPlayer, LobbyVisibility } from '@ih3t/shared';
 import { useEffect, useMemo, useState } from 'react';
 
-import { formatGameTimeSeconds } from '../utils/gameTimeControl';
+import TimeControlSelector from './TimeControlSelector';
 
 type CreateLobbyDialogProps = {
     isOpen: boolean
@@ -46,28 +46,6 @@ const firstPlayerOptions: {
             value: `guest`,
             title: `Guest Starts`,
             description: `The joining player takes the first turn.`,
-        },
-    ];
-
-const timeControlModeOptions: {
-    value: GameTimeControl[`mode`]
-    title: string
-    description: string
-}[] = [
-        {
-            value: `match`,
-            title: `Match Based`,
-            description: `A main clock between 1m and 60m plus an increment after each completed turn.`,
-        },
-        {
-            value: `turn`,
-            title: `Turn Based`,
-            description: `A time limit per turn between 5s and 120s.`,
-        },
-        {
-            value: `unlimited`,
-            title: `Unlimited`,
-            description: `No clock configured.`,
         },
     ];
 
@@ -122,6 +100,7 @@ function CreateLobbyDialog({
     const [timeControlMode, setTimeControlMode] = useState<GameTimeControl[`mode`]>(`match`);
     const [rated, setRated] = useState(canCreateRatedLobby);
     const [firstPlayer, setFirstPlayer] = useState<LobbyFirstPlayer>(`random`);
+    const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
     const [turnTimeStepIndex, setTurnTimeStepIndex] = useState(TURN_TIME_STEP_SECONDS.indexOf(TURN_TIME_DEFAULT));
     const [matchTimeStepIndex, setMatchTimeStepIndex] = useState(MATCH_TIME_STEP_MINUTES.indexOf(MATCH_TIME_DEFAULT));
     const [incrementStepIndex, setIncrementStepIndex] = useState(INCREMENT_STEP_SECONDS.indexOf(INCREMENT_DEFAULT));
@@ -129,6 +108,12 @@ function CreateLobbyDialog({
     useEffect(() => {
         setRated(canCreateRatedLobby);
     }, [canCreateRatedLobby]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setShowAdvancedOptions(false);
+        }
+    }, [isOpen]);
 
     const turnTimeSeconds = TURN_TIME_STEP_SECONDS[turnTimeStepIndex];
     const matchTimeMinutes = MATCH_TIME_STEP_MINUTES[matchTimeStepIndex];
@@ -157,6 +142,8 @@ function CreateLobbyDialog({
         incrementSeconds, matchTimeMinutes, timeControlMode, turnTimeSeconds,
     ]);
 
+    const firstPlayerTitle = firstPlayerOptions.find((option) => option.value === firstPlayer)?.title ?? `Random`;
+
     if (!isOpen) {
         return null;
     }
@@ -171,6 +158,12 @@ function CreateLobbyDialog({
             },
         });
     };
+
+    const badges = [
+        rated ? `rated` : `casual`,
+        visibility === `private` ? `Private` : `Public`,
+        firstPlayerTitle
+    ]
 
     return (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/70 px-4 py-6 backdrop-blur-md flex flex-col">
@@ -195,129 +188,144 @@ function CreateLobbyDialog({
                                     Lobby Setup
                                 </h2>
                             </div>
+
+                            <button
+                                type="button"
+                                aria-expanded={showAdvancedOptions}
+                                onClick={() => setShowAdvancedOptions((value) => !value)}
+                                className="cursor-pointer inline-flex items-center justify-center rounded-full border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-400/18"
+                            >
+                                {showAdvancedOptions ? `Simple Settings` : `Advanced Settings`}
+                            </button>
                         </div>
 
                         <div className="mt-3 flex flex-col gap-4 sm:gap-6">
-                            <section className="p-0">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                                            Mode
-                                        </div>
+                            {!showAdvancedOptions && (
+                                <section className="p-0">
+                                    <div className="rounded-[0.9rem] flex flex-row pb-2.5 text-xs leading-5 text-slate-300 gap-2">
+                                        {badges.map(name => (
+                                            <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                                                {name}
+                                            </div>
+                                        ))}
                                     </div>
 
-                                    <div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${rated ? `bg-amber-300/15 text-amber-100` : `bg-white/8 text-slate-100`}`}>
-                                        {rated ? `rated` : `casual`}
-                                    </div>
-                                </div>
-
-                                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                                    <SelectableOptions
-                                        onClick={() => setRated(false)}
-                                        selected={!rated}
-                                        title="Casual"
-                                        description="Casual unrated game"
+                                    <TimeControlSelector
+                                        mode={timeControlMode}
+                                        selectedTimeControl={selectedTimeControl}
+                                        turnTimeSeconds={turnTimeSeconds}
+                                        matchTimeMinutes={matchTimeMinutes}
+                                        incrementSeconds={incrementSeconds}
+                                        turnTimeStepCount={TURN_TIME_STEP_SECONDS.length}
+                                        matchTimeStepCount={MATCH_TIME_STEP_MINUTES.length}
+                                        incrementStepCount={INCREMENT_STEP_SECONDS.length}
+                                        turnTimeStepIndex={turnTimeStepIndex}
+                                        matchTimeStepIndex={matchTimeStepIndex}
+                                        incrementStepIndex={incrementStepIndex}
+                                        onModeChange={setTimeControlMode}
+                                        onTurnTimeStepIndexChange={setTurnTimeStepIndex}
+                                        onMatchTimeStepIndexChange={setMatchTimeStepIndex}
+                                        onIncrementStepIndexChange={setIncrementStepIndex}
                                     />
+                                </section>
+                            )}
 
-                                    <SelectableOptions
-                                        onClick={() => {
-                                            if (canCreateRatedLobby) {
-                                                setRated(true);
-                                            }
-                                        }}
-                                        selected={rated}
-                                        disabled={!canCreateRatedLobby}
-                                        title="Rated"
-                                        description="Rated game with ELO"
-                                    />
-                                </div>
+                            {showAdvancedOptions && (
+                                <>
+                                    <section className="p-0">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                                    Mode
+                                                </div>
+                                            </div>
 
-                                {!canCreateRatedLobby && (
-                                    <div className="mt-2.5 rounded-[0.9rem] border border-amber-300/20 bg-amber-300/10 px-3 py-2.5 text-xs leading-5 text-amber-50/85">
-                                        Rated lobbies are for authenticated players only.
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="p-0">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                                            Visibility
+                                            <div className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${rated ? `bg-amber-300/15 text-amber-100` : `bg-white/8 text-slate-100`}`}>
+                                                {rated ? `rated` : `casual`}
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
-                                        {visibility}
-                                    </div>
-                                </div>
-
-                                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                                    {visibilityOptions.map((option) => {
-                                        const selected = visibility === option.value;
-
-                                        return (
+                                        <div className="mt-2.5 grid grid-cols-2 gap-2">
                                             <SelectableOptions
-                                                key={option.value}
-
-                                                onClick={() => setVisibility(option.value)}
-                                                selected={selected}
-
-                                                title={option.title}
-                                                description={option.description}
+                                                onClick={() => setRated(false)}
+                                                selected={!rated}
+                                                title="Casual"
+                                                description="Casual unrated game"
                                             />
-                                        );
-                                    })}
-                                </div>
-                            </section>
 
-                            <section className="p-0">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                                            First Player
+                                            <SelectableOptions
+                                                onClick={() => {
+                                                    if (canCreateRatedLobby) {
+                                                        setRated(true);
+                                                    }
+                                                }}
+                                                selected={rated}
+                                                disabled={!canCreateRatedLobby}
+                                                title="Rated"
+                                                description="Rated game with ELO"
+                                            />
                                         </div>
-                                    </div>
 
-                                    <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
-                                        {firstPlayer}
-                                    </div>
-                                </div>
+                                        {!canCreateRatedLobby && (
+                                            <div className="mt-2.5 rounded-[0.9rem] border border-amber-300/20 bg-amber-300/10 px-3 py-2.5 text-xs leading-5 text-amber-50/85">
+                                                Rated lobbies are for authenticated players only.
+                                            </div>
+                                        )}
+                                    </section>
 
-                                <div className="mt-2.5 grid gap-2 md:grid-cols-3">
-                                    {firstPlayerOptions.map((option) => {
-                                        const selected = firstPlayer === option.value;
+                                    <section className="p-0">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                                    Visibility
+                                                </div>
+                                            </div>
 
-                                        return (
-                                            <SelectableOptions
-                                                key={option.value}
-                                                onClick={() => setFirstPlayer(option.value)}
-                                                selected={selected}
-                                                title={option.title}
-                                                description={option.description}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </section>
+                                            <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
+                                                {visibility}
+                                            </div>
+                                        </div>
 
-                            <section className="relative p-0">
-                                <div>
-                                    <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                                        Time Control
-                                    </div>
-                                </div>
-
-                                <div className="relative mt-3">
-                                    <fieldset>
-                                        <div className="grid gap-2 xs:grid-cols-1 md:grid-cols-3">
-                                            {timeControlModeOptions.map((option) => {
-                                                const selected = timeControlMode === option.value;
+                                        <div className="mt-2.5 grid grid-cols-2 gap-2">
+                                            {visibilityOptions.map((option) => {
+                                                const selected = visibility === option.value;
 
                                                 return (
                                                     <SelectableOptions
                                                         key={option.value}
-                                                        onClick={() => setTimeControlMode(option.value)}
+
+                                                        onClick={() => setVisibility(option.value)}
+                                                        selected={selected}
+
+                                                        title={option.title}
+                                                        description={option.description}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+
+                                    <section className="p-0">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                                    First Player
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
+                                                {firstPlayer}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-2.5 grid gap-2 md:grid-cols-3">
+                                            {firstPlayerOptions.map((option) => {
+                                                const selected = firstPlayer === option.value;
+
+                                                return (
+                                                    <SelectableOptions
+                                                        key={option.value}
+                                                        onClick={() => setFirstPlayer(option.value)}
                                                         selected={selected}
                                                         title={option.title}
                                                         description={option.description}
@@ -325,116 +333,30 @@ function CreateLobbyDialog({
                                                 );
                                             })}
                                         </div>
+                                    </section>
 
-                                        <div className="mt-2.5 flex flex-col rounded-[0.9rem] border border-white/10 bg-slate-950/35 p-3 lg:h-[7.25em]">
-                                            {timeControlMode === `unlimited` ? (
-                                                <div className="my-auto text-center text-sm leading-5 text-slate-300">
-                                                    No clock will be configured for this lobby.
-                                                </div>
-                                            ) : timeControlMode === `turn` ? (
-                                                <div className="space-y-2.5">
-                                                    <div>
-                                                        <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                                                            Turn Time
-                                                        </div>
 
-                                                        <div className="mt-0.5 text-lg font-bold text-white">
-                                                            {formatGameTimeSeconds(turnTimeSeconds)}
-                                                        </div>
-                                                    </div>
-
-                                                    <input
-                                                        type="range"
-                                                        min={0}
-                                                        max={TURN_TIME_STEP_SECONDS.length - 1}
-                                                        step={1}
-                                                        value={turnTimeStepIndex}
-                                                        onChange={(event) => setTurnTimeStepIndex(Number(event.target.value))}
-                                                        className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-sky-300"
-                                                    />
-
-                                                    <div className="flex justify-between text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                                                        <span>
-                                                            5s
-                                                        </span>
-
-                                                        <span>
-                                                            120s
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="grid gap-3 lg:grid-cols-2">
-                                                    <div className="space-y-2.5">
-                                                        <div>
-                                                            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                                                                Main Time
-                                                            </div>
-
-                                                            <div className="mt-0.5 text-lg font-bold text-white">
-                                                                {matchTimeMinutes}
-                                                                m
-                                                            </div>
-                                                        </div>
-
-                                                        <input
-                                                            type="range"
-                                                            min={0}
-                                                            max={MATCH_TIME_STEP_MINUTES.length - 1}
-                                                            step={1}
-                                                            value={matchTimeStepIndex}
-                                                            onChange={(event) => setMatchTimeStepIndex(Number(event.target.value))}
-                                                            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-sky-300"
-                                                        />
-
-                                                        <div className="flex justify-between text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                                                            <span>
-                                                                1m
-                                                            </span>
-
-                                                            <span>
-                                                                60m
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-2.5">
-                                                        <div>
-                                                            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                                                                Increment
-                                                            </div>
-
-                                                            <div className="mt-0.5 text-lg font-bold text-white">
-                                                                {formatGameTimeSeconds(incrementSeconds)}
-                                                            </div>
-                                                        </div>
-
-                                                        <input
-                                                            type="range"
-                                                            min={0}
-                                                            max={INCREMENT_STEP_SECONDS.length - 1}
-                                                            step={1}
-                                                            value={incrementStepIndex}
-                                                            onChange={(event) => setIncrementStepIndex(Number(event.target.value))}
-                                                            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-sky-300"
-                                                        />
-
-                                                        <div className="flex justify-between text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                                                            <span>
-                                                                0s
-                                                            </span>
-
-                                                            <span>
-                                                                5m
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </fieldset>
-                                </div>
-                            </section>
+                                    <section>
+                                        <TimeControlSelector
+                                            mode={timeControlMode}
+                                            selectedTimeControl={selectedTimeControl}
+                                            turnTimeSeconds={turnTimeSeconds}
+                                            matchTimeMinutes={matchTimeMinutes}
+                                            incrementSeconds={incrementSeconds}
+                                            turnTimeStepCount={TURN_TIME_STEP_SECONDS.length}
+                                            matchTimeStepCount={MATCH_TIME_STEP_MINUTES.length}
+                                            incrementStepCount={INCREMENT_STEP_SECONDS.length}
+                                            turnTimeStepIndex={turnTimeStepIndex}
+                                            matchTimeStepIndex={matchTimeStepIndex}
+                                            incrementStepIndex={incrementStepIndex}
+                                            onModeChange={setTimeControlMode}
+                                            onTurnTimeStepIndexChange={setTurnTimeStepIndex}
+                                            onMatchTimeStepIndexChange={setMatchTimeStepIndex}
+                                            onIncrementStepIndexChange={setIncrementStepIndex}
+                                        />
+                                    </section>
+                                </>
+                            )}
                         </div>
 
                         <div className="mt-2.5 flex items-center justify-between gap-3">
