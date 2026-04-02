@@ -19,6 +19,7 @@ import {
     SessionUpdatedEvent,
     SessionSpectator,
     SessionId,
+    DRAW_REQUEST_MIN_TURNS,
 } from '@ih3t/shared';
 import { Mutex } from 'async-mutex';
 
@@ -82,6 +83,9 @@ export type ServerGameSession = {
 
     chatNames: Record<SessionChatSenderId, string>;
     chatMessages: SessionChatMessage[];
+
+    drawRequest: string | null,
+    drawRequestAvailableAfterTurn: number,
 };
 
 export type PlayerLeaveSource = `leave-session` | `disconnect`;
@@ -227,5 +231,8 @@ export function createGameSession(
 
         chatNames: {},
         chatMessages: [],
+
+        drawRequest: null,
+        drawRequestAvailableAfterTurn: DRAW_REQUEST_MIN_TURNS,
     };
 }

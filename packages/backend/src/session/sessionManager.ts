@@ -349,21 +349,21 @@ export class SessionManager {
         await session.lock.runExclusive(async () => {
             this.assertCanParticipateInDraw(session, participantId);
 
-            if (session.gameState.drawRequestByPlayerId) {
-                if (session.gameState.drawRequestByPlayerId === participantId) {
+            if (session.drawRequest) {
+                if (session.drawRequest === participantId) {
                     throw new SessionError(`Your draw request is already waiting for a response.`);
                 }
 
                 throw new SessionError(`Your opponent already offered a draw. Accept or decline it.`);
             }
 
-            if (session.gameState.turnCount < session.gameState.drawRequestAvailableAfterTurn) {
-                const remainingTurns = session.gameState.drawRequestAvailableAfterTurn - session.gameState.turnCount;
+            if (session.gameState.turnCount < session.drawRequestAvailableAfterTurn) {
+                const remainingTurns = session.drawRequestAvailableAfterTurn - session.gameState.turnCount;
                 throw new SessionError(`A draw can be requested again after ${remainingTurns} more completed turns.`);
             }
 
-            session.gameState.drawRequestByPlayerId = participantId;
-            this.emitGameState(session);
+            session.drawRequest = participantId;
+            this.emitSessionUpdated(session, ["state"]);
         });
     }
 
@@ -371,7 +371,7 @@ export class SessionManager {
         await session.lock.runExclusive(async () => {
             this.assertCanParticipateInDraw(session, participantId);
 
-            const requestedByPlayerId = session.gameState.drawRequestByPlayerId;
+            const requestedByPlayerId = session.drawRequest;
             if (!requestedByPlayerId) {
                 throw new SessionError(`There is no draw request to accept.`);
             }
@@ -388,7 +388,7 @@ export class SessionManager {
         await session.lock.runExclusive(async () => {
             this.assertCanParticipateInDraw(session, participantId);
 
-            const requestedByPlayerId = session.gameState.drawRequestByPlayerId;
+            const requestedByPlayerId = session.drawRequest;
             if (!requestedByPlayerId) {
                 throw new SessionError(`There is no draw request to decline.`);
             }
@@ -397,9 +397,9 @@ export class SessionManager {
                 throw new SessionError(`You cannot decline your own draw request.`);
             }
 
-            session.gameState.drawRequestByPlayerId = null;
-            session.gameState.drawRequestAvailableAfterTurn = session.gameState.turnCount + DRAW_REQUEST_RETRY_TURNS;
-            this.emitGameState(session);
+            session.drawRequest = null;
+            session.drawRequestAvailableAfterTurn = session.gameState.turnCount + DRAW_REQUEST_RETRY_TURNS;
+            this.emitSessionUpdated(session, ["state"]);
         });
     }
 
@@ -836,7 +836,6 @@ export class SessionManager {
 
         this.timeControl.freezeActiveTurnState(session, finishedAt);
         session.gameState = this.simulation.getPublicGameState(session.gameState);
-        session.gameState.drawRequestByPlayerId = null;
         session.finishReason = reason;
         session.winningPlayerId = winningPlayerId;
         session.rematchAcceptedPlayerIds = [];
@@ -1329,6 +1328,9 @@ export class SessionManager {
 
                     gameId: session.gameId,
                     startedAt: session.startedAt!,
+
+                    drawRequest: session.drawRequest,
+                    drawRequestAvailableAfterTurn: session.drawRequestAvailableAfterTurn,
                 };
                 break;
 

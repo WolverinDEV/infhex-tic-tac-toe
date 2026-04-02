@@ -32,7 +32,7 @@ import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
 import { SessionError, SessionManager } from '../session/sessionManager';
 import type { ClientGameParticipation } from '../session/types';
-import { getSocketClientInfo as parseSocketClientInfo } from './clientInfo';
+import { getSocketClientInfo as parseSocketClientInfo, SocketClientInfo } from './clientInfo';
 import { CorsConfiguration } from './cors';
 
 type Participation = {
@@ -42,6 +42,7 @@ type Participation = {
 };
 
 type ClientSocketData = {
+    clientInfo: SocketClientInfo,
     participations: Map<string, Participation>,
 }
 
@@ -183,7 +184,11 @@ export class SocketServerGateway {
     }
 
     private async handleConnection(socket: ClientSocket) {
-        const clientInfo = parseSocketClientInfo(socket);
+        socket.data = {
+            clientInfo: parseSocketClientInfo(socket),
+            participations: new Map(),
+        };
+        const clientInfo = socket.data.clientInfo;
 
         this.logger.debug({
             event: `socket.connected`,

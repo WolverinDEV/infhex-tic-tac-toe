@@ -481,14 +481,17 @@ function SessionRoute() {
                 isChatOpen={isChatOpen}
                 onChatOpenChange={setIsChatOpen}
 
+                drawRequest={session.state.status === `in-game` ? session.state.drawRequest : null}
+                drawRequestAvailableAfterTurn={session.state.status === `in-game` ? session.state.drawRequestAvailableAfterTurn : 0}
+                onDrawRequest={session.localParticipantRole === `player` && session.state.status === `in-game` ? requestSessionDraw : undefined}
+                onDrawAccept={session.localParticipantRole === `player` && session.state.status === `in-game` ? acceptSessionDraw : undefined}
+                onDrawDecline={session.localParticipantRole === `player` && session.state.status === `in-game` ? declineSessionDraw : undefined}
+
                 interactionEnabled={session.state.status === `in-game`}
                 showTilePieceMarkers={showTilePieceMarkers}
                 hideEloInHud={hideEloInHud}
 
                 onPlaceCell={placeCell}
-                onRequestDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? requestSessionDraw : undefined}
-                onAcceptDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? acceptSessionDraw : undefined}
-                onDeclineDraw={session.localParticipantRole === `player` && session.state.status === `in-game` ? declineSessionDraw : undefined}
                 onSendChatMessage={session.localParticipantRole === `player` ? sendSessionChatMessage : undefined}
 
                 leaveLabel={session.localParticipantRole === `player` ? `Surrender` : `Leave Game`}

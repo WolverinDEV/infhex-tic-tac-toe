@@ -1,4 +1,4 @@
-import type { GameState, LobbyOptions, SessionChat, SessionPlayer, SessionParticipantRole, ShutdownState } from '@ih3t/shared';
+import type { GameState, LobbyOptions, SessionChat, SessionParticipantRole, SessionPlayer, ShutdownState } from '@ih3t/shared';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -22,15 +22,19 @@ type GameScreenProps = {
     shutdown: ShutdownState | null
     showConnectionUnstableBadge?: boolean
     onPlaceCell: (x: number, y: number) => void
-    onRequestDraw?: () => void
-    onAcceptDraw?: () => void
-    onDeclineDraw?: () => void
+
     onLeave: () => void
     leaveLabel?: string
     overlay?: ReactNode
     interactionEnabled?: boolean
     showTilePieceMarkers?: boolean
     hideEloInHud?: boolean
+
+    drawRequest: string | null,
+    drawRequestAvailableAfterTurn: number,
+    onDrawRequest?: () => void
+    onDrawAccept?: () => void
+    onDrawDecline?: () => void
 
     chat: SessionChat
     isChatOpen: boolean
@@ -49,15 +53,18 @@ function GameScreen({
     shutdown,
     showConnectionUnstableBadge = false,
     onPlaceCell,
-    onRequestDraw,
-    onAcceptDraw,
-    onDeclineDraw,
     onLeave,
     leaveLabel,
     overlay,
     interactionEnabled = true,
     showTilePieceMarkers = false,
     hideEloInHud = false,
+
+    drawRequest,
+    drawRequestAvailableAfterTurn,
+    onDrawRequest,
+    onDrawAccept,
+    onDrawDecline,
 
     chat,
     isChatOpen,
@@ -170,15 +177,15 @@ function GameScreen({
                         occupiedCellCount={gameState.cells.length}
                         renderableCellCount={renderableCellCount}
                         turnCount={gameState.turnCount}
-                        drawRequestByPlayerId={gameState.drawRequestByPlayerId}
-                        drawRequestAvailableAfterTurn={gameState.drawRequestAvailableAfterTurn}
+                        drawRequestByPlayerId={drawRequest}
+                        drawRequestAvailableAfterTurn={drawRequestAvailableAfterTurn}
 
                         shutdown={shutdown}
                         showConnectionUnstableBadge={showConnectionUnstableBadge}
 
-                        onRequestDraw={onRequestDraw}
-                        onAcceptDraw={onAcceptDraw}
-                        onDeclineDraw={onDeclineDraw}
+                        onRequestDraw={onDrawRequest}
+                        onAcceptDraw={onDrawAccept}
+                        onDeclineDraw={onDrawDecline}
                         leaveLabel={leaveLabel}
                         onLeave={onLeave}
                         onResetView={resetView}

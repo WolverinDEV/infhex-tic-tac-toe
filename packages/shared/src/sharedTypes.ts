@@ -203,9 +203,6 @@ export const zGameState = z.object({
     turnCount: z.number().int()
         .nonnegative(),
     currentTurnExpiresAt: zTimestamp.nullable(),
-    drawRequestByPlayerId: zIdentifier.nullable(),
-    drawRequestAvailableAfterTurn: z.number().int()
-        .nonnegative(),
     playerTimeRemainingMs: z.record(z.string(), z.number().int()
         .nonnegative()),
 });
@@ -263,8 +260,6 @@ export function createEmptyGameState(): GameState {
         placementsRemaining: 0,
         turnCount: 0,
         currentTurnExpiresAt: null,
-        drawRequestByPlayerId: null,
-        drawRequestAvailableAfterTurn: DRAW_REQUEST_MIN_TURNS,
         playerTimeRemainingMs: {},
     };
 }
@@ -298,8 +293,6 @@ export function initializeGameState(gameState: GameState, playerIds: readonly st
     gameState.playerTiles = buildPlayerTileConfigMap(playerIds);
     gameState.turnCount = 0;
     gameState.currentTurnExpiresAt = null;
-    gameState.drawRequestByPlayerId = null;
-    gameState.drawRequestAvailableAfterTurn = DRAW_REQUEST_MIN_TURNS;
     gameState.playerTimeRemainingMs = {};
     setCurrentTurn(gameState, playerIds[0] ?? null, 1);
 }
@@ -504,6 +497,9 @@ export const zSessionState = z.discriminatedUnion(`status`, [
     }),
     z.object({
         status: z.literal(`in-game`),
+
+        drawRequest: zIdentifier.nullable(),
+        drawRequestAvailableAfterTurn: z.number().int().nonnegative(),
 
         startedAt: zTimestamp,
         gameId: zIdentifier,
