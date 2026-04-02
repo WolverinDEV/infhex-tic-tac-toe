@@ -431,6 +431,7 @@ function EloHistoryChartSection({
     /* align the own start with the bucket size */
     let windowStart = now - thirtyDaysMs;
     windowStart -= windowStart % eloHistory.bucketSizeMs;
+    windowStart = Math.max(windowStart, eloHistory.points[0]?.timestamp ?? 0)
 
     const sortedPoints = [...eloHistory.points]
         .filter((point) => point.timestamp < now)
