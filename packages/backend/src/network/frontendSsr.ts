@@ -149,6 +149,19 @@ export class FrontendSsrRenderer {
             queryClient.setQueryData(queryKeys.leaderboard, await this.dependencies.apiQueryService.getLeaderboard(req));
         }
 
+        if (path === `/tournaments`) {
+            queryClient.setQueryData(queryKeys.tournaments, await this.dependencies.apiQueryService.getTournaments(req));
+        }
+
+        const tournamentMatch = /^\/tournaments\/([^/]+)$/.exec(path);
+        if (tournamentMatch) {
+            const tournamentId = decodeURIComponent(tournamentMatch[1]);
+            const tournament = await this.dependencies.apiQueryService.getTournament(req, tournamentId);
+            if (tournament) {
+                queryClient.setQueryData(queryKeys.tournament(tournamentId), tournament);
+            }
+        }
+
         const profileMatch = /^\/profile\/(?<id>[^/]+)|\/account\/profile$/.exec(path);
         if (profileMatch) {
             const profileId = decodeURIComponent(profileMatch.groups?.id ?? currentUserId ?? ``);
