@@ -37,6 +37,7 @@ const finishedGame: FinishedGameRecord = {
   gameOptions: {
     visibility: 'public',
     rated: true,
+    firstPlayer: 'random',
     timeControl: {
       mode: 'match',
       mainTimeMs: 5 * 60 * 1000,

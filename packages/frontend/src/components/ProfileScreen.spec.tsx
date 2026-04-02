@@ -78,6 +78,7 @@ const recentGames: FinishedGamesPage = {
       gameOptions: {
         visibility: 'public',
         rated: true,
+        firstPlayer: 'random',
         timeControl: {
           mode: 'turn',
           turnTimeMs: 30_000,
@@ -118,6 +119,7 @@ const recentGames: FinishedGamesPage = {
       gameOptions: {
         visibility: 'public',
         rated: false,
+        firstPlayer: 'random',
         timeControl: {
           mode: 'match',
           mainTimeMs: 300_000,

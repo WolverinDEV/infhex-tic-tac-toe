@@ -1,4 +1,4 @@
-import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyVisibility } from '@ih3t/shared';
+import type { AccountProfile, CreateSessionRequest, GameTimeControl, LobbyFirstPlayer, LobbyVisibility } from '@ih3t/shared';
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatGameTimeSeconds } from '../utils/gameTimeControl';
@@ -15,39 +15,61 @@ const visibilityOptions: {
     title: string
     description: string
 }[] = [
-    {
-        value: `public`,
-        title: `Public Lobby`,
-        description: `Listed in the live browser.`,
-    },
-    {
-        value: `private`,
-        title: `Private Lobby`,
-        description: `Hidden until shared directly.`,
-    },
-];
+        {
+            value: `public`,
+            title: `Public Lobby`,
+            description: `Listed in the live browser.`,
+        },
+        {
+            value: `private`,
+            title: `Private Lobby`,
+            description: `Hidden until shared directly.`,
+        },
+    ];
+
+const firstPlayerOptions: {
+    value: LobbyFirstPlayer
+    title: string
+    description: string
+}[] = [
+        {
+            value: `random`,
+            title: `Random`,
+            description: `Randomly choose who opens the game.`,
+        },
+        {
+            value: `host`,
+            title: `Host Starts`,
+            description: `The player who creates the lobby takes the first turn.`,
+        },
+        {
+            value: `guest`,
+            title: `Guest Starts`,
+            description: `The joining player takes the first turn.`,
+        },
+    ];
 
 const timeControlModeOptions: {
     value: GameTimeControl[`mode`]
     title: string
     description: string
 }[] = [
-    {
-        value: `match`,
-        title: `Match Based`,
-        description: `A main clock between 1m and 60m plus an increment after each completed turn.`,
-    },
-    {
-        value: `turn`,
-        title: `Turn Based`,
-        description: `A time limit per turn between 5s and 120s.`,
-    },
-    {
-        value: `unlimited`,
-        title: `Unlimited`,
-        description: `No clock configured.`,
-    },
-];
+        {
+            value: `match`,
+            title: `Match Based`,
+            description: `A main clock between 1m and 60m plus an increment after each completed turn.`,
+        },
+        {
+            value: `turn`,
+            title: `Turn Based`,
+            description: `A time limit per turn between 5s and 120s.`,
+        },
+        {
+            value: `unlimited`,
+            title: `Unlimited`,
+            description: `No clock configured.`,
+        },
+    ];
 
 const TURN_TIME_STEP_SECONDS = [
     5, 10, 15, 20, 30, 45, 60, 90, 120,
@@ -75,9 +97,9 @@ function SelectableOptions({ onClick, selected, title, description, disabled = f
                 : disabled
                     ? `cursor-not-allowed border-white/8 bg-white/4 opacity-60`
                     : `border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10`
-            }`}
+                }`}
         >
-            <div className="flex-row items-center text-sm font-bold text-white">
+            <div className="flex flex-row items-center text-sm font-bold text-white">
                 <span className={`mr-2 inline-block h-3.5 w-3.5 align-sub rounded-full border ${selected ? `border-sky-200 bg-sky-300` : `border-white/20 bg-slate-900/40`}`} />
                 {title}
             </div>
@@ -99,6 +121,7 @@ function CreateLobbyDialog({
     const [visibility, setVisibility] = useState<LobbyVisibility>(`public`);
     const [timeControlMode, setTimeControlMode] = useState<GameTimeControl[`mode`]>(`match`);
     const [rated, setRated] = useState(canCreateRatedLobby);
+    const [firstPlayer, setFirstPlayer] = useState<LobbyFirstPlayer>(`random`);
     const [turnTimeStepIndex, setTurnTimeStepIndex] = useState(TURN_TIME_STEP_SECONDS.indexOf(TURN_TIME_DEFAULT));
     const [matchTimeStepIndex, setMatchTimeStepIndex] = useState(MATCH_TIME_STEP_MINUTES.indexOf(MATCH_TIME_DEFAULT));
     const [incrementStepIndex, setIncrementStepIndex] = useState(INCREMENT_STEP_SECONDS.indexOf(INCREMENT_DEFAULT));
@@ -144,6 +167,7 @@ function CreateLobbyDialog({
                 visibility,
                 timeControl: selectedTimeControl,
                 rated,
+                firstPlayer,
             },
         });
     };
@@ -247,6 +271,36 @@ function CreateLobbyDialog({
                                 </div>
                             </section>
 
+                            <section className="p-0">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                            First Player
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-100">
+                                        {firstPlayer}
+                                    </div>
+                                </div>
+
+                                <div className="mt-2.5 grid gap-2 md:grid-cols-3">
+                                    {firstPlayerOptions.map((option) => {
+                                        const selected = firstPlayer === option.value;
+
+                                        return (
+                                            <SelectableOptions
+                                                key={option.value}
+                                                onClick={() => setFirstPlayer(option.value)}
+                                                selected={selected}
+                                                title={option.title}
+                                                description={option.description}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
                             <section className="relative p-0">
                                 <div>
                                     <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
@@ -256,7 +310,7 @@ function CreateLobbyDialog({
 
                                 <div className="relative mt-3">
                                     <fieldset>
-                                        <div className="grid gap-2 md:grid-cols-1 xl:grid-cols-3">
+                                        <div className="grid gap-2 xs:grid-cols-1 md:grid-cols-3">
                                             {timeControlModeOptions.map((option) => {
                                                 const selected = timeControlMode === option.value;
 

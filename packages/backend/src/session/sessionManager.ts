@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { randomInt } from 'node:crypto';
 
 import type {
     BoardCell,
@@ -6,6 +7,7 @@ import type {
     GameState,
     HexCoordinate,
     LobbyInfo,
+    LobbyFirstPlayer,
     PlayerRating,
     PlayerTileConfig,
     SessionChatMessage,
@@ -536,7 +538,11 @@ export class SessionManager {
             }
 
             const participantMapping: Record<string, string> = {};
-            const rematchSession = createGameSession(sessionId, originalSession.gameOptions);
+            const rematchFirstPlayer = this.resolveRematchFirstPlayer(originalSession);
+            const rematchSession = createGameSession(sessionId, {
+                ...originalSession.gameOptions,
+                firstPlayer: rematchFirstPlayer,
+            });
 
             const socketMapping: Record<string, string> = {};
             await rematchSession.lock.runExclusive(async () => {
@@ -565,7 +571,6 @@ export class SessionManager {
                         profileId: player.profileId,
                     };
                 });
-                rematchSession.players.reverse();
 
                 rematchSession.spectators = originalSession.spectators.map(spectator => {
                     const newParticipantId = this.createParticipantId(rematchSession);
@@ -782,7 +787,11 @@ export class SessionManager {
                     this.calculateRatingAdjustments(session);
                 }
 
-                this.simulation.startSession(session.gameState, session.players.map((player) => player.id));
+                this.simulation.startSession(
+                    session.gameState,
+                    session.players.map((player) => player.id),
+                    this.resolveStartingPlayerId(session),
+                );
                 this.timeControl.startSession(session, this.handleTurnExpired, session.startedAt);
 
                 this.emitGameState(session);
@@ -1409,6 +1418,39 @@ export class SessionManager {
 
     private buildPlayerTiles(session: ServerGameSession): Record<string, PlayerTileConfig> {
         return buildPlayerTileConfigMap(session.players.map((player) => player.id));
+    }
+
+    private resolveStartingPlayerId(session: ServerGameSession): string | null {
+        const [hostPlayer, guestPlayer] = session.players;
+        if (!hostPlayer) {
+            return null;
+        }
+
+        switch (session.gameOptions.firstPlayer) {
+            case `host`:
+                return hostPlayer.id;
+
+            case `guest`:
+                return guestPlayer?.id ?? hostPlayer.id;
+
+            case `random`:
+                return session.players[randomInt(0, session.players.length)]?.id ?? hostPlayer.id;
+        }
+    }
+
+    private resolveRematchFirstPlayer(session: ServerGameSession): LobbyFirstPlayer {
+        const [hostPlayer, guestPlayer] = session.players;
+        const previousOpeningPlayerId = session.gameState.cells[0]?.occupiedBy ?? null;
+
+        if (!hostPlayer || !guestPlayer) {
+            return `random`;
+        }
+
+        if (previousOpeningPlayerId === hostPlayer.id) {
+            return `guest`;
+        } else {
+            return `host`;
+        }
     }
 
     private assertCanParticipateInDraw(session: ServerGameSession, participantId: string): void {

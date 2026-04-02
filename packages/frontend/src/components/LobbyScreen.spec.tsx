@@ -204,6 +204,7 @@ test('opens the host dialog and submits a lobby creation request', async ({ moun
           incrementMs: 5 * 1000,
         },
         rated: true,
+        firstPlayer: 'random',
       },
     },
   ])

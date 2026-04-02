@@ -50,6 +50,7 @@ test('submits casual match defaults for guests', async ({ mount }) => {
         incrementMs: 5 * 1000,
       },
       rated: false,
+      firstPlayer: 'random',
     },
   })
 
@@ -75,6 +76,7 @@ test('submits a rated private turn-based lobby for authenticated players', async
   await expect(component.getByRole('button', { name: /with ELO/i })).toBeEnabled()
 
   await component.getByRole('button', { name: /Private Lobby/i }).click()
+  await component.getByRole('button', { name: /Guest Starts/i }).click()
   await component.getByRole('button', { name: /Turn Based/i }).click()
 
   await expect(component.getByText('turn time')).toBeVisible()
@@ -90,6 +92,7 @@ test('submits a rated private turn-based lobby for authenticated players', async
         turnTimeMs: 15 * 1000,
       },
       rated: true,
+      firstPlayer: 'guest',
     },
   })
 })

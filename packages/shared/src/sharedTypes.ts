@@ -44,6 +44,9 @@ export type SessionFinishReason = z.infer<typeof zSessionFinishReason>;
 export const zLobbyVisibility = z.enum([`public`, `private`]);
 export type LobbyVisibility = z.infer<typeof zLobbyVisibility>;
 
+export const zLobbyFirstPlayer = z.enum([`host`, `guest`, `random`]);
+export type LobbyFirstPlayer = z.infer<typeof zLobbyFirstPlayer>;
+
 export const zPlayerNames = z.record(z.string(), z.string());
 export type PlayerNames = z.infer<typeof zPlayerNames>;
 
@@ -97,6 +100,7 @@ export const zLobbyOptions = z.object({
     visibility: zLobbyVisibility,
     timeControl: zGameTimeControl,
     rated: z.boolean().default(false),
+    firstPlayer: zLobbyFirstPlayer.default(`random`),
 });
 export type LobbyOptions = z.infer<typeof zLobbyOptions>;
 
@@ -107,6 +111,7 @@ export const DEFAULT_LOBBY_OPTIONS: LobbyOptions = zLobbyOptions.parse({
         turnTimeMs: 45_000,
     },
     rated: false,
+    firstPlayer: `random`,
 });
 
 export const zShutdownState = z.object({
@@ -281,20 +286,24 @@ export function cloneGameState(gameState: GameState): GameState {
     };
 }
 
-export function createStartedGameState(playerIds: readonly string[]): GameState {
+export function createStartedGameState(playerIds: readonly string[], startingPlayerId?: string | null): GameState {
     const gameState = createEmptyGameState();
-    initializeGameState(gameState, playerIds);
+    initializeGameState(gameState, playerIds, startingPlayerId);
     return gameState;
 }
 
-export function initializeGameState(gameState: GameState, playerIds: readonly string[]): void {
+export function initializeGameState(gameState: GameState, playerIds: readonly string[], startingPlayerId?: string | null): void {
     gameState.cells = [];
     gameState.winner = null;
     gameState.playerTiles = buildPlayerTileConfigMap(playerIds);
     gameState.turnCount = 0;
     gameState.currentTurnExpiresAt = null;
     gameState.playerTimeRemainingMs = {};
-    setCurrentTurn(gameState, playerIds[0] ?? null, 1);
+
+    const resolvedStartingPlayerId = startingPlayerId && playerIds.includes(startingPlayerId)
+        ? startingPlayerId
+        : (playerIds[0] ?? null);
+    setCurrentTurn(gameState, resolvedStartingPlayerId, 1);
 }
 
 export function getPublicGameState(gameState: GameState): GameState {

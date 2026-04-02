@@ -8,6 +8,7 @@ type GameScreenHudProps = ComponentProps<typeof GameScreenHud>
 const baseGameOptions: LobbyOptions = {
   rated: false,
   visibility: 'public',
+  firstPlayer: 'random',
   timeControl: {
     mode: 'turn',
     turnTimeMs: 45_000,

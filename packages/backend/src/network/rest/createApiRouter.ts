@@ -9,6 +9,7 @@ import {
     type CreateSandboxPositionResponse,
     type CreateSessionResponse,
     DEFAULT_LOBBY_OPTIONS,
+    zLobbyFirstPlayer,
     type LobbyOptions,
     type ServerSettings,
     zAdminBroadcastMessageRequest,
@@ -78,6 +79,7 @@ const zCreateSessionRequestInput = z.object({
         visibility: zLobbyVisibility.optional(),
         timeControl: zGameTimeControlInput.optional(),
         rated: z.coerce.boolean().optional(),
+        firstPlayer: zLobbyFirstPlayer.optional(),
     }).optional(),
 });
 
@@ -404,11 +406,13 @@ export class ApiRouter {
         const visibility = request.lobbyOptions?.visibility;
         const timeControl = request.lobbyOptions?.timeControl ?? { ...DEFAULT_LOBBY_OPTIONS.timeControl };
         const rated = request.lobbyOptions?.rated ?? DEFAULT_LOBBY_OPTIONS.rated;
+        const firstPlayer = request.lobbyOptions?.firstPlayer ?? DEFAULT_LOBBY_OPTIONS.firstPlayer;
 
         return {
             visibility: visibility ?? DEFAULT_LOBBY_OPTIONS.visibility,
             timeControl,
             rated,
+            firstPlayer,
         };
     }
 
