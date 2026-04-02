@@ -246,7 +246,7 @@ function TournamentMultiviewRoute() {
                 players,
                 gameState: tile.gameState,
                 reviewPath,
-                finishedTitle: finishedState ? getSpectatorResultTitle(finishedWinnerName) : null,
+                finishedTitle: finishedState ? getSpectatorResultTitle(finishedState.finishReason, finishedWinnerName) : null,
                 finishedMessage: finishedState
                     ? getSpectatorResultMessage(finishedState.finishReason, finishedWinnerName)
                     : null,
