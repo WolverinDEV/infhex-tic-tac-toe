@@ -9,8 +9,8 @@ import { ServerConfig } from '../config/serverConfig';
 import { getCookieValue } from '../network/clientInfo';
 import { CorsConfiguration } from '../network/cors';
 import { type AccountUserProfile, AuthRepository } from './authRepository';
-import { ROOT_LOGGER } from '@/logger';
 import type { Logger } from 'pino';
+import { ROOT_LOGGER } from '../logger';
 
 /* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 const Discord: typeof _Discord = (_Discord as any).default ?? _Discord;
