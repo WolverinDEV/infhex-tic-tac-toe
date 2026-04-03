@@ -125,7 +125,6 @@ function buildReplayBoardState(game: FinishedGameRecord, visibleMoveCount: numbe
 
     const replayGameState = createStartedGameState(playerIds, resolveReplayStartingPlayerId(game));
     replayGameState.playerTiles = game.playerTiles;
-
     for (const move of game.moves.slice(0, visibleMoveCount)) {
         applyGameMove(replayGameState, {
             playerId: move.playerId as CellOccupant,
@@ -144,46 +143,29 @@ function buildReplayBoardState(game: FinishedGameRecord, visibleMoveCount: numbe
 }
 
 function buildReplaySandboxPosition(game: FinishedGameRecord, visibleMoveCount: number): SandboxRouteInitialPosition | null {
-    const firstPlayer = game.players[0]?.playerId;
-    const secondPlayer = game.players[1]?.playerId;
-    if (!firstPlayer || !secondPlayer) {
+    if (game.players.length < 2) {
         return null;
     }
 
     const visibleMoves = game.moves.slice(0, visibleMoveCount);
-    const replayPlayerIds = [`replay-player-1`, `replay-player-2`] as const;
-    const replayStartingPlayerId = resolveReplayStartingPlayerId(game) === secondPlayer
-        ? replayPlayerIds[1]
-        : replayPlayerIds[0];
-    const replayGameState = createStartedGameState(replayPlayerIds, replayStartingPlayerId);
+    const replayGameState = createStartedGameState(
+        game.players.map((player) => player.playerId),
+        resolveReplayStartingPlayerId(game),
+    );
 
     for (const move of visibleMoves) {
-        const replayPlayerId = move.playerId === firstPlayer
-            ? replayPlayerIds[0]
-            : move.playerId === secondPlayer
-                ? replayPlayerIds[1]
-                : null;
-        if (!replayPlayerId) {
-            return null;
-        }
-
-        applyGameMove(replayGameState, {
-            playerId: replayPlayerId,
-            x: move.x,
-            y: move.y,
-        });
+        applyGameMove(replayGameState, move);
     }
 
-    const currentTurnPlayer = replayGameState.currentTurnPlayerId === replayPlayerIds[1] ? `player-2` : `player-1`;
     const placementsRemaining = Math.max(1, replayGameState.placementsRemaining);
     const gamePosition: SandboxGamePosition = {
         cells: visibleMoves.map((move, index) => ({
             x: move.x,
             y: move.y,
-            player: move.playerId === firstPlayer ? `player-1` : `player-2`,
+            player: move.playerId === game.players[0].playerId ? `player-1` : `player-2`,
             moveId: index + 1,
         })),
-        currentTurnPlayer,
+        currentTurnPlayer: replayGameState.currentTurnPlayerId === game.players[0].playerId ? `player-1` : `player-2`,
         placementsRemaining,
     };
 
@@ -192,7 +174,7 @@ function buildReplaySandboxPosition(game: FinishedGameRecord, visibleMoveCount: 
         : `Replay Move ${visibleMoveCount}/${game.moves.length}`;
 
     return {
-        name: `${getPlayerLabel(game.players, firstPlayer)} vs ${getPlayerLabel(game.players, secondPlayer)} - ${moveLabel}`,
+        name: `${game.players[0].displayName} vs ${game.players[1].displayName} - ${moveLabel}`,
         gamePosition,
     };
 }

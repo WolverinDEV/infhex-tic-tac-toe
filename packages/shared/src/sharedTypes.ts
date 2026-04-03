@@ -291,13 +291,13 @@ export function cloneGameState(gameState: GameState): GameState {
     };
 }
 
-export function createStartedGameState(playerIds: readonly string[], startingPlayerId?: string | null): GameState {
+export function createStartedGameState(playerIds: readonly string[], startingPlayerId: string | null): GameState {
     const gameState = createEmptyGameState();
     initializeGameState(gameState, playerIds, startingPlayerId);
     return gameState;
 }
 
-export function initializeGameState(gameState: GameState, playerIds: readonly string[], startingPlayerId?: string | null): void {
+export function initializeGameState(gameState: GameState, playerIds: readonly string[], startingPlayerId: string | null): void {
     gameState.cells = [];
     gameState.winner = null;
     gameState.playerTiles = buildPlayerTileConfigMap(playerIds);

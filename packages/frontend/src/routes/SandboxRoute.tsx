@@ -66,8 +66,8 @@ const SANDBOX_PLAYERS: SessionPlayer[] = [
     },
 ];
 
-function createSandboxGameState() {
-    return createStartedGameState(SANDBOX_PLAYERS.map((player) => player.id));
+function createSandboxGameState(player?: SandboxPlayerSlot) {
+    return createStartedGameState(SANDBOX_PLAYERS.map((player) => player.id), getSandboxPlayerId(player ?? `player-1`));
 }
 
 function normalizeSandboxPositionId(value: string | null | undefined) {
@@ -120,9 +120,11 @@ function buildSandboxGamePosition(gameState: GameState): SandboxGamePosition | n
 }
 
 function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
-    const nextGameState = createSandboxGameState();
     const orderedCells = [...gamePosition.cells].sort((leftCell, rightCell) => leftCell.moveId - rightCell.moveId);
+    const nextGameState = createSandboxGameState(orderedCells[0]?.player);
     const gameHistory: GameState[] = [];
+
+    console.log(orderedCells)
 
     for (const cell of orderedCells) {
         gameHistory.push(cloneGameState(nextGameState));
@@ -138,6 +140,7 @@ function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
         nextGameState.currentTurnPlayerId !== expectedCurrentTurnPlayerId
         || nextGameState.placementsRemaining !== gamePosition.placementsRemaining
     ) {
+        console.log(`${nextGameState.currentTurnPlayerId} - ${expectedCurrentTurnPlayerId} - ${orderedCells[0]?.player}`)
         throw new Error(`Sandbox position is inconsistent.`);
     }
 

@@ -17,7 +17,10 @@ function App({ router, queryClient, dehydratedState }: Readonly<AppProps>) {
 
     useEffect(() => clearHydrationRenderPassFlag(), []);
 
-    console.log(`Render app root as ${renderMode}`);
+    if (renderMode !== `ssr`) {
+        console.log(`Render app root as ${renderMode}`);
+    }
+
     return (
         <AppErrorBoundary>
             <meta charSet="UTF-8" />

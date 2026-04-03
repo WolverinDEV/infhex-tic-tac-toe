@@ -424,6 +424,25 @@ function useGameBoard({
             }
         }
 
+        /* highlight the 0,0 cell */
+        const origin = renderableCells.get(getCellKey(0, 0));
+        if (origin) {
+            const screenX = centerX + origin.pointX * scale;
+            const screenY = centerY + origin.pointY * scale;
+            const originHighlightColor = { r: 248, g: 211, b: 208 };
+
+            context.save();
+            traceHexPath(context, screenX, screenY, Math.max(4, hexRadius - 5));
+            context.fillStyle = withAlpha(originHighlightColor, 0.12);
+            context.fill();
+
+            traceHexPath(context, screenX, screenY, hexRadius - 1.5);
+            context.strokeStyle = withAlpha(originHighlightColor, 0.62);
+            context.lineWidth = Math.max(1.5, scale * 0.024);
+            context.stroke();
+            context.restore();
+        }
+
         const hoveredCell = hoveredCellRef.current;
         if (hoveredCell && latestData.canPlaceCell) {
             const hoveredKey = getCellKey(hoveredCell.x, hoveredCell.y);
@@ -714,7 +733,7 @@ function useGameBoard({
             : interactionEnabled && !canPlaceCell && !isSpectator
                 ? `cursor-not-allowed`
             : `cursor-default`
-        }`,
+            }`,
         canvasHandlers: {
             onContextMenu: (event) => {
                 event.preventDefault();
