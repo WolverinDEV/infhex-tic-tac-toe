@@ -21,16 +21,17 @@ import {
     type TournamentPlayerStats,
     type TournamentStanding,
     type TournamentSummary,
+    type TournamentUpdatedEvent,
     type TournamentUpcomingMatch,
     type TournamentViewerState,
     type UpdateTournamentRequest,
+    type SessionUpdatedEvent,
 } from '@ih3t/shared';
 import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'tsyringe';
 
 import { type AccountUserProfile, AuthRepository } from '../auth/authRepository';
 import { type RequestClientInfo } from '../network/clientInfo';
-import { SocketServerGateway } from '../network/createSocketServer';
 import { GameHistoryRepository } from '../persistence/gameHistoryRepository';
 import { SessionError, SessionManager } from '../session/sessionManager';
 import type { CreateSessionParams } from '../session/types';
@@ -56,6 +57,13 @@ type ActiveClaimWin = {
     startedAt: number;
     expiresAt: number;
     timer: ReturnType<typeof setTimeout>;
+};
+
+export type TournamentServiceEventHandlers = {
+    tournamentUpdated?: (event: TournamentUpdatedEvent) => void,
+    tournamentNotification?: (profileId: string, event: TournamentNotificationEvent) => void,
+    sessionUpdated?: (event: SessionUpdatedEvent) => void,
+    sessionClaimWin?: (event: SessionClaimWinEvent) => void,
 };
 
 function canManageTournament(user: AccountUserProfile | null, tournament: TournamentRecord): boolean {
@@ -498,14 +506,18 @@ function toDetail(
 export class TournamentService {
     private readonly tournamentLocks = new Map<string, Mutex>();
     private readonly activeClaimWins = new Map<string, ActiveClaimWin>();
+    private eventHandlers: TournamentServiceEventHandlers = {};
 
     constructor(
         @inject(TournamentRepository) private readonly tournamentRepository: TournamentRepository,
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
-        @inject(SocketServerGateway) private readonly socketServerGateway: SocketServerGateway,
     ) { }
+
+    setEventHandlers(eventHandlers: TournamentServiceEventHandlers): void {
+        this.eventHandlers = eventHandlers;
+    }
 
     async listTournaments(currentUser: AccountUserProfile | null, pastPage = 1): Promise<TournamentListingResponse> {
         const [
@@ -1044,7 +1056,7 @@ export class TournamentService {
             tournament.updatedAt = Date.now();
             tournament.activity.unshift(createTournamentActivity(user, `participant-swapped`, `${replacementProfile.username} replaced ${currentParticipant.displayName}.`));
             await this.reconcileTournamentRecord(tournament);
-            this.socketServerGateway.emitTournamentNotification(replacementProfile.id, {
+            this.emitTournamentNotification(replacementProfile.id, {
                 tournamentId: tournament.id,
                 kind: `participant-replaced`,
                 message: `You were added to ${tournament.name}.`,
@@ -1372,7 +1384,7 @@ export class TournamentService {
         this.refreshParticipantStatuses(tournament);
 
         for (const participant of seededParticipants) {
-            this.socketServerGateway.emitTournamentNotification(participant.profileId, {
+            this.emitTournamentNotification(participant.profileId, {
                 tournamentId: tournament.id,
                 kind: `tournament-started`,
                 message: `${tournament.name} has started.`,
@@ -1404,7 +1416,7 @@ export class TournamentService {
                 // Notify organizers
                 const organizerIds = [tournament.createdByProfileId, ...tournament.organizers];
                 for (const orgId of new Set(organizerIds)) {
-                    this.socketServerGateway.emitTournamentNotification(orgId, {
+                    this.emitTournamentNotification(orgId, {
                         tournamentId: tournament.id,
                         kind: `low-registration`,
                         message: `"${tournament.name}" has only ${registeredCount} player${registeredCount === 1 ? `` : `s`} registered. At least ${minimumParticipantsToStart} ${minimumParticipantsToStart === 1 ? `is` : `are`} needed.`,
@@ -1448,7 +1460,7 @@ export class TournamentService {
                 // Notify waitlisted players
                 for (const participant of tournament.participants) {
                     if (participant.status === `waitlisted`) {
-                        this.socketServerGateway.emitTournamentNotification(participant.profileId, {
+                        this.emitTournamentNotification(participant.profileId, {
                             tournamentId: tournament.id,
                             kind: `waitlist-open`,
                             message: `Spots opened up in "${tournament.name}"! Check in now to claim a spot.`,
@@ -2259,7 +2271,7 @@ export class TournamentService {
             }
 
             const opponent = match.slots.find((entry) => entry.profileId !== slot.profileId && !entry.isBye) ?? null;
-            this.socketServerGateway.emitTournamentNotification(slot.profileId, {
+            this.emitTournamentNotification(slot.profileId, {
                 tournamentId: tournament.id,
                 kind: `match-ready`,
                 message: opponent
@@ -2267,6 +2279,22 @@ export class TournamentService {
                     : `Your ${tournament.name} match is ready.`,
             });
         }
+    }
+
+    private emitTournamentUpdated(event: TournamentUpdatedEvent): void {
+        this.eventHandlers.tournamentUpdated?.(event);
+    }
+
+    private emitTournamentNotification(profileId: string, event: TournamentNotificationEvent): void {
+        this.eventHandlers.tournamentNotification?.(profileId, event);
+    }
+
+    private emitSessionUpdated(event: SessionUpdatedEvent): void {
+        this.eventHandlers.sessionUpdated?.(event);
+    }
+
+    private emitSessionClaimWin(event: SessionClaimWinEvent): void {
+        this.eventHandlers.sessionClaimWin?.(event);
     }
 
     private async requireTournament(tournamentId: string): Promise<TournamentRecord> {
@@ -2464,7 +2492,7 @@ export class TournamentService {
     }
 
     private broadcastTournamentUpdate(tournament: TournamentRecord) {
-        this.socketServerGateway.emitTournamentUpdated({
+        this.emitTournamentUpdated({
             tournamentId: tournament.id,
             updatedAt: tournament.updatedAt,
         });
@@ -2554,7 +2582,7 @@ export class TournamentService {
 
             for (const slot of missingSlots) {
                 if (slot.profileId) {
-                    this.socketServerGateway.emitTournamentNotification(slot.profileId, {
+                    this.emitTournamentNotification(slot.profileId, {
                         tournamentId: tournament.id,
                         kind: `timeout-warning`,
                         message: `Your match in ${tournament.name} is waiting for you. Join now or request an extension.`,
@@ -2674,7 +2702,7 @@ export class TournamentService {
             });
 
             // Broadcast to session
-            this.socketServerGateway.emitSessionClaimWin({
+            this.emitSessionClaimWin({
                 sessionId: match.sessionId,
                 state: claimState,
             } satisfies SessionClaimWinEvent);
@@ -2682,7 +2710,7 @@ export class TournamentService {
             // Notify absent opponent
             const opponentSlot = match.slots.find((s) => s.profileId && s.profileId !== user.id && !s.isBye);
             if (opponentSlot?.profileId) {
-                this.socketServerGateway.emitTournamentNotification(opponentSlot.profileId, {
+                this.emitTournamentNotification(opponentSlot.profileId, {
                     tournamentId: tournament.id,
                     kind: `claim-win-started`,
                     message: `Your opponent is claiming a win in ${tournament.name}. Join within 30 seconds or forfeit the match.`,
@@ -2711,7 +2739,7 @@ export class TournamentService {
         clearTimeout(claim.timer);
         this.activeClaimWins.delete(matchId);
 
-        this.socketServerGateway.emitSessionClaimWin({
+        this.emitSessionClaimWin({
             sessionId,
             state: null,
         } satisfies SessionClaimWinEvent);
@@ -2737,7 +2765,7 @@ export class TournamentService {
             if (session) {
                 const connectedCount = session.players.filter((p) => p.connection.status === `connected`).length;
                 if (connectedCount >= 2) {
-                    this.socketServerGateway.emitSessionClaimWin({
+                    this.emitSessionClaimWin({
                         sessionId: match.sessionId,
                         state: null,
                     } satisfies SessionClaimWinEvent);
@@ -2762,7 +2790,7 @@ export class TournamentService {
             for (const slot of match.slots) {
                 if (slot.profileId) {
                     const isWinner = slot.profileId === claim.claimantProfileId;
-                    this.socketServerGateway.emitTournamentNotification(slot.profileId, {
+                    this.emitTournamentNotification(slot.profileId, {
                         tournamentId: tournament.id,
                         kind: `claim-win-awarded`,
                         message: isWinner
@@ -2773,7 +2801,7 @@ export class TournamentService {
             }
 
             if (match.sessionId) {
-                this.socketServerGateway.emitSessionClaimWin({
+                this.emitSessionClaimWin({
                     sessionId: match.sessionId,
                     state: null,
                 } satisfies SessionClaimWinEvent);
@@ -2841,7 +2869,7 @@ export class TournamentService {
             const organizerIds = new Set([tournament.createdByProfileId, ...tournament.organizers]);
             organizerIds.delete(user.id); // Don't notify the requester if they're an organizer
             for (const organizerId of organizerIds) {
-                this.socketServerGateway.emitTournamentNotification(organizerId, {
+                this.emitTournamentNotification(organizerId, {
                     tournamentId: tournament.id,
                     kind: `extension-requested`,
                     message: `${user.username} requested a time extension in ${tournament.name}.`,
@@ -2895,7 +2923,7 @@ export class TournamentService {
                         // Push a session-updated event so the frontend receives the new matchStartedAt
                         const sessionInfo = this.sessionManager.getSessionInfo(match.sessionId);
                         if (sessionInfo) {
-                            this.socketServerGateway.emitSessionUpdated({
+                            this.emitSessionUpdated({
                                 sessionId: match.sessionId as SessionInfo[`id`],
                                 session: { tournament: sessionInfo.tournament },
                             });
@@ -2914,7 +2942,7 @@ export class TournamentService {
             ));
 
             // Notify the requesting player
-            this.socketServerGateway.emitTournamentNotification(extension.requestedByProfileId, {
+            this.emitTournamentNotification(extension.requestedByProfileId, {
                 tournamentId: tournament.id,
                 kind: `extension-resolved`,
                 message: approve

@@ -218,18 +218,18 @@ class FakeGameHistoryRepository {
     }
 }
 
-class FakeSocketServerGateway {
+class FakeTournamentEventSink {
     readonly tournamentNotifications: Array<{ profileId: string; kind: string }> = [];
 
-    emitTournamentUpdated(): void { }
+    tournamentUpdated(): void { }
 
-    emitTournamentNotification(profileId: string, event: { kind: string }): void {
+    tournamentNotification(profileId: string, event: { kind: string }): void {
         this.tournamentNotifications.push({ profileId, kind: event.kind });
     }
 
-    emitSessionClaimWin(): void { }
+    sessionClaimWin(): void { }
 
-    emitSessionUpdated(): void { }
+    sessionUpdated(): void { }
 }
 
 function createAccountUser(overrides: Partial<AccountUserProfile> & Pick<AccountUserProfile, `id` | `username`>): AccountUserProfile {
@@ -248,19 +248,19 @@ function createAccountUser(overrides: Partial<AccountUserProfile> & Pick<Account
 function createService(initialTournament: TournamentRecord) {
     const repository = new FakeTournamentRepository(initialTournament);
     const sessionManager = new FakeSessionManager();
-    const socketGateway = new FakeSocketServerGateway();
+    const eventSink = new FakeTournamentEventSink();
     const service = new TournamentService(
         repository as never,
         {} as never,
         sessionManager as never,
         new FakeGameHistoryRepository() as never,
-        socketGateway as never,
     );
+    service.setEventHandlers(eventSink);
 
     return {
         repository,
         sessionManager,
-        socketGateway,
+        eventSink,
         service,
     };
 }

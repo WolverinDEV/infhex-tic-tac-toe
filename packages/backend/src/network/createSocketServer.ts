@@ -36,6 +36,7 @@ import { AuthService } from '../auth/authService';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
 import { SessionError, SessionManager } from '../session/sessionManager';
+import { TournamentService } from '../tournament/tournamentService';
 import type { ClientGameParticipation } from '../session/types';
 import { getSocketClientInfo as parseSocketClientInfo, SocketClientInfo } from './clientInfo';
 import { CorsConfiguration } from './cors';
@@ -125,6 +126,7 @@ export class SocketServerGateway {
         @inject(AuthService) private readonly authService: AuthService,
         @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(TournamentService) private readonly tournamentService: TournamentService,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
         @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration,
     ) {
@@ -135,6 +137,7 @@ export class SocketServerGateway {
         const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, this.corsConfiguration.options ? {
             cors: this.corsConfiguration.options,
         } : undefined);
+        this.io = io;
 
         io.use((socket, next) => {
             try {
@@ -174,6 +177,20 @@ export class SocketServerGateway {
                 io.to(event.sessionId).emit(`game-cell-place`, event);
             },
         });
+        this.tournamentService.setEventHandlers({
+            tournamentUpdated: (event) => {
+                this.emitTournamentUpdated(event);
+            },
+            tournamentNotification: (profileId, event) => {
+                this.emitTournamentNotification(profileId, event);
+            },
+            sessionUpdated: (event) => {
+                this.emitSessionUpdated(event);
+            },
+            sessionClaimWin: (event) => {
+                this.emitSessionClaimWin(event);
+            },
+        });
         this.serverShutdownService.setEventHandlers({
             shutdownUpdated(shutdown) {
                 io.emit(`shutdown-updated`, shutdown);
@@ -190,8 +207,6 @@ export class SocketServerGateway {
                 return;
             }
         });
-
-        this.io = io;
     }
 
     private async handleConnection(socket: ClientSocket) {

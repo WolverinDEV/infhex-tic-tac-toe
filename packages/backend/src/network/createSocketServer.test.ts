@@ -258,6 +258,10 @@ class FakeMetricsTracker {
     track(): void { }
 }
 
+class FakeTournamentService {
+    setEventHandlers(): void { }
+}
+
 class FakeCorsConfiguration {
     options = undefined;
 }
@@ -369,6 +373,7 @@ async function createHarness() {
         new FakeAuthService() as never,
         new FakeServerShutdownService() as never,
         sessionManager as never,
+        new FakeTournamentService() as never,
         new FakeMetricsTracker() as never,
         new FakeCorsConfiguration() as never,
     );
