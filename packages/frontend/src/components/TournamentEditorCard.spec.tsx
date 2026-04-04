@@ -1,4 +1,4 @@
-import type { CreateTournamentRequest } from '@ih3t/shared';
+import type { CreateTournamentRequest, TournamentDetail } from '@ih3t/shared';
 import { expect, test } from '@playwright/experimental-ct-react';
 
 import TournamentEditorCardComponent from './TournamentEditorCard';
@@ -105,4 +105,73 @@ test(`preserves a zero join timeout when editing an existing tournament`, async 
     await component.getByRole(`button`, { name: `Save` }).click();
 
     await expect.poll(() => submitted?.matchJoinTimeoutMinutes ?? null).toBe(0);
+});
+
+test(`maps join timeout from tournament detail into the edit request`, async () => {
+    const { buildCreateTournamentRequestFromDetail } = await import(`./TournamentEditorCard`);
+    const request = buildCreateTournamentRequestFromDetail({
+        id: `tournament-1`,
+        name: `Test Tournament`,
+        description: null,
+        kind: `community`,
+        format: `double-elimination`,
+        visibility: `private`,
+        status: `registration-open`,
+        isPublished: false,
+        scheduledStartAt: Date.now() + 60 * 60 * 1000,
+        checkInWindowMinutes: 30,
+        checkInOpensAt: Date.now(),
+        checkInClosesAt: Date.now() + 30 * 60 * 1000,
+        maxPlayers: 16,
+        swissRoundCount: null,
+        registeredCount: 0,
+        checkedInCount: 0,
+        participants: [],
+        standings: [],
+        matches: [],
+        activity: [],
+        viewer: {
+            isSubscribed: false,
+            isRegistered: false,
+            isWaitlisted: false,
+            canRegister: false,
+            canJoinWaitlist: false,
+            canCheckIn: false,
+            canWithdraw: false,
+            canManage: false,
+            participantId: null,
+            participantStatus: null,
+            checkInState: null,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        startedAt: null,
+        completedAt: null,
+        cancelledAt: null,
+        createdByProfileId: `profile-1`,
+        createdByDisplayName: `Dev Player 01`,
+        organizers: [],
+        whitelist: [],
+        blacklist: [],
+        timeControl: { mode: `turn`, turnTimeMs: 45_000 },
+        seriesSettings: {
+            earlyRoundsBestOf: 1,
+            finalsBestOf: 3,
+            grandFinalBestOf: 5,
+            grandFinalResetEnabled: true,
+        },
+        matchJoinTimeoutMinutes: 9,
+        lateRegistrationEnabled: true,
+        thirdPlaceMatchEnabled: false,
+        roundDelayMinutes: 0,
+        waitlistEnabled: false,
+        waitlistCheckInMinutes: 5,
+        waitlistOpensAt: null,
+        waitlistClosesAt: null,
+        waitlistedCount: 0,
+        extensionRequests: [],
+    } as unknown as TournamentDetail);
+
+    expect(request.matchJoinTimeoutMinutes).toBe(9);
+    expect(request.lateRegistrationEnabled).toBe(true);
 });

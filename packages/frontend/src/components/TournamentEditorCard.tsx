@@ -128,6 +128,8 @@ export function buildCreateTournamentRequestFromDetail(tournament: TournamentDet
         swissRoundCount: tournament.swissRoundCount ?? undefined,
         timeControl: { ...tournament.timeControl },
         seriesSettings: { ...tournament.seriesSettings },
+        matchJoinTimeoutMinutes: tournament.matchJoinTimeoutMinutes,
+        lateRegistrationEnabled: tournament.lateRegistrationEnabled,
         thirdPlaceMatchEnabled: tournament.thirdPlaceMatchEnabled,
         roundDelayMinutes: tournament.roundDelayMinutes,
         waitlistEnabled: tournament.waitlistEnabled,
