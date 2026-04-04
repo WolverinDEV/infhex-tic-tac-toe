@@ -186,7 +186,7 @@ function init(r: CreateTournamentRequest): TournamentFormState {
         finalsBestOf: String(r.seriesSettings.finalsBestOf),
         grandFinalBestOf: String(r.seriesSettings.grandFinalBestOf),
         grandFinalResetEnabled: r.seriesSettings.grandFinalResetEnabled,
-        matchJoinTimeoutMinutes: String(r.matchJoinTimeoutMinutes ?? 5),
+        matchJoinTimeoutMinutes: String(r.matchJoinTimeoutMinutes ?? 0),
         lateRegistrationEnabled: r.lateRegistrationEnabled ?? false,
         thirdPlaceMatchEnabled: r.thirdPlaceMatchEnabled ?? false,
         roundDelayMinutes: String(r.roundDelayMinutes ?? 0),

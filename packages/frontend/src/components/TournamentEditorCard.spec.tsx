@@ -78,3 +78,31 @@ test(`submits 256-player swiss tournaments without clamping to 128`, async ({ mo
 
     await expect.poll(() => submitted?.maxPlayers ?? null).toBe(256);
 });
+
+test(`preserves a zero join timeout when editing an existing tournament`, async ({ mount }) => {
+    let submitted: CreateTournamentRequest | null = null;
+
+    const component = await mount(
+        <TournamentEditorCardComponent
+            formKey="edit"
+            title="Edit Tournament"
+            description=""
+            defaultRequest={{
+                ...baseRequest,
+                matchJoinTimeoutMinutes: 0,
+            }}
+            submitLabel="Save"
+            submitting={false}
+            onSubmit={(request) => {
+                submitted = request;
+            }}
+        />,
+    );
+
+    const joinTimeoutRow = component.getByText(`Join timeout`).locator(`..`);
+    await expect(joinTimeoutRow.locator(`input`)).toHaveValue(`0`);
+
+    await component.getByRole(`button`, { name: `Save` }).click();
+
+    await expect.poll(() => submitted?.matchJoinTimeoutMinutes ?? null).toBe(0);
+});
