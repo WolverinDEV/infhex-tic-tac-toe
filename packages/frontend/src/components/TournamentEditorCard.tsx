@@ -6,7 +6,7 @@ import type {
     TournamentKind,
     TournamentSeriesBestOf,
 } from '@ih3t/shared';
-import { TOURNAMENT_SERIES_BEST_OF_VALUES } from '@ih3t/shared';
+import { TOURNAMENT_BRACKET_SIZES, TOURNAMENT_SERIES_BEST_OF_VALUES } from '@ih3t/shared';
 import { useEffect, useState } from 'react';
 
 type TournamentEditorCardProps = {
@@ -270,8 +270,8 @@ function TournamentEditorCard({
         const startAt = Number.isFinite(sd.valueOf()) ? sd.valueOf() : Date.now() + 3_600_000;
         const mpRaw = Number.parseInt(f.maxPlayers, 10);
         const mp = f.format === `swiss`
-            ? Math.max(2, Math.min(128, mpRaw || 8))
-            : (([128, 64, 32, 16, 8, 4] as const).includes(mpRaw as 128) ? mpRaw : 4);
+            ? Math.max(2, Math.min(256, mpRaw || 8))
+            : (TOURNAMENT_BRACKET_SIZES.includes(mpRaw as typeof TOURNAMENT_BRACKET_SIZES[number]) ? mpRaw : 4);
         const ciw = Number.parseInt(f.checkInWindowMinutes, 10);
         const sr = f.format === `swiss` && f.swissRoundCount.trim() ? Number.parseInt(f.swissRoundCount, 10) : undefined;
 
@@ -334,7 +334,7 @@ function TournamentEditorCard({
                 <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">Players</span>
 
                 {f.format === `swiss` ? (
-                    <Input type="number" min={2} max={128} value={f.maxPlayers}
+                    <Input type="number" min={2} max={256} value={f.maxPlayers}
                         onChange={(e) => set(`maxPlayers`, e.target.value)} className="w-16 text-center" />
                 ) : (
                     <div className="inline-flex rounded-lg border border-white/8 bg-slate-950/60 p-0.5">
