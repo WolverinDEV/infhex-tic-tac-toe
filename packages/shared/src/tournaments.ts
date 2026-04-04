@@ -255,6 +255,7 @@ export const zTournamentViewerState = z.object({
     canCheckIn: z.boolean(),
     canWithdraw: z.boolean(),
     isSubscribed: z.boolean(),
+    autoSubscribedOnView: z.boolean().optional(),
     isCreator: z.boolean(),
     isWaitlisted: z.boolean(),
     canJoinWaitlist: z.boolean(),

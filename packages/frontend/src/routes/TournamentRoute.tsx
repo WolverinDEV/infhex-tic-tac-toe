@@ -1126,7 +1126,7 @@ function TournamentRoute() {
     useEffect(() => {
         const viewerParticipant = t?.participants.find((p) => p.profileId === acct?.id);
         const isOut = viewerParticipant?.status === `eliminated` || viewerParticipant?.status === `dropped`;
-        if (shownSubscribedToast || !t || !t.viewer.isSubscribed || t.viewer.isCreator || t.viewer.canManage || t.status === `completed` || t.status === `cancelled` || isOut) return;
+        if (shownSubscribedToast || !t || !t.viewer.autoSubscribedOnView || t.viewer.isCreator || t.viewer.canManage || t.status === `completed` || t.status === `cancelled` || isOut) return;
         setShownSubscribedToast(true);
         toast.info(`Subscribed to ${t.name}.`, { toastId: `subscribed:${t.id}` });
     }, [t, shownSubscribedToast]);

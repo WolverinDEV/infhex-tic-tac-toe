@@ -294,6 +294,7 @@ function buildViewerState(tournament: TournamentRecord, currentUser: AccountUser
             && (tournament.status === `registration-open` || tournament.status === `check-in-open` || tournament.status === `waitlist-open` || tournament.status === `live`),
         ),
         isSubscribed: Boolean(currentUser && tournament.subscriberProfileIds?.includes(currentUser.id)),
+        autoSubscribedOnView: false,
         isCreator: Boolean(tournament.createdByProfileId === currentUser?.id),
         isWaitlisted: Boolean(waitlistedParticipant),
         canJoinWaitlist: Boolean(
@@ -487,6 +488,7 @@ function toDetail(
     tournament: TournamentRecord,
     currentUser: AccountUserProfile | null,
     profileMap?: Map<string, string>,
+    autoSubscribedOnView = false,
 ): TournamentDetail {
     return {
         ...toSummary(tournament),
@@ -498,7 +500,10 @@ function toDetail(
         organizers: resolveOrganizerNames(tournament, profileMap),
         whitelist: tournament.whitelist.map((e) => ({ ...e })),
         blacklist: tournament.blacklist.map((e) => ({ ...e })),
-        viewer: buildViewerState(tournament, currentUser),
+        viewer: {
+            ...buildViewerState(tournament, currentUser),
+            autoSubscribedOnView,
+        },
     };
 }
 
@@ -563,6 +568,7 @@ export class TournamentService {
         if (!tournament) {
             return null;
         }
+        let autoSubscribedOnView = false;
 
         /* Eagerly reconcile live tournaments so the detail is always fresh */
         if (tournament.status === `live`) {
@@ -590,6 +596,7 @@ export class TournamentService {
             if (!subs.includes(currentUser.id)) {
                 subs.push(currentUser.id);
                 tournament.subscriberProfileIds = subs;
+                autoSubscribedOnView = true;
             }
 
             this.tournamentRepository.addSubscriber(tournamentId, currentUser.id).catch(() => { /* fire-and-forget */ });
@@ -607,7 +614,7 @@ export class TournamentService {
             );
         }
 
-        return toDetail(tournament, currentUser, profileMap);
+        return toDetail(tournament, currentUser, profileMap, autoSubscribedOnView);
     }
 
     async createTournament(user: AccountUserProfile, request: CreateTournamentRequest): Promise<TournamentDetail> {
