@@ -1440,7 +1440,7 @@ function TournamentRoute() {
                                                         <MatchCard
                                                             key={m.id} match={m} canManage={t.viewer.canManage}
                                                             viewerProfileId={acct?.id ?? null}
-                                                            timeoutAt={t.matchJoinTimeoutMinutes > 0 && m.state === `in-progress` && m.startedAt !== null ? m.startedAt + t.matchJoinTimeoutMinutes * 60_000 : null}
+                                                            timeoutAt={t.matchJoinTimeoutMinutes > 0 && m.waitingForPlayers && m.startedAt !== null ? m.startedAt + t.matchJoinTimeoutMinutes * 60_000 : null}
                                                             extensionMinutes={t.matchExtensionMinutes}
                                                             pendingExtension={t.extensionRequests.find((r) => r.matchId === m.id && r.status === `pending`) ?? null}
                                                             claimWinExpiresAt={null}

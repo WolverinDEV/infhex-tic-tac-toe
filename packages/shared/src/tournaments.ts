@@ -196,6 +196,7 @@ export const zTournamentMatch = z.object({
     resolvedAt: zTimestamp.nullable(),
     advanceWinnerTo: zTournamentMatchAdvanceTarget.nullable(),
     advanceLoserTo: zTournamentMatchAdvanceTarget.nullable(),
+    waitingForPlayers: z.boolean().optional(),
 });
 export type TournamentMatch = z.infer<typeof zTournamentMatch>;
 

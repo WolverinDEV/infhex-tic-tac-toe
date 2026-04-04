@@ -167,7 +167,7 @@ type FakeSession = {
         connection: { status: `connected` | `disconnected` };
     }>;
     state: {
-        status: `waiting` | `finished`;
+        status: `lobby` | `in-game` | `finished`;
         gameId?: string;
         winningPlayerId?: string | null;
     };
@@ -191,7 +191,7 @@ class FakeSessionManager {
         this.sessions.set(sessionId, {
             id: sessionId,
             players,
-            state: { status: `waiting` },
+            state: { status: `lobby` },
             tournament: params.tournament ?? null,
         });
         return { sessionId };
@@ -573,7 +573,7 @@ test(`reconcileAllTournaments only records one timeout warning per timeout windo
             { id: `p1`, profileId: `player-1`, connection: { status: `connected` } },
             { id: `p2`, profileId: `player-2`, connection: { status: `disconnected` } },
         ],
-        state: { status: `waiting` },
+        state: { status: `lobby` },
         tournament: null,
     });
 

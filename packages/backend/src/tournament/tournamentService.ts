@@ -494,11 +494,15 @@ function toDetail(
     currentUser: AccountUserProfile | null,
     profileMap?: Map<string, string>,
     autoSubscribedOnView = false,
+    isMatchWaitingForPlayers?: (match: TournamentMatch) => boolean,
 ): TournamentDetail {
     return {
         ...toSummary(tournament),
         participants: tournament.participants.map(cloneParticipant),
-        matches: tournament.matches.map(cloneMatch),
+        matches: tournament.matches.map((match) => ({
+            ...cloneMatch(match),
+            waitingForPlayers: isMatchWaitingForPlayers?.(match) ?? false,
+        })),
         standings: getTournamentStandings(tournament),
         activity: tournament.activity.map(cloneActivity),
         extensionRequests: tournament.extensionRequests.map((r) => ({ ...r })),
@@ -527,6 +531,30 @@ export class TournamentService {
 
     setEventHandlers(eventHandlers: TournamentServiceEventHandlers): void {
         this.eventHandlers = eventHandlers;
+    }
+
+    private isMatchWaitingForPlayers(match: TournamentMatch): boolean {
+        if (match.state !== `in-progress` || !match.sessionId) {
+            return false;
+        }
+
+        const session = this.sessionManager.getSessionInfo(match.sessionId);
+        return session?.state.status === `lobby`;
+    }
+
+    private toDetail(
+        tournament: TournamentRecord,
+        currentUser: AccountUserProfile | null,
+        profileMap?: Map<string, string>,
+        autoSubscribedOnView = false,
+    ): TournamentDetail {
+        return toDetail(
+            tournament,
+            currentUser,
+            profileMap,
+            autoSubscribedOnView,
+            (match) => this.isMatchWaitingForPlayers(match),
+        );
     }
 
     async listTournaments(currentUser: AccountUserProfile | null, pastPage = 1): Promise<TournamentListingResponse> {
@@ -619,7 +647,7 @@ export class TournamentService {
             );
         }
 
-        return toDetail(tournament, currentUser, profileMap, autoSubscribedOnView);
+        return this.toDetail(tournament, currentUser, profileMap, autoSubscribedOnView);
     }
 
     async createTournament(user: AccountUserProfile, request: CreateTournamentRequest): Promise<TournamentDetail> {
@@ -635,7 +663,7 @@ export class TournamentService {
         tournament.blacklist = await this.resolveAccessEntries(request.blacklist ?? []);
         await this.tournamentRepository.createTournament(tournament);
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async updateTournament(tournamentId: string, user: AccountUserProfile, update: UpdateTournamentRequest): Promise<TournamentDetail> {
@@ -725,7 +753,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async registerCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -790,7 +818,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async reorderSeeds(tournamentId: string, orderedProfileIds: string[], user: AccountUserProfile): Promise<TournamentDetail> {
@@ -840,7 +868,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async withdrawCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -881,7 +909,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async checkInCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -927,7 +955,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async addParticipant(tournamentId: string, user: AccountUserProfile, profileId: string): Promise<TournamentDetail> {
@@ -979,7 +1007,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async removeParticipant(tournamentId: string, user: AccountUserProfile, profileId: string): Promise<TournamentDetail> {
@@ -1017,7 +1045,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async swapParticipant(tournamentId: string, user: AccountUserProfile, request: TournamentParticipantSwapRequest): Promise<TournamentDetail> {
@@ -1083,7 +1111,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async startTournament(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -1096,7 +1124,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async awardWalkover(tournamentId: string, matchId: string, winnerProfileId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -1115,7 +1143,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async reopenMatch(tournamentId: string, matchId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -1138,7 +1166,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async cancelTournament(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -1158,7 +1186,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async unsubscribeFromTournament(tournamentId: string, user: AccountUserProfile, transferTo?: string): Promise<void> {
@@ -1223,7 +1251,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async revokeTournamentOrganizer(tournamentId: string, user: AccountUserProfile, profileId: string): Promise<TournamentDetail> {
@@ -1243,7 +1271,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async reconcileAllTournaments(): Promise<void> {
@@ -2351,7 +2379,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async bulkAddToAccessList(
@@ -2415,7 +2443,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     private async resolveAccessEntries(profileIds: string[]): Promise<TournamentRecord[`whitelist`]> {
@@ -2903,7 +2931,7 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 
     async resolveExtension(tournamentId: string, extensionId: string, approve: boolean, user: AccountUserProfile): Promise<TournamentDetail> {
@@ -2978,6 +3006,6 @@ export class TournamentService {
         });
 
         this.broadcastTournamentUpdate(tournament);
-        return toDetail(tournament, user);
+        return this.toDetail(tournament, user);
     }
 }
