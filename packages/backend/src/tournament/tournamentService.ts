@@ -613,8 +613,8 @@ export class TournamentService {
     async createTournament(user: AccountUserProfile, request: CreateTournamentRequest): Promise<TournamentDetail> {
         if (user.role !== `admin`) {
             const activeCount = await this.tournamentRepository.countActiveTournamentsForUser(user.id);
-            if (activeCount >= 2) {
-                throw new SessionError(`You can have at most 2 active tournaments.`);
+            if (activeCount >= 6) {
+                throw new SessionError(`You can have at most 6 active tournaments.`);
             }
         }
 
