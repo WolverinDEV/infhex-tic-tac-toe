@@ -95,6 +95,25 @@ function EndIcon() {
     );
 }
 
+function resolveReplayStartingPlayerId(game: FinishedGameRecord): string | null {
+    const recordedFirstMovePlayerId = game.moves[0]?.playerId ?? null;
+    if (recordedFirstMovePlayerId) {
+        return recordedFirstMovePlayerId;
+    }
+
+    const hostPlayerId = game.players[0]?.playerId ?? null;
+    const guestPlayerId = game.players[1]?.playerId ?? null;
+
+    switch (game.gameOptions.firstPlayer) {
+        case `host`:
+            return hostPlayerId;
+        case `guest`:
+            return guestPlayerId ?? hostPlayerId;
+        case `random`:
+            return hostPlayerId;
+    }
+}
+
 function buildReplayBoardState(game: FinishedGameRecord, visibleMoveCount: number): BoardState {
     const playerIds = game.players.map((player) => player.playerId);
     if (playerIds.length === 0) {
@@ -104,8 +123,7 @@ function buildReplayBoardState(game: FinishedGameRecord, visibleMoveCount: numbe
         };
     }
 
-    const startingPlayerId = game.moves[0]?.playerId;
-    const replayGameState = createStartedGameState(playerIds, startingPlayerId);
+    const replayGameState = createStartedGameState(playerIds, resolveReplayStartingPlayerId(game));
     replayGameState.playerTiles = game.playerTiles;
     for (const move of game.moves.slice(0, visibleMoveCount)) {
         applyGameMove(replayGameState, {
@@ -130,8 +148,10 @@ function buildReplaySandboxPosition(game: FinishedGameRecord, visibleMoveCount: 
     }
 
     const visibleMoves = game.moves.slice(0, visibleMoveCount);
-    const startingPlayerId = game.moves[0].playerId;
-    const replayGameState = createStartedGameState(game.players.map(player => player.playerId), startingPlayerId);
+    const replayGameState = createStartedGameState(
+        game.players.map((player) => player.playerId),
+        resolveReplayStartingPlayerId(game),
+    );
 
     for (const move of visibleMoves) {
         applyGameMove(replayGameState, move);

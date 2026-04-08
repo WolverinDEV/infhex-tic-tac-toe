@@ -84,8 +84,15 @@ export class HttpApplication {
                 issues: error.issues,
             }, `HTTP request validation failed`);
 
+            const friendlyMessage = error.issues
+                .map((issue) => {
+                    const field = issue.path.length > 0 ? issue.path.join(`.`) : `input`;
+                    return `${field}: ${issue.message}`;
+                })
+                .join(`; `);
+
             res.status(400).json({
-                error: error.message,
+                error: friendlyMessage,
                 issues: error.issues,
             });
         });

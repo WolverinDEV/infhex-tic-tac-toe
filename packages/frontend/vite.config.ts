@@ -6,6 +6,14 @@ import { defineConfig, UserConfig } from 'vite';
 
 export default defineConfig(({ isSsrBuild, mode }) => ({
     assetsInclude: [`**/*.aac`],
+    server: {
+        proxy: {
+            '/api': `http://localhost:3001`,
+            '/auth': `http://localhost:3001`,
+            '/socket.io': { target: `http://localhost:3001`, ws: true },
+            '/dev': `http://localhost:3001`,
+        },
+    },
 
     define: {
         __APP_VERSION_HASH__: JSON.stringify(resolveVersionHash()),

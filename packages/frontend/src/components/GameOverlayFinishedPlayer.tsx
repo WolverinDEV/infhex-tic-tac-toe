@@ -11,6 +11,7 @@ type GameOverlayFinishedPlayerProps = {
     state: SessionStateFinished,
     players: SessionPlayer[],
     localPlayerId: string,
+    isTournament?: boolean,
 
     onReturnToLobby: () => void
     onReviewGame?: (event: MouseEvent<HTMLAnchorElement>) => void
@@ -117,6 +118,7 @@ function GameOverlayFinishedPlayer({
     state,
     players,
     localPlayerId,
+    isTournament,
 
     onReturnToLobby,
     onReviewGame,
@@ -139,7 +141,13 @@ function GameOverlayFinishedPlayer({
         eloSummary?.previousElo ?? null,
     );
 
-    const rematch = getRematchState(state, players, localPlayerId);
+    const rematch = onRequestRematch
+        ? getRematchState(state, players, localPlayerId)
+        : {
+            enabled: false,
+            status: `This result feeds back into the tournament bracket instead of offering a rematch.`,
+            label: `Rematch Unavailable`,
+        };
     const theme = isDraw ? {
         shell: `bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.2),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(253,224,71,0.14),_transparent_28%),rgba(2,6,23,0.72)]`,
         card: `border-sky-200/20 bg-slate-950/80 shadow-[0_28px_120px_rgba(8,47,73,0.52)]`,
@@ -254,7 +262,7 @@ function GameOverlayFinishedPlayer({
                                 onClick={onReturnToLobby}
                                 className={`w-full rounded-2xl border px-5 py-4 text-sm font-semibold uppercase tracking-[0.16em] transition ${theme.subtleButton}`}
                             >
-                                Return To Lobby
+                                {isTournament ? `Return To Tournament` : `Return To Lobby`}
                             </button>
                         </div>
                     </aside>

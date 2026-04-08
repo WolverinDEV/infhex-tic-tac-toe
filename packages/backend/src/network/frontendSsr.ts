@@ -149,6 +149,23 @@ export class FrontendSsrRenderer {
             queryClient.setQueryData(queryKeys.leaderboard, await this.dependencies.apiQueryService.getLeaderboard(req));
         }
 
+        if (path === `/tournaments`) {
+            const pastPage = parsePositiveInteger(requestUrl.searchParams.get(`pastPage`)) ?? 1;
+            queryClient.setQueryData(
+                [...queryKeys.tournaments, `list`, pastPage],
+                await this.dependencies.apiQueryService.getTournaments(req),
+            );
+        }
+
+        const tournamentMatch = /^\/tournaments\/([^/]+)$/.exec(path);
+        if (tournamentMatch) {
+            const tournamentId = decodeURIComponent(tournamentMatch[1]);
+            const tournament = await this.dependencies.apiQueryService.getTournament(req, tournamentId);
+            if (tournament) {
+                queryClient.setQueryData(queryKeys.tournament(tournamentId), tournament);
+            }
+        }
+
         const profileMatch = /^\/profile\/(?<id>[^/]+)|\/account\/profile$/.exec(path);
         if (profileMatch) {
             const profileId = decodeURIComponent(profileMatch.groups?.id ?? currentUserId ?? ``);

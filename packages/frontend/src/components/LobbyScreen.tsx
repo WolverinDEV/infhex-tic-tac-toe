@@ -20,6 +20,7 @@ type LobbyScreenProps = {
     onOpenSandbox: () => void
     onViewFinishedGames: () => void
     onViewLeaderboard: () => void
+    onViewTournaments: () => void
     onViewChangelog: () => void
     onViewOwnFinishedGames: () => void
 };
@@ -45,6 +46,7 @@ function LobbyScreen({
     onOpenSandbox,
     onViewChangelog,
     onViewLeaderboard,
+    onViewTournaments,
 }: Readonly<LobbyScreenProps>) {
     const isPlayingDisabled = !isConnected || Boolean(shutdown);
     const [now, setNow] = useState(useSsrCompatibleNow());
@@ -112,6 +114,13 @@ function LobbyScreen({
                                     className="w-full cursor-pointer block rounded-full border border-sky-300/25 bg-sky-400/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-400/20 sm:px-7 sm:text-base sm:tracking-[0.18em]"
                                 >
                                     Leaderboard
+                                </button>
+
+                                <button
+                                    onClick={onViewTournaments}
+                                    className="w-full cursor-pointer block rounded-full border border-amber-300/25 bg-amber-300/10 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:-translate-y-0.5 hover:bg-amber-300/20 sm:px-7 sm:text-base sm:tracking-[0.18em]"
+                                >
+                                    Tournaments
                                 </button>
                             </div>
 

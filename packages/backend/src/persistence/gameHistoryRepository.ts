@@ -7,6 +7,7 @@ import {
     type AdminLongestGameInMoves,
     type DatabaseGamePlayer,
     type DatabaseGameResult,
+    type FinishedGameTournamentInfo,
     type FinishedGameRecord,
     type FinishedGamesPage,
     type FinishedGameSummary,
@@ -90,6 +91,7 @@ export class GameHistoryRepository {
         players: DatabaseGamePlayer[],
         playerTiles: Record<string, PlayerTileConfig>,
         gameOptions: LobbyOptions,
+        tournament: FinishedGameTournamentInfo | null = null,
     ): Promise<string> {
         const collection = await this.getCollection();
         const gameId = randomUUID();
@@ -109,6 +111,7 @@ export class GameHistoryRepository {
                 moves: [],
                 moveCount: 0,
                 gameResult: null,
+                tournament: tournament ? { ...tournament } : null,
             });
         } catch (error: unknown) {
             this.logger.error({
@@ -297,6 +300,20 @@ export class GameHistoryRepository {
             finishedAt: {
                 $ne: null,
             },
+        });
+
+        if (!document) {
+            return undefined;
+        }
+
+        return this.mapRecord(document);
+    }
+
+    async getFinishedGameBySessionId(sessionId: string): Promise<FinishedGameRecord | undefined> {
+        const collection = await this.getCollection();
+        const document = await collection.findOne({
+            sessionId,
+            finishedAt: { $ne: null },
         });
 
         if (!document) {
@@ -841,6 +858,9 @@ export class GameHistoryRepository {
             moveCount: parsedDocument.moveCount,
             gameResult: parsedDocument.gameResult
                 ? { ...parsedDocument.gameResult }
+                : null,
+            tournament: parsedDocument.tournament
+                ? { ...parsedDocument.tournament }
                 : null,
         });
     }

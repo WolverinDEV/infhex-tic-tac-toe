@@ -373,11 +373,13 @@ function SessionRoute() {
 
     const retryJoinSession = () => { joinSession(sessionId); };
 
+    const tournamentId = session?.tournament?.tournamentId ?? null;
+
     const leaveSessionAndNavigate = () => {
         blockSessionJoinRef.current = true;
 
         leaveSession();
-        void navigate(`/`);
+        void navigate(tournamentId ? `/tournaments/${tournamentId}` : `/`);
     };
 
     const leaveSessionAndOpenOfflineBotGame = () => {
@@ -443,22 +445,44 @@ function SessionRoute() {
             />
         );
     } else if (session?.state.status === `lobby`) {
-        const localPlayerName = session.players.find(player => player.id === session.localParticipantId)?.displayName ?? account?.user?.username ?? `unknown`;
+        if (session.localParticipantRole === `spectator`) {
+            targetScreen = (
+                <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center px-4 py-20 text-center text-white">
+                    <div className="inline-flex rounded-full border border-sky-300/30 bg-sky-300/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.28em] text-sky-200">
+                        Spectating
+                    </div>
+                    <h2 className="mt-5 text-2xl font-black uppercase tracking-[0.06em] sm:text-4xl">
+                        Waiting for match to start
+                    </h2>
+                    <p className="mt-3 text-sm text-slate-400">
+                        The players haven&apos;t started yet. You&apos;ll be able to spectate once the game begins.
+                    </p>
+                    <div className="mt-3 text-[11px] tabular-nums text-slate-500">
+                        Players ready: {session.players.length}/2
+                    </div>
+                    <button onClick={leaveSessionAndNavigate}
+                        className="mt-6 text-sm text-slate-500 transition hover:text-white">
+                        Leave
+                    </button>
+                </div>
+            );
+        } else {
+            const localPlayerName = session.players.find(player => player.id === session.localParticipantId)?.displayName ?? account?.user?.username ?? `unknown`;
 
-        targetScreen = (
-            <WaitingScreen
-                sessionId={session.id}
-                gameOptions={session.gameOptions}
+            targetScreen = (
+                <WaitingScreen
+                    sessionId={session.id}
+                    gameOptions={session.gameOptions}
 
-                playerCount={session.players.length}
-                localPlayerName={localPlayerName}
-
-
-                onInviteFriend={() => void inviteFriend()}
-                onPlayOffline={session.gameOptions.visibility === `public` ? leaveSessionAndOpenOfflineBotGame : undefined}
-                onCancel={leaveSessionAndNavigate}
-            />
-        );
+                    playerCount={session.players.length}
+                    localPlayerName={localPlayerName}
+                    tournament={session.tournament}
+                    onInviteFriend={() => void inviteFriend()}
+                    onPlayOffline={session.gameOptions.visibility === `public` ? leaveSessionAndOpenOfflineBotGame : undefined}
+                    onCancel={leaveSessionAndNavigate}
+                />
+            );
+        }
     } else if (session?.state.status === `in-game` && !session.gameState) {
         /* show the connecting game screen until we got the game state */
         targetScreen = (
@@ -491,10 +515,11 @@ function SessionRoute() {
                     state={session.state}
                     players={session.players}
                     localPlayerId={session.localParticipantId}
+                    isTournament={Boolean(session.tournament)}
 
                     onReviewGame={(event) => handleFinishedGameReviewClick(event, gameId)}
                     onReturnToLobby={leaveSessionAndNavigate}
-                    onRequestRematch={requestRematch}
+                    onRequestRematch={session.tournament ? undefined : requestRematch}
                 />
             );
         }
@@ -533,6 +558,7 @@ function SessionRoute() {
                 interactionEnabled={session.state.status === `in-game`}
                 showTilePieceMarkers={showTilePieceMarkers}
                 hideEloInHud={hideEloInHud}
+                tournament={session.tournament}
 
                 onPlaceCell={placeCell}
                 onSendChatMessage={session.localParticipantRole === `player` ? sendSessionChatMessage : undefined}

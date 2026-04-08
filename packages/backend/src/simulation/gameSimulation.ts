@@ -27,7 +27,7 @@ export class SimulationError extends GameRuleError {
 @injectable()
 export class GameSimulation {
     startSession(boardState: GameState, playerIds: readonly string[], startingPlayerId?: string | null): void {
-        initializeGameState(boardState, playerIds, startingPlayerId);
+        initializeGameState(boardState, playerIds, startingPlayerId ?? null);
     }
 
     getPublicGameState(boardState: GameState): GameState {

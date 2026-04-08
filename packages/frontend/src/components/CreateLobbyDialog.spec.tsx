@@ -15,6 +15,7 @@ const authenticatedAccount: AccountProfile = {
   email: 'player@example.com',
   image: null,
   role: 'user',
+  permissions: [],
   registeredAt: 1_700_000_000_000,
   lastActiveAt: 1_700_000_000_000,
 }

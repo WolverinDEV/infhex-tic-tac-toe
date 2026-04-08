@@ -45,6 +45,7 @@ function createProps(overrides: Partial<GameScreenHudProps> = {}): GameScreenHud
     drawRequestAvailableAfterTurn: 50,
     gameOptions: baseGameOptions,
     shutdown: null,
+    tournament: null,
     onLeave: () => { },
     onResetView: () => { },
     ...overrides,
@@ -69,4 +70,36 @@ test('keeps the connection unstable badge hidden by default', async ({ mount }) 
   )
 
   await expect(component.getByText('Connection unstable')).toHaveCount(0)
+})
+
+test('hides draw actions for tournament matches', async ({ mount }) => {
+  const component = await mount(
+    <div className="relative min-h-screen">
+      <GameScreenHud
+        {...createProps({
+          tournament: {
+            tournamentId: 'tournament-1',
+            tournamentName: 'Spring Major',
+            matchId: 'match-1',
+            bracket: 'winners',
+            round: 1,
+            order: 1,
+            bestOf: 3,
+            currentGameNumber: 1,
+            leftWins: 0,
+            rightWins: 0,
+            matchJoinTimeoutMs: 300000,
+            matchExtensionMs: 300000,
+            matchStartedAt: 1_700_000_000_000,
+            leftDisplayName: 'Alpha',
+            rightDisplayName: 'Bravo',
+          },
+        })}
+      />
+    </div>,
+  )
+
+  await expect(component.getByRole('button', { name: 'Draw' })).toHaveCount(0)
+  await expect(component.getByRole('button', { name: 'Accept Draw' })).toHaveCount(0)
+  await expect(component.getByRole('button', { name: 'Decline Draw' })).toHaveCount(0)
 })

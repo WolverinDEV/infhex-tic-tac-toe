@@ -20,6 +20,7 @@ const signedInAccount: AccountProfile = {
   email: 'hex@example.com',
   image: 'https://cdn.discordapp.com/avatars/253552199546830848/fbf05fc7f4e899179daae5185c913703.png',
   role: 'user',
+  permissions: [],
   registeredAt: 1_700_000_000_000,
   lastActiveAt: 1_700_000_500_000,
 }
@@ -107,10 +108,10 @@ function createCallbackState() {
     joinSessionIds: [] as string[],
     openSandboxCount: 0,
     viewLeaderboardCount: 0,
+    viewTournamentsCount: 0,
     viewChangelogCount: 0,
     viewFinishedGamesCount: 0,
     viewOwnFinishedGamesCount: 0,
-    viewAdminCount: 0,
   }
 
   return {
@@ -131,14 +132,14 @@ function createCallbackState() {
       onViewLeaderboard: () => {
         state.viewLeaderboardCount += 1
       },
+      onViewTournaments: () => {
+        state.viewTournamentsCount += 1
+      },
       onViewChangelog: () => {
         state.viewChangelogCount += 1
       },
       onViewOwnFinishedGames: () => {
         state.viewOwnFinishedGamesCount += 1
-      },
-      onViewAdmin: () => {
-        state.viewAdminCount += 1
       },
     },
   }

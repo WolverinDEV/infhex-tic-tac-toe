@@ -18,6 +18,9 @@ export const queryKeys = {
     ] as const,
 
     leaderboard: [`leaderboard`] as const,
+    tournaments: [`tournaments`] as const,
+    tournament: (tournamentId: string | null) => [`tournaments`, tournamentId ?? `unknown`] as const,
+    ownTournaments: [`tournaments`, `mine`] as const,
     session: (sessionId: string | null) => [`session`, sessionId ?? `unknown`] as const,
     availableSessions: [`sessions`, `available`] as const,
     sandboxPosition: (positionId: string | null) => [`sandbox-position`, positionId ?? `none`] as const,

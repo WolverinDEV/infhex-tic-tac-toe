@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+    zAccountPermission,
     zAccountPreferences,
     zAccountProfile,
     zAccountStatistics,
@@ -98,6 +99,22 @@ export const zAccountResponse = z.object({
 });
 export type AccountResponse = z.infer<typeof zAccountResponse>;
 
+export const zAdminUserSearchResponse = z.object({
+    users: z.array(zAccountProfile),
+});
+export type AdminUserSearchResponse = z.infer<typeof zAdminUserSearchResponse>;
+
+export const zAdminUpdateUserPermissionsRequest = z.object({
+    permissions: z.array(zAccountPermission)
+        .default([]),
+});
+export type AdminUpdateUserPermissionsRequest = z.infer<typeof zAdminUpdateUserPermissionsRequest>;
+
+export const zAdminUpdateUserPermissionsResponse = z.object({
+    user: zAccountProfile.nullable(),
+});
+export type AdminUpdateUserPermissionsResponse = z.infer<typeof zAdminUpdateUserPermissionsResponse>;
+
 export const zProfileResponse = z.object({
     user: zPublicAccountProfile.nullable(),
 });
@@ -107,6 +124,11 @@ export const zAccountPreferencesResponse = z.object({
     preferences: zAccountPreferences,
 });
 export type AccountPreferencesResponse = z.infer<typeof zAccountPreferencesResponse>;
+
+export const zUserSearchResponse = z.object({
+    users: z.array(zPublicAccountProfile),
+});
+export type UserSearchResponse = z.infer<typeof zUserSearchResponse>;
 
 export const zProfileStatisticsResponse = z.object({
     statistics: zAccountStatistics,

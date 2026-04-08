@@ -16,6 +16,7 @@ const account: PublicAccountProfile = {
   username: 'Hex Master',
   image: 'https://cdn.discordapp.com/avatars/253552199546830848/fbf05fc7f4e899179daae5185c913703.png',
   role: 'user',
+  permissions: [],
   registeredAt: 1_700_000_000_000,
   lastActiveAt: 1_700_000_500_000,
 }
@@ -90,6 +91,7 @@ const recentGames: FinishedGamesPage = {
         durationMs: 1_120_000,
         reason: 'six-in-a-row',
       },
+      tournament: null,
     },
     {
       id: 'game-2',
@@ -132,6 +134,7 @@ const recentGames: FinishedGamesPage = {
         durationMs: 860_000,
         reason: 'timeout',
       },
+      tournament: null,
     },
   ],
   pagination: {

@@ -68,6 +68,7 @@ function LobbyRoute() {
                 onOpenSandbox={() => void navigate(`/sandbox`)}
                 onViewFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now()))}
                 onViewLeaderboard={() => void navigate(`/leaderboard`)}
+                onViewTournaments={() => void navigate(`/tournaments`)}
                 onViewChangelog={() => void navigate(`/changelog`)}
                 onViewOwnFinishedGames={() => void navigate(buildFinishedGamesPath(1, Date.now(), `mine`))}
                 unreadChangelogEntries={unreadChangelogEntries}

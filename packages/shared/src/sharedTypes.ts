@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { zFinishedGameTournamentInfo, zSessionTournamentInfo } from './tournaments';
+
 export const PLACE_CELL_HEX_RADIUS = 8;
 const WINNING_LINE_LENGTH = 6;
 export const DRAW_REQUEST_MIN_TURNS = 50;
@@ -16,6 +18,9 @@ export type HexCoordinate = z.infer<typeof zHexCoordinate>;
 
 export const zUserRole = z.enum([`user`, `admin`]);
 export type UserRole = z.infer<typeof zUserRole>;
+
+export const zAccountPermission = z.enum([`official-tournament-organizer`]);
+export type AccountPermission = z.infer<typeof zAccountPermission>;
 
 export const zSessionParticipantRole = z.enum([`player`, `spectator`]);
 export type SessionParticipantRole = z.infer<typeof zSessionParticipantRole>;
@@ -537,6 +542,8 @@ export const zSessionInfo = z.object({
 
     chat: zSessionChat,
     state: zSessionState,
+    tournament: zSessionTournamentInfo.nullable()
+        .default(null),
 });
 export type SessionInfo = z.infer<typeof zSessionInfo>;
 
@@ -585,6 +592,8 @@ export const zDatabaseGame = z.object({
     moveCount: z.number().int()
         .nonnegative(),
     gameResult: zDatabaseGameResult.nullable(),
+    tournament: zFinishedGameTournamentInfo.nullable()
+        .default(null),
 });
 export type DatabaseGame = z.infer<typeof zDatabaseGame>;
 
@@ -599,6 +608,8 @@ export const zFinishedGameSummary = z.object({
     moveCount: z.number().int()
         .nonnegative(),
     gameResult: zDatabaseGameResult.nullable(),
+    tournament: zFinishedGameTournamentInfo.nullable()
+        .default(null),
 });
 export type FinishedGameSummary = z.infer<typeof zFinishedGameSummary>;
 
@@ -724,6 +735,8 @@ export const zAccountProfile = z.object({
     email: z.string().nullable(),
     image: z.string().nullable(),
     role: zUserRole,
+    permissions: z.array(zAccountPermission)
+        .default([]),
     registeredAt: zTimestamp,
     lastActiveAt: zTimestamp,
 });

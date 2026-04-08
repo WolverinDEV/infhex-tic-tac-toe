@@ -1,4 +1,4 @@
-import type { LobbyOptions, PlayerRatingAdjustment, ShutdownState } from '@ih3t/shared';
+import type { LobbyOptions, PlayerRatingAdjustment, SessionTournamentInfo, ShutdownState } from '@ih3t/shared';
 import { DRAW_REQUEST_MIN_TURNS } from '@ih3t/shared';
 import { useState } from 'react';
 import React from 'react';
@@ -28,6 +28,7 @@ type GameScreenHudProps = {
     players: HudPlayerInfo[]
     hideEloInHud?: boolean
     showConnectionUnstableBadge?: boolean
+    tournament: SessionTournamentInfo | null
 
     rankingAdjustment: PlayerRatingAdjustment | null,
 
@@ -106,6 +107,7 @@ function GameScreenHud({
     localPlayerId,
     hideEloInHud = false,
     showConnectionUnstableBadge = false,
+    tournament,
 
     rankingAdjustment,
 
@@ -134,7 +136,7 @@ function GameScreenHud({
     let hideSurrenderButton = false;
     let drawActionArea: React.ReactNode = null;
 
-    if (!isSpectator && localPlayerId) {
+    if (!isSpectator && localPlayerId && !tournament) {
         if (requestedByLocalPlayer) {
             drawActionArea = (
                 <button
@@ -249,6 +251,38 @@ function GameScreenHud({
                             New games are disabled. This server restarts in
                             <ShutdownTimer shutdown={shutdown} />
                             .
+                        </div>
+                    </div>
+                )}
+
+                {tournament && (
+                    <div className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/6 px-3 py-2.5">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200/70">
+                            Tournament Match
+                        </div>
+
+                        <div className="mt-0.5 text-[13px] font-bold text-white">
+                            {tournament.tournamentName}
+                        </div>
+
+                        <div className="mt-1 text-[11px] text-slate-300">
+                            {tournament.bracket.replace(/-/g, ` `)}
+                            {` `}
+                            R
+                            {tournament.round}
+                            {` · `}
+                            BO
+                            {tournament.bestOf}
+                            {` · `}
+                            Game
+                            {` `}
+                            {tournament.currentGameNumber}
+                            {` · `}
+                            Score
+                            {` `}
+                            {tournament.leftWins}
+                            –
+                            {tournament.rightWins}
                         </div>
                     </div>
                 )}

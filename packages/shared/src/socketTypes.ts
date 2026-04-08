@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
     zAdminBroadcastMessage,
     zBoardCell,
-    zCoordinate,
     zGameState,
     zHexCoordinate,
     zIdentifier,
@@ -17,6 +16,11 @@ import {
     type LobbyInfo,
     type ShutdownState,
 } from './sharedTypes';
+import {
+    zSessionClaimWinEvent,
+    zTournamentNotificationEvent,
+    zTournamentUpdatedEvent,
+} from './tournaments';
 
 export const zSessionChatMessageRequest = z.object({
     sessionId: zSessionId,
@@ -29,6 +33,11 @@ export const zJoinSessionRequest = z.object({
     username: z.string().optional(),
 });
 export type JoinSessionRequest = z.infer<typeof zJoinSessionRequest>;
+
+export const zWatchSessionRequest = z.object({
+    sessionId: zSessionId,
+});
+export type WatchSessionRequest = z.infer<typeof zWatchSessionRequest>;
 
 export const zClientPingRequest = z.object({});
 export type ClientPingRequest = z.infer<typeof zClientPingRequest>;
@@ -72,6 +81,18 @@ export const zSessionUpdatedEvent = z.object({
     session: zSessionInfo.partial(),
 });
 export type SessionUpdatedEvent = z.infer<typeof zSessionUpdatedEvent>;
+
+export const zSessionWatchStartedEvent = z.object({
+    session: zSessionInfo,
+    gameState: zGameState,
+});
+export type SessionWatchStartedEvent = z.infer<typeof zSessionWatchStartedEvent>;
+
+export const zSessionWatchErrorEvent = z.object({
+    sessionId: zSessionId,
+    message: z.string(),
+});
+export type SessionWatchErrorEvent = z.infer<typeof zSessionWatchErrorEvent>;
 
 export const zSessionChatEvent = z.object({
     sessionId: zSessionId,
@@ -128,10 +149,15 @@ export type ServerToClientEvents = {
 
     'session-joined': (data: SessionJoinedEvent) => void;
     'session-updated': (data: SessionUpdatedEvent) => void;
+    'session-watch-started': (data: SessionWatchStartedEvent) => void;
+    'session-watch-error': (data: SessionWatchErrorEvent) => void;
     'session-chat': (data: SessionChatEvent) => void;
 
     'game-state': (data: GameStateEvent) => void;
     'game-cell-place': (data: GameCellPlaceEvent) => void;
+    'tournament-updated': (data: z.infer<typeof zTournamentUpdatedEvent>) => void;
+    'tournament-notification': (data: z.infer<typeof zTournamentNotificationEvent>) => void;
+    'session-claim-win': (data: z.infer<typeof zSessionClaimWinEvent>) => void;
 
     error: (error: string) => void;
 };
@@ -139,6 +165,8 @@ export type ServerToClientEvents = {
 export type ClientToServerEvents = {
     'client-ping': (request: ClientPingRequest) => void;
     'join-session': (request: JoinSessionRequest) => void;
+    'watch-session': (request: WatchSessionRequest) => void;
+    'unwatch-session': (request: WatchSessionRequest) => void;
     'leave-session': (request: LeaveSessionRequest) => void;
     'surrender-session': (request: SurrenderSessionRequest) => void;
     'request-session-draw': (request: RequestSessionDrawRequest) => void;

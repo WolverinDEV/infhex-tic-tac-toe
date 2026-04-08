@@ -11,6 +11,9 @@ import type {
     ProfileStatisticsResponse,
     SandboxPositionResponse,
     SessionInfo,
+    TournamentDetail,
+    TournamentListingResponse,
+    UserSearchResponse,
 } from '@ih3t/shared';
 import type express from 'express';
 import { inject, injectable } from 'tsyringe';
@@ -22,6 +25,7 @@ import { LeaderboardService } from '../../leaderboard/leaderboardService';
 import { GameHistoryRepository } from '../../persistence/gameHistoryRepository';
 import { SandboxPositionService } from '../../sandbox/sandboxPositionService';
 import { SessionManager } from '../../session/sessionManager';
+import { TournamentService } from '../../tournament/tournamentService';
 
 export class ApiRequestError extends Error {
     constructor(
@@ -50,6 +54,7 @@ export class ApiQueryService {
         @inject(GameHistoryRepository) private readonly gameHistoryRepository: GameHistoryRepository,
         @inject(SandboxPositionService) private readonly sandboxPositionService: SandboxPositionService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(TournamentService) private readonly tournamentService: TournamentService,
     ) { }
 
     async getAccount(req: express.Request): Promise<AccountResponse> {
@@ -143,6 +148,30 @@ export class ApiQueryService {
     async getLeaderboard(req: express.Request): Promise<Leaderboard> {
         const currentUser = await this.authService.getUserFromRequest(req);
         return await this.leaderboardService.getLeaderboardSnapshot(currentUser?.id ?? null);
+    }
+
+    async getTournaments(req: express.Request): Promise<TournamentListingResponse> {
+        const currentUser = await this.authService.getUserFromRequest(req);
+        const rawPastPage = req.query.pastPage;
+        const pastPage = Math.max(1, parseInt(typeof rawPastPage === `string` ? rawPastPage : `1`, 10) || 1);
+        return await this.tournamentService.listTournaments(currentUser, pastPage);
+    }
+
+    async getTournament(req: express.Request, tournamentId: string): Promise<TournamentDetail | null> {
+        const currentUser = await this.authService.getUserFromRequest(req);
+        return await this.tournamentService.getTournamentDetail(tournamentId, currentUser);
+    }
+
+    async searchUsers(req: express.Request, query: string): Promise<UserSearchResponse> {
+        const currentUser = await this.authService.getUserFromRequest(req);
+        if (!currentUser) {
+            throw new ApiRequestError(401, `Sign in with Discord to search for tournament players.`);
+        }
+
+        const users = await this.authRepository.searchUserProfiles(query, 10);
+        return {
+            users: users.map((user) => this.toPublicAccountProfile(user)).filter((user): user is NonNullable<typeof user> => Boolean(user)),
+        };
     }
 
     async getSandboxPosition(id: string): Promise<SandboxPositionResponse | null> {

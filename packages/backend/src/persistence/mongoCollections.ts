@@ -8,5 +8,6 @@ export const GAME_HISTORY_COLLECTION_NAME = process.env.MONGODB_GAME_HISTORY_COL
 export const METRICS_COLLECTION_NAME = process.env.MONGODB_METRICS_COLLECTION ?? `metrics`;
 export const SANDBOX_POSITIONS_COLLECTION_NAME = process.env.MONGODB_SANDBOX_POSITIONS_COLLECTION ?? `sandboxPositions`;
 export const SERVER_SETTINGS_COLLECTION_NAME = `serverSettings`;
+export const TOURNAMENTS_COLLECTION_NAME = process.env.MONGODB_TOURNAMENTS_COLLECTION ?? `tournaments`;
 export const DATABASE_MIGRATIONS_COLLECTION_NAME
     = process.env.MONGODB_MIGRATIONS_COLLECTION ?? `databaseMigrations`;

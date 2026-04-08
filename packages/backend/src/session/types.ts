@@ -16,6 +16,7 @@ import {
     type SessionInfo,
     type SessionPlayer,
     type SessionParticipantRole,
+    type SessionTournamentInfo,
     SessionUpdatedEvent,
     SessionSpectator,
     SessionId,
@@ -76,10 +77,13 @@ export type ServerGameSession = {
     startedAt: number | null;
     gameId: string;
     gameState: GameState;
+    finishedAt: number | null;
     finishReason: SessionFinishReason | null;
     winningPlayerId: string | null;
     rematchAcceptedPlayerIds: string[];
     isRatedGame: boolean;
+    reservedPlayerProfileIds: string[];
+    tournament: SessionTournamentInfo | null;
 
     chatNames: Record<SessionChatSenderId, string>;
     chatMessages: SessionChatMessage[];
@@ -101,6 +105,8 @@ export type JoinSessionParams = {
 export type CreateSessionParams = {
     client: RequestClientInfo;
     lobbyOptions: LobbyOptions;
+    reservedPlayerProfileIds?: string[];
+    tournament?: SessionTournamentInfo | null;
 };
 
 export type ParticipantLeftEvent = {
@@ -139,6 +145,11 @@ export type ClientGameParticipation = {
 
     participantId: string
     participantRole: SessionParticipantRole
+};
+
+export type SessionWatchSnapshot = {
+    session: SessionInfo
+    gameState: GameState
 };
 
 export function cloneGameOptions(gameOptions: LobbyOptions): LobbyOptions {
@@ -205,6 +216,10 @@ export function cloneGameBoard(boardState: GameState): GameState {
 export function createGameSession(
     sessionId: SessionId,
     gameOptions: LobbyOptions,
+    options: {
+        reservedPlayerProfileIds?: string[];
+        tournament?: SessionTournamentInfo | null;
+    } = {},
 ): ServerGameSession {
     return {
         id: sessionId,
@@ -221,11 +236,15 @@ export function createGameSession(
 
         gameOptions: cloneGameOptions(gameOptions),
 
+        finishedAt: null,
         finishReason: null,
         winningPlayerId: null,
         rematchAcceptedPlayerIds: [],
         isRatedGame: false,
-
+        reservedPlayerProfileIds: [
+            ...(options.reservedPlayerProfileIds ?? []),
+        ],
+        tournament: options.tournament ? { ...options.tournament } : null,
         gameId: ``,
         gameState: createEmptyGameState(),
 

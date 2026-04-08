@@ -8,6 +8,10 @@ import {
     type ServerToClientEvents,
     SessionId,
     SessionParticipantRole,
+    type SessionClaimWinEvent,
+    type SessionUpdatedEvent,
+    type TournamentNotificationEvent,
+    type TournamentUpdatedEvent,
     zAcceptSessionDrawRequest,
     zCancelRematchRequest,
     zDeclineSessionDrawRequest,
@@ -18,6 +22,7 @@ import {
     zRequestSessionDrawRequest,
     zSessionChatMessageRequest,
     zSurrenderSessionRequest,
+    zWatchSessionRequest,
 } from '@ih3t/shared';
 import { Mutex } from 'async-mutex';
 import type { Logger } from 'pino';
@@ -31,6 +36,7 @@ import { AuthService } from '../auth/authService';
 import { ROOT_LOGGER } from '../logger';
 import { MetricsTracker } from '../metrics/metricsTracker';
 import { SessionError, SessionManager } from '../session/sessionManager';
+import { TournamentService } from '../tournament/tournamentService';
 import type { ClientGameParticipation } from '../session/types';
 import { getSocketClientInfo as parseSocketClientInfo, SocketClientInfo } from './clientInfo';
 import { CorsConfiguration } from './cors';
@@ -49,6 +55,11 @@ type ClientSocketData = {
 type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents, any, ClientSocketData>;
 
 const LOBBY_LIST_DEBOUNCE_MS = 1_000;
+const MAX_WATCHED_SESSIONS_PER_SOCKET = 4;
+
+function getProfileRoom(profileId: string) {
+    return `profile:${profileId}`;
+}
 
 const kEmptyValue = Symbol();
 class UpdateDebouncer<T> {
@@ -104,6 +115,7 @@ class UpdateDebouncer<T> {
 @injectable()
 export class SocketServerGateway {
     private readonly logger: Logger;
+    private readonly socketWatchedSessions = new Map<string, Set<string>>();
     private readonly connections = new Map<string, ClientSocket>();
     private lobbyPendingUpdates = new Map<string, UpdateDebouncer<LobbyInfo>>();
 
@@ -114,6 +126,7 @@ export class SocketServerGateway {
         @inject(AuthService) private readonly authService: AuthService,
         @inject(ServerShutdownService) private readonly serverShutdownService: ServerShutdownService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(TournamentService) private readonly tournamentService: TournamentService,
         @inject(MetricsTracker) private readonly metricsTracker: MetricsTracker,
         @inject(CorsConfiguration) private readonly corsConfiguration: CorsConfiguration,
     ) {
@@ -124,6 +137,7 @@ export class SocketServerGateway {
         const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, this.corsConfiguration.options ? {
             cors: this.corsConfiguration.options,
         } : undefined);
+        this.io = io;
 
         io.use((socket, next) => {
             try {
@@ -163,6 +177,20 @@ export class SocketServerGateway {
                 io.to(event.sessionId).emit(`game-cell-place`, event);
             },
         });
+        this.tournamentService.setEventHandlers({
+            tournamentUpdated: (event) => {
+                this.emitTournamentUpdated(event);
+            },
+            tournamentNotification: (profileId, event) => {
+                this.emitTournamentNotification(profileId, event);
+            },
+            sessionUpdated: (event) => {
+                this.emitSessionUpdated(event);
+            },
+            sessionClaimWin: (event) => {
+                this.emitSessionClaimWin(event);
+            },
+        });
         this.serverShutdownService.setEventHandlers({
             shutdownUpdated(shutdown) {
                 io.emit(`shutdown-updated`, shutdown);
@@ -179,8 +207,6 @@ export class SocketServerGateway {
                 return;
             }
         });
-
-        this.io = io;
     }
 
     private async handleConnection(socket: ClientSocket) {
@@ -189,6 +215,7 @@ export class SocketServerGateway {
             participations: new Map(),
         };
         const clientInfo = socket.data.clientInfo;
+        const authenticatedUser = await this.authService.getUserFromSocket(socket);
 
         this.logger.debug({
             event: `socket.connected`,
@@ -209,6 +236,10 @@ export class SocketServerGateway {
         /* store the connection */
         this.connections.set(`${clientInfo.deviceId}:${clientInfo.ephemeralClientId}`, socket);
 
+        if (authenticatedUser) {
+            await socket.join(getProfileRoom(authenticatedUser.id));
+        }
+
         /* reclaim a game by the device id */
         {
             const reclaimedSessions = await this.sessionManager.connectionReclaimFromDeviceId(clientInfo.deviceId ?? ``, socket.id);
@@ -224,6 +255,57 @@ export class SocketServerGateway {
         const participationMutex = new Mutex();
         this.bindSocketHandler(socket, `client-ping`, z.any(), async _request => {
             socket.emit(`server-pong`);
+        });
+
+        this.bindSocketHandler(socket, `watch-session`, zWatchSessionRequest, async request => {
+            await participationMutex.runExclusive(async () => {
+                const snapshot = this.sessionManager.getSessionSnapshot(request.sessionId);
+                if (!snapshot) {
+                    socket.emit(`session-watch-error`, {
+                        sessionId: request.sessionId,
+                        message: `session unavailable`,
+                    });
+                    return;
+                }
+
+                if (snapshot.session.state.status !== `in-game`) {
+                    socket.emit(`session-watch-error`, {
+                        sessionId: request.sessionId,
+                        message: `session unavailable`,
+                    });
+                    return;
+                }
+
+                const watchedSessions = this.getOrCreateWatchedSessions(socket.id);
+                if (!watchedSessions.has(request.sessionId) && watchedSessions.size >= MAX_WATCHED_SESSIONS_PER_SOCKET) {
+                    socket.emit(`session-watch-error`, {
+                        sessionId: request.sessionId,
+                        message: `You can only watch up to ${MAX_WATCHED_SESSIONS_PER_SOCKET} live matches at once.`,
+                    });
+                    return;
+                }
+
+                watchedSessions.add(request.sessionId);
+                await socket.join(request.sessionId);
+                socket.emit(`session-watch-started`, snapshot);
+            });
+        });
+
+        this.bindSocketHandler(socket, `unwatch-session`, zWatchSessionRequest, async request => {
+            await participationMutex.runExclusive(async () => {
+                const watchedSessions = this.socketWatchedSessions.get(socket.id);
+                if (!watchedSessions?.delete(request.sessionId)) {
+                    return;
+                }
+
+                if (watchedSessions.size === 0) {
+                    this.socketWatchedSessions.delete(socket.id);
+                }
+
+                if (!socket.data.participations.has(request.sessionId)) {
+                    await socket.leave(request.sessionId);
+                }
+            });
         });
 
         this.bindSocketHandler(socket, `join-session`, zJoinSessionRequest, async request => {
@@ -245,7 +327,7 @@ export class SocketServerGateway {
                 }
 
                 const session = this.sessionManager.requireSession(request.sessionId);
-                const user = await this.authService.getUserFromSocket(socket);
+                const user = authenticatedUser ?? await this.authService.getUserFromSocket(socket);
                 const preferences = user ? await this.authService.getUserPreferences(user.id) : DEFAULT_ACCOUNT_PREFERENCES;
                 const { participant, role } = await this.sessionManager.joinSession(session, {
                     deviceId: clientInfo.deviceId,
@@ -288,6 +370,9 @@ export class SocketServerGateway {
 
                 socket.data.participations.delete(sessionId);
                 void socket.leave(participation.sessionId);
+                if (this.socketWatchedSessions.get(socket.id)?.has(participation.sessionId)) {
+                    void socket.join(participation.sessionId);
+                }
 
                 const session = this.sessionManager.getSession(participation.sessionId);
                 if (session) {
@@ -431,6 +516,7 @@ export class SocketServerGateway {
             }, `Socket disconnected`);
 
             await participationMutex.runExclusive(() => {
+                this.socketWatchedSessions.delete(socket.id);
                 this.sessionManager.handleSocketDisconnect(socket.id);
             });
         });
@@ -486,6 +572,16 @@ export class SocketServerGateway {
         return socket.data.participations.get(sessionId);
     }
 
+    private getOrCreateWatchedSessions(socketId: string): Set<string> {
+        let watchedSessions = this.socketWatchedSessions.get(socketId);
+        if (!watchedSessions) {
+            watchedSessions = new Set<string>();
+            this.socketWatchedSessions.set(socketId, watchedSessions);
+        }
+
+        return watchedSessions;
+    }
+
     private requireParticipation(socket: ClientSocket, sessionId: SessionId): Participation {
         const participation = this.getParticipation(socket, sessionId);
         if (!participation) {
@@ -500,6 +596,7 @@ export class SocketServerGateway {
             updater.cancel();
         }
         this.lobbyPendingUpdates.clear();
+        this.socketWatchedSessions.clear();
 
         this.io?.emit(`error`, `Server shutdown`);
         await this.io?.close();
@@ -523,6 +620,22 @@ export class SocketServerGateway {
             participantId: participation.participantId,
             participantRole: participation.participantRole,
         });
+    }
+
+    emitTournamentUpdated(event: TournamentUpdatedEvent) {
+        this.io?.emit(`tournament-updated`, event);
+    }
+
+    emitTournamentNotification(profileId: string, event: TournamentNotificationEvent) {
+        this.io?.to(getProfileRoom(profileId)).emit(`tournament-notification`, event);
+    }
+
+    emitSessionUpdated(event: SessionUpdatedEvent) {
+        this.io?.to(event.sessionId).emit(`session-updated`, event);
+    }
+
+    emitSessionClaimWin(event: SessionClaimWinEvent) {
+        this.io?.to(event.sessionId).emit(`session-claim-win`, event);
     }
 
     private bindSocketHandler<T extends keyof ClientToServerEvents, E = Parameters<ClientToServerEvents[T]>[0]>(

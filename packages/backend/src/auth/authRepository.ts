@@ -5,9 +5,11 @@ import type {
     AdapterUser,
 } from '@auth/express/adapters';
 import {
+    type AccountPermission,
     type AccountPreferences,
     DEFAULT_ACCOUNT_PREFERENCES,
     type UserRole,
+    zAccountPermission,
     zAccountPreferences,
 } from '@ih3t/shared';
 import { Collection, ObjectId } from 'mongodb';
@@ -30,6 +32,7 @@ type AuthUserDocument = {
     emailVerified?: Date | null;
     image?: string | null;
     role?: UserRole;
+    permissions?: AccountPermission[];
     preferences?: AccountPreferences;
     registeredAt?: number;
     lastActiveAt?: number;
@@ -67,6 +70,7 @@ type AuthVerificationTokenDocument = {
 
 type StoredAdapterUser = AdapterUser & {
     role: UserRole;
+    permissions: AccountPermission[];
     registeredAt: number;
     lastActiveAt: number;
 };
@@ -84,6 +88,7 @@ export type AccountUserProfile = {
     email: string | null;
     image: string | null;
     role: UserRole;
+    permissions: AccountPermission[];
     registeredAt: number;
     lastActiveAt: number;
 };
@@ -110,6 +115,7 @@ export class AuthRepository implements Adapter {
         const document: AuthUserDocument = {
             _id: new ObjectId(),
             role: `user`,
+            permissions: [],
             elo: DEFAULT_PLAYER_ELO,
             preferences: {
                 ...DEFAULT_ACCOUNT_PREFERENCES,
@@ -423,6 +429,144 @@ export class AuthRepository implements Adapter {
         }));
     }
 
+    async searchUserProfiles(query: string, limit = 10): Promise<AccountUserProfile[]> {
+        const normalizedQuery = query.trim();
+        if (!normalizedQuery) {
+            return [];
+        }
+
+        const collection = await this.getUsersCollection();
+        const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, `\\$&`);
+        const documents = await collection.find({
+            name: {
+                $regex: escapedQuery,
+                $options: `i`,
+            },
+        })
+            .limit(Math.max(1, Math.min(limit, 20)))
+            .toArray();
+
+        return documents.map((document) => this.mapAccountUserProfile(this.mapUserDocument(document)));
+    }
+
+    async getUserProfilesByNames(names: string[]): Promise<Map<string, AccountUserProfile>> {
+        const trimmed = names.map((n) => n.trim()).filter(Boolean);
+        if (trimmed.length === 0) return new Map();
+
+        const collection = await this.getUsersCollection();
+        const documents = await collection.find({
+            name: { $in: trimmed.map((n) => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, `\\$&`)}$`, `i`)) },
+        }).toArray();
+
+        const result = new Map<string, AccountUserProfile>();
+        for (const doc of documents) {
+            const profile = this.mapAccountUserProfile(this.mapUserDocument(doc));
+            result.set(profile.username.toLowerCase(), profile);
+        }
+        return result;
+    }
+
+    async updateUserPermissions(userId: string, permissions: AccountPermission[]): Promise<AccountUserProfile | null> {
+        const collection = await this.getUsersCollection();
+        const objectId = this.parseObjectId(userId);
+        if (!objectId) {
+            return null;
+        }
+
+        const normalizedPermissions = this.normalizeAccountPermissions(permissions);
+        await collection.updateOne(
+            { _id: objectId },
+            {
+                $set: {
+                    permissions: normalizedPermissions,
+                },
+            },
+        );
+
+        const document = await collection.findOne({ _id: objectId });
+        return document ? this.mapAccountUserProfile(this.mapUserDocument(document)) : null;
+    }
+
+    async createDevUser(params: {
+        username: string;
+        email: string;
+        image?: string | null;
+        role?: UserRole;
+        permissions?: AccountPermission[];
+    }): Promise<AccountUserProfile> {
+        const collection = await this.getUsersCollection();
+        const normalizedEmail = params.email.trim()
+            .toLowerCase();
+        const existingUser = await collection.findOne({ email: normalizedEmail });
+        if (existingUser) {
+            await collection.updateOne(
+                { _id: existingUser._id },
+                {
+                    $set: {
+                        name: params.username,
+                        image: params.image ?? null,
+                        role: params.role ?? `user`,
+                        permissions: this.normalizeAccountPermissions(params.permissions),
+                    },
+                },
+            );
+
+            const updatedUser = await collection.findOne({ _id: existingUser._id });
+            return this.mapAccountUserProfile(this.mapUserDocument(updatedUser ?? existingUser));
+        }
+
+        const now = Date.now();
+        const document: AuthUserDocument = {
+            _id: new ObjectId(),
+            name: params.username,
+            email: normalizedEmail,
+            image: params.image ?? null,
+            role: params.role ?? `user`,
+            permissions: this.normalizeAccountPermissions(params.permissions),
+            preferences: {
+                ...DEFAULT_ACCOUNT_PREFERENCES,
+                changelogReadAt: now,
+            },
+            elo: DEFAULT_PLAYER_ELO,
+            registeredAt: now,
+            lastActiveAt: now,
+        };
+
+        try {
+            await collection.insertOne(document);
+            return this.mapAccountUserProfile(this.mapUserDocument(document));
+        } catch (error: unknown) {
+            if ((error as { code?: number } | null)?.code !== 11000) {
+                throw error;
+            }
+
+            const duplicateUser = await collection.findOne({ email: normalizedEmail });
+            if (!duplicateUser) {
+                throw error;
+            }
+
+            return this.mapAccountUserProfile(this.mapUserDocument(duplicateUser));
+        }
+    }
+
+    async createSessionTokenForUser(userId: string, expires: Date): Promise<string> {
+        const collection = await this.getSessionsCollection();
+        const objectId = this.parseObjectId(userId);
+        if (!objectId) {
+            throw new Error(`Invalid user id`);
+        }
+
+        const sessionToken = new ObjectId().toHexString();
+        await collection.insertOne({
+            _id: new ObjectId(),
+            sessionToken,
+            userId: objectId,
+            expires,
+        });
+
+        return sessionToken;
+    }
+
     async countUsers(): Promise<number> {
         const collection = await this.getUsersCollection();
         return await collection.countDocuments();
@@ -537,6 +681,7 @@ export class AuthRepository implements Adapter {
             emailVerified: document.emailVerified ?? null,
             image: document.image ?? null,
             role: document.role ?? `user`,
+            permissions: this.normalizeAccountPermissions(document.permissions),
             registeredAt,
             lastActiveAt: this.resolveLastActiveAt(document, registeredAt),
         };
@@ -552,15 +697,22 @@ export class AuthRepository implements Adapter {
 
     private mapAccountUserProfile(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): AccountUserProfile {
         const registeredAt = this.normalizeTimestamp(user.registeredAt) ?? Date.now();
+        const typedUser = user as AdapterUser & {
+            role?: UserRole;
+            permissions?: AccountPermission[];
+            registeredAt?: number;
+            lastActiveAt?: number;
+        };
 
         return {
             id: user.id,
             username: user.name?.trim() ?? `Player`,
             email: user.email || null,
             image: user.image ?? null,
-            role: user.role ?? `user`,
+            role: typedUser.role ?? `user`,
+            permissions: this.normalizeAccountPermissions(typedUser.permissions),
             registeredAt,
-            lastActiveAt: this.normalizeTimestamp(user.lastActiveAt) ?? registeredAt,
+            lastActiveAt: this.normalizeTimestamp(typedUser.lastActiveAt) ?? registeredAt,
         };
     }
 
@@ -617,18 +769,35 @@ export class AuthRepository implements Adapter {
 
     private toStoredAdapterUser(user: AdapterUser & { role?: UserRole; registeredAt?: number; lastActiveAt?: number }): StoredAdapterUser {
         const registeredAt = this.normalizeTimestamp(user.registeredAt) ?? Date.now();
+        const typedUser = user as AdapterUser & {
+            role?: UserRole;
+            permissions?: AccountPermission[];
+            registeredAt?: number;
+            lastActiveAt?: number;
+        };
 
         return {
             ...user,
-            role: user.role ?? `user`,
+            role: typedUser.role ?? `user`,
+            permissions: this.normalizeAccountPermissions(typedUser.permissions),
             registeredAt,
-            lastActiveAt: this.normalizeTimestamp(user.lastActiveAt) ?? registeredAt,
+            lastActiveAt: this.normalizeTimestamp(typedUser.lastActiveAt) ?? registeredAt,
         };
     }
 
     private normalizeAccountPreferences(value: unknown): AccountPreferences {
         const result = zAccountPreferences.safeParse(value ?? {});
         return result.success ? result.data : DEFAULT_ACCOUNT_PREFERENCES;
+    }
+
+    private normalizeAccountPermissions(value: unknown): AccountPermission[] {
+        const permissions = Array.isArray(value) ? value : [];
+        const normalizedPermissions = permissions.flatMap((permission) => {
+            const result = zAccountPermission.safeParse(permission);
+            return result.success ? [result.data] : [];
+        });
+
+        return Array.from(new Set(normalizedPermissions));
     }
 
     private toUserDocument(user: Partial<AdapterUser>): Omit<AuthUserDocument, `_id`> {

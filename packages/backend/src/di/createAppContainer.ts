@@ -6,6 +6,7 @@ import { ServerShutdownService } from '../admin/serverShutdownService';
 import { AuthRepository } from '../auth/authRepository';
 import { AuthService } from '../auth/authService';
 import { ServerConfig } from '../config/serverConfig';
+import { DevSupportService } from '../dev/devSupportService';
 import { EloHandler } from '../elo/eloHandler';
 import { EloRepository } from '../elo/eloRepository';
 import { LeaderboardService } from '../leaderboard/leaderboardService';
@@ -27,6 +28,8 @@ import { ApplicationServer } from '../serverRuntime';
 import { SessionManager } from '../session/sessionManager';
 import { GameSimulation } from '../simulation/gameSimulation';
 import { GameTimeControlManager } from '../simulation/gameTimeControlManager';
+import { TournamentRepository } from '../tournament/tournamentRepository';
+import { TournamentService } from '../tournament/tournamentService';
 
 export function createAppContainer(): DependencyContainer {
     const appContainer = container.createChildContainer();
@@ -43,6 +46,7 @@ export function createAppContainer(): DependencyContainer {
     appContainer.registerSingleton(DatabaseMigrationRunner);
     appContainer.registerSingleton(AuthRepository);
     appContainer.registerSingleton(AuthService);
+    appContainer.registerSingleton(DevSupportService);
     appContainer.registerSingleton(EloRepository);
     appContainer.registerSingleton(EloHandler);
     appContainer.registerSingleton(ServerSettingsRepository);
@@ -56,6 +60,8 @@ export function createAppContainer(): DependencyContainer {
     appContainer.registerSingleton(SandboxPositionRepository);
     appContainer.registerSingleton(SandboxPositionService);
     appContainer.registerSingleton(SessionManager);
+    appContainer.registerSingleton(TournamentRepository);
+    appContainer.registerSingleton(TournamentService);
     appContainer.registerSingleton(CorsConfiguration);
     appContainer.registerSingleton(ApiQueryService);
     appContainer.registerSingleton(ApiRouter);

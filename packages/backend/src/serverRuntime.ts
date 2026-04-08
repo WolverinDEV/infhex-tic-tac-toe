@@ -17,6 +17,7 @@ import { DatabaseMigrationRunner } from './persistence/databaseMigrationRunner';
 import { MongoDatabase } from './persistence/mongoClient';
 import { SessionManager } from './session/sessionManager';
 import { GameTimeControlManager } from './simulation/gameTimeControlManager';
+import { TournamentService } from './tournament/tournamentService';
 
 @injectable()
 export class ApplicationServer {
@@ -38,6 +39,7 @@ export class ApplicationServer {
         @inject(EloRepository) private readonly eloRepository: EloRepository,
         @inject(ServerSettingsService) private readonly serverSettingsService: ServerSettingsService,
         @inject(SessionManager) private readonly sessionManager: SessionManager,
+        @inject(TournamentService) private readonly tournamentService: TournamentService,
         @inject(ServerConfig) private readonly serverConfig: ServerConfig,
     ) {
         this.logger = rootLogger.child({ component: `application-server` });
@@ -211,6 +213,12 @@ export class ApplicationServer {
             name: `Session Tick`,
             time: `*/10 * * * * *`,
             callback: () => this.sessionManager.tickAllSessions(),
+        });
+
+        this.scheduleCronJob({
+            name: `Tournament Reconcile`,
+            time: `*/10 * * * * *`,
+            callback: () => this.tournamentService.reconcileAllTournaments(),
         });
 
         this.logger.info({

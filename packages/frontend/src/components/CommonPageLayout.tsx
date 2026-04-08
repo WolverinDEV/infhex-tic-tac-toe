@@ -6,6 +6,7 @@ import { useQueryAccount } from '../query/accountClient';
 import { signInWithDiscord, signOutAccount } from '../query/authClient';
 import AccountPicture from './AccountPicture';
 import AppErrorBoundary from './AppErrorBoundary';
+import DevAuthPanel from './DevAuthPanel';
 
 function showErrorToast(message: string) {
     toast.error(message, {
@@ -211,9 +212,11 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                             <NavigationLink to="/sandbox" label="Sandbox" />
                             <NavigationLink to="/games" label="Match History" />
                             <NavigationLink to="/leaderboard" label="Leaderboard" />
+                            <NavigationLink to="/tournaments" label="Tournaments" />
                             <DiscordLink />
                         </nav>
 
+                        <DevAuthPanel account={account} />
 
                         {accountQuery.isLoading ? (
                             <div className="self-start rounded-lg px-3 py-2 text-sm text-slate-400 lg:self-auto">
@@ -263,6 +266,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                                             className={` bg-slate-950 mx-auto w-full max-w-368 rounded-2xl lg:border border-sky-300/10 p-2 shadow-[0_18px_50px_rgba(2,6,23,0.45)] backdrop-blur-xl`}
                                         >
                                             <div className="space-y-1">
+                                                <MenuLink to="/tournaments" label="Tournaments" onSelect={() => setIsAccountMenuOpen(false)} />
                                                 <MenuLink to="/account/games" label="Match History" onSelect={() => setIsAccountMenuOpen(false)} />
                                                 <MenuLink to="/account/preferences" label="Preferences" onSelect={() => setIsAccountMenuOpen(false)} />
                                                 <MenuLink to="/account/profile" label="Profile" onSelect={() => setIsAccountMenuOpen(false)} />
@@ -346,6 +350,7 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                             <MenuLink to="/games" label="Match History" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to="/sandbox" label="Sandbox" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to="/leaderboard" label="Leaderboard" onSelect={() => setIsMobileMenuOpen(false)} />
+                            <MenuLink to="/tournaments" label="Tournaments" onSelect={() => setIsMobileMenuOpen(false)} />
                             <MenuLink to={OFFICIAL_DISCORD_INVITE_URL} label="Discord Server" target="_blank" />
                         </div>
                     </div>
