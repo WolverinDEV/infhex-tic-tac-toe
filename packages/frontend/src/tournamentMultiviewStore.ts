@@ -78,15 +78,29 @@ export const useTournamentMultiviewStore = create<TournamentMultiviewStoreState>
     tilesBySessionId: {},
 
     activateTournament: (tournamentId, eligibleSessionIds) => set((state) => {
-        if (state.activeTournamentId === tournamentId) {
-            return state;
-        }
-
         const hasStoredSelection = Object.prototype.hasOwnProperty.call(state.selectionsByTournament, tournamentId);
         const storedSelection = state.selectionsByTournament[tournamentId] ?? [];
-        const nextSelection = hasStoredSelection
+        let nextSelection = hasStoredSelection
             ? storedSelection.slice(0, TOURNAMENT_MULTIVIEW_MAX_TILES)
             : eligibleSessionIds.slice(0, TOURNAMENT_MULTIVIEW_MAX_TILES);
+
+        if (hasStoredSelection) {
+            const eligibleSessionIdSet = new Set(eligibleSessionIds);
+            const liveSelection = nextSelection.filter((sessionId) => eligibleSessionIdSet.has(sessionId));
+            const additionalEligibleSessions = eligibleSessionIds.filter((sessionId) => !liveSelection.includes(sessionId));
+            nextSelection = [
+                ...liveSelection,
+                ...additionalEligibleSessions,
+            ].slice(0, TOURNAMENT_MULTIVIEW_MAX_TILES);
+        }
+
+        if (
+            state.activeTournamentId === tournamentId
+            && nextSelection.length === storedSelection.length
+            && nextSelection.every((sessionId, index) => sessionId === storedSelection[index])
+        ) {
+            return state;
+        }
 
         return {
             activeTournamentId: tournamentId,
