@@ -193,6 +193,7 @@ export const zTournamentMatch = z.object({
         .positive()
         .default(1),
     startedAt: zTimestamp.nullable(),
+    claimWinExpiresAt: zTimestamp.nullable().optional(),
     resolvedAt: zTimestamp.nullable(),
     advanceWinnerTo: zTournamentMatchAdvanceTarget.nullable(),
     advanceLoserTo: zTournamentMatchAdvanceTarget.nullable(),
@@ -342,6 +343,9 @@ export type TournamentExtensionStatus = z.infer<typeof zTournamentExtensionStatu
 export const zTournamentExtensionRequest = z.object({
     id: zIdentifier,
     matchId: zIdentifier,
+    gameNumber: z.number().int()
+        .positive()
+        .default(1),
     requestedByProfileId: zIdentifier,
     requestedByDisplayName: z.string(),
     requestedAt: zTimestamp,
@@ -606,6 +610,8 @@ export type ClaimWinRequest = z.infer<typeof zClaimWinRequest>;
 
 export const zMatchClaimWinState = z.object({
     matchId: zIdentifier,
+    gameNumber: z.number().int()
+        .positive(),
     claimantProfileId: zIdentifier,
     startedAt: zTimestamp,
     expiresAt: zTimestamp,
