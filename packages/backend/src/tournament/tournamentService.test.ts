@@ -150,6 +150,42 @@ class FakeTournamentRepository {
         return tournament ? structuredClone(tournament) : null;
     }
 
+    async listPublishedTournaments(): Promise<TournamentRecord[]> {
+        return [...this.tournaments.values()]
+            .filter((tournament) => tournament.isPublished)
+            .map((tournament) => structuredClone(tournament));
+    }
+
+    async listTournamentsForPlayer(userId: string): Promise<TournamentRecord[]> {
+        return [...this.tournaments.values()]
+            .filter((tournament) =>
+                tournament.createdByProfileId === userId
+                || tournament.participants.some((participant) => participant.profileId === userId))
+            .map((tournament) => structuredClone(tournament));
+    }
+
+    async listPastTournaments(_userId: string | null, _page: number, limit: number): Promise<{ tournaments: TournamentRecord[]; total: number }> {
+        const tournaments = [...this.tournaments.values()]
+            .filter((tournament) => tournament.status === `completed` || tournament.status === `cancelled`)
+            .sort((left, right) => (right.completedAt ?? right.updatedAt) - (left.completedAt ?? left.updatedAt));
+        return {
+            tournaments: tournaments.slice(0, limit).map((tournament) => structuredClone(tournament)),
+            total: tournaments.length,
+        };
+    }
+
+    async getCompletedTournamentsForPlayer(userId: string): Promise<TournamentRecord[]> {
+        return [...this.tournaments.values()]
+            .filter((tournament) =>
+                tournament.status === `completed`
+                && tournament.participants.some((participant) => participant.profileId === userId))
+            .map((tournament) => structuredClone(tournament));
+    }
+
+    async countTournamentsCreatedByUser(userId: string): Promise<number> {
+        return [...this.tournaments.values()].filter((tournament) => tournament.createdByProfileId === userId).length;
+    }
+
     async listReconciliableTournaments(): Promise<TournamentRecord[]> {
         return [...this.tournaments.values()].map((tournament) => structuredClone(tournament));
     }
@@ -454,6 +490,52 @@ test(`single-elimination standings rank the third-place winner ahead of the lose
     assert.equal(fourthPlaceStanding?.rank, 4);
 });
 
+test(`listTournaments reports best placement for underfilled single-elimination champions`, async () => {
+    const champion = createAccountUser({ id: `player-1`, username: `Champion` });
+    const runnerUp = createAccountUser({ id: `player-2`, username: `Runner Up` });
+    const participants = Array.from({ length: 8 }, (_, index) =>
+        createParticipant({
+            profileId: `player-${index + 1}`,
+            displayName: `Player ${index + 1}`,
+            registeredAt: index + 1,
+            checkedInAt: index + 11,
+            status: index === 0 ? `completed` : `eliminated`,
+            checkInState: `checked-in`,
+            seed: index + 1,
+        }));
+    const tournament = createTournament({
+        status: `completed`,
+        format: `single-elimination`,
+        maxPlayers: 16,
+        completedAt: 100,
+        participants,
+        matches: [
+            createMatch({
+                id: `match-winners-3-1`,
+                bracket: `winners`,
+                round: 3,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: champion.id,
+                loserProfileId: runnerUp.id,
+                resolvedAt: 100,
+                slots: [
+                    createSlot({ profileId: champion.id, displayName: champion.username, seed: 1 }),
+                    createSlot({ profileId: runnerUp.id, displayName: runnerUp.username, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const championListing = await service.listTournaments(champion);
+    const runnerUpListing = await service.listTournaments(runnerUp);
+
+    assert.equal(championListing.stats?.bestPlacement?.rank, 1);
+    assert.equal(championListing.stats?.bestPlacement?.tournamentName, tournament.name);
+    assert.equal(runnerUpListing.stats?.bestPlacement?.rank, 2);
+});
+
 test(`swiss tournaments can start with two checked-in players`, async () => {
     const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
     const tournament = createTournament({
@@ -583,6 +665,82 @@ test(`reconcileAllTournaments only records one timeout warning per timeout windo
     const stored = repository.getSync(tournament.id);
     const timeoutWarnings = stored.activity.filter((entry) => entry.type === `timeout-warning`);
     assert.equal(timeoutWarnings.length, 1);
+});
+
+test(`reconcileAllTournaments records separate timeout warnings for winners and losers bracket matches`, async () => {
+    const matchStartedAt = Date.now() - 10 * 60_000;
+    const tournament = createTournament({
+        status: `live`,
+        format: `double-elimination`,
+        matchJoinTimeoutMinutes: 5,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, checkedInAt: 13, status: `checked-in`, checkInState: `checked-in`, seed: 3 }),
+            createParticipant({ profileId: `player-4`, displayName: `Player 4`, registeredAt: 4, checkedInAt: 14, status: `checked-in`, checkInState: `checked-in`, seed: 4 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                startedAt: matchStartedAt,
+                sessionId: `session-timeout-winners`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+            createMatch({
+                id: `match-losers-1-1`,
+                bracket: `losers`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                startedAt: matchStartedAt,
+                sessionId: `session-timeout-losers`,
+                slots: [
+                    createSlot({ profileId: `player-3`, displayName: `Player 3`, seed: 3 }),
+                    createSlot({ profileId: `player-4`, displayName: `Player 4`, seed: 4 }),
+                ],
+            }),
+        ],
+    });
+    const { service, repository, sessionManager, eventSink } = createService(tournament);
+    sessionManager.sessions.set(`session-timeout-winners`, {
+        id: `session-timeout-winners`,
+        players: [
+            { id: `w1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `w2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+    sessionManager.sessions.set(`session-timeout-losers`, {
+        id: `session-timeout-losers`,
+        players: [
+            { id: `l1`, profileId: `player-3`, connection: { status: `connected` } },
+            { id: `l2`, profileId: `player-4`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+
+    await service.reconcileAllTournaments();
+
+    const stored = repository.getSync(tournament.id);
+    const timeoutWarnings = stored.activity.filter((entry) => entry.type === `timeout-warning`);
+    assert.equal(timeoutWarnings.length, 2);
+    assert.deepEqual(
+        timeoutWarnings.map((entry) => entry.message).sort(),
+        [
+            `Losers R1 M1 timed out — waiting for player(s) to join.`,
+            `Winners R1 M1 timed out — waiting for player(s) to join.`,
+        ],
+    );
+    assert.equal(eventSink.tournamentNotifications.filter((entry) => entry.kind === `timeout-warning`).length, 2);
 });
 
 test(`best-of follow-up games reset startedAt and the session tournament timer`, async () => {
