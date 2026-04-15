@@ -442,6 +442,7 @@ function getExitInfo(
     if (!elimMatch) return { label: ``, color: `default` };
 
     if (elimMatch.bracket === `grand-final` || elimMatch.bracket === `grand-final-reset`) return { label: `Grand Final`, color: `silver` };
+    if (elimMatch.bracket === `third-place`) return { label: `Third Place Match`, color: `default` };
 
     const totalRounds = Math.max(...matches.filter((m) => m.bracket === elimMatch.bracket).map((m) => m.round));
     const roundsFromEnd = totalRounds - elimMatch.round;
