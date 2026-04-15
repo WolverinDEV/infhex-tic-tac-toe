@@ -1092,7 +1092,7 @@ export class SessionManager {
                                             `disconnect`,
                                         );
                                     },
-                                    15_000,
+                                    30_000,
                                 ),
                             },
                         );
