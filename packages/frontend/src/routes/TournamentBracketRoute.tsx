@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TournamentMatch } from '@ih3t/shared';
+import type { TournamentFormat, TournamentMatch } from '@ih3t/shared';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata';
@@ -107,6 +107,35 @@ function ScaledMatchNode({
             </div>
         </div>
     );
+}
+
+function getTournamentFormatLabel(format: TournamentFormat): string {
+    switch (format) {
+        case `single-elimination`:
+            return `Single Elimination`;
+        case `double-elimination`:
+            return `Double Elimination`;
+        case `swiss`:
+            return `Swiss`;
+    }
+}
+
+function groupBracketRounds(matches: TournamentMatch[], bracket: TournamentMatch[`bracket`]) {
+    const rounds = new Map<number, TournamentMatch[]>();
+
+    for (const match of matches) {
+        if (match.bracket !== bracket) {
+            continue;
+        }
+
+        const existingMatches = rounds.get(match.round) ?? [];
+        existingMatches.push(match);
+        rounds.set(match.round, existingMatches);
+    }
+
+    return Array.from(rounds.entries())
+        .sort(([left], [right]) => left - right)
+        .map(([round, roundMatches]) => ({ round, matches: roundMatches }));
 }
 
 function BracketConnectors({
@@ -264,6 +293,35 @@ function SwissView({
 
 /* ── Double Elimination view ───────────────────────── */
 
+function SingleElimView({
+    matches,
+    onSpectate,
+    scale,
+}: {
+    matches: TournamentMatch[]
+    onSpectate: (sid: string) => void
+    scale: number
+}) {
+    const winnersRounds = groupBracketRounds(matches, `winners`);
+    const thirdPlaceMatches = matches
+        .filter((match) => match.bracket === `third-place`)
+        .sort((left, right) => left.order - right.order);
+
+    return (
+        <div className="space-y-2">
+            <BracketSection label="Championship Bracket" rounds={winnersRounds} onSpectate={onSpectate} scale={scale} />
+            {thirdPlaceMatches.length > 0 && (
+                <BracketSection
+                    label="Third Place"
+                    rounds={[{ round: 1, matches: thirdPlaceMatches }]}
+                    onSpectate={onSpectate}
+                    scale={scale}
+                />
+            )}
+        </div>
+    );
+}
+
 function DoubleElimView({
     matches,
     onSpectate,
@@ -273,31 +331,16 @@ function DoubleElimView({
     onSpectate: (sid: string) => void
     scale: number
 }) {
-    const winners = new Map<number, TournamentMatch[]>();
-    const losers = new Map<number, TournamentMatch[]>();
     const grandFinal: TournamentMatch[] = [];
     const grandFinalReset: TournamentMatch[] = [];
 
     for (const m of matches) {
-        if (m.bracket === `winners`) {
-            const arr = winners.get(m.round) ?? [];
-            arr.push(m);
-            winners.set(m.round, arr);
-        } else if (m.bracket === `losers`) {
-            const arr = losers.get(m.round) ?? [];
-            arr.push(m);
-            losers.set(m.round, arr);
-        } else if (m.bracket === `grand-final`) {
+        if (m.bracket === `grand-final`) {
             grandFinal.push(m);
         } else if (m.bracket === `grand-final-reset`) {
             grandFinalReset.push(m);
         }
     }
-
-    const toRounds = (map: Map<number, TournamentMatch[]>) =>
-        Array.from(map.entries())
-            .sort(([a], [b]) => a - b)
-            .map(([round, ms]) => ({ round, matches: ms }));
 
     const gfRounds: { round: number; matches: TournamentMatch[] }[] = [];
     if (grandFinal.length > 0) gfRounds.push({ round: 1, matches: grandFinal });
@@ -305,8 +348,8 @@ function DoubleElimView({
 
     return (
         <div className="space-y-2">
-            <BracketSection label="Winners Bracket" rounds={toRounds(winners)} onSpectate={onSpectate} scale={scale} />
-            <BracketSection label="Losers Bracket" rounds={toRounds(losers)} onSpectate={onSpectate} scale={scale} />
+            <BracketSection label="Winners Bracket" rounds={groupBracketRounds(matches, `winners`)} onSpectate={onSpectate} scale={scale} />
+            <BracketSection label="Losers Bracket" rounds={groupBracketRounds(matches, `losers`)} onSpectate={onSpectate} scale={scale} />
             {gfRounds.length > 0 && <BracketSection label="Grand Final" rounds={gfRounds} onSpectate={onSpectate} scale={scale} />}
         </div>
     );
@@ -345,7 +388,7 @@ function TournamentBracketRoute() {
 
                         {t && (
                             <div className="ml-auto flex items-center gap-2 text-[10px] text-slate-500">
-                                <span>{t.format === `swiss` ? `Swiss` : `Double Elimination`}</span>
+                                <span>{getTournamentFormatLabel(t.format)}</span>
                                 <span>·</span>
                                 <span>{t.checkedInCount}/{t.maxPlayers} players</span>
                                 <span>·</span>
@@ -404,6 +447,8 @@ function TournamentBracketRoute() {
                             </div>
                         ) : t.format === `swiss` ? (
                             <SwissView matches={t.matches} onSpectate={handleSpectate} scale={scale} />
+                        ) : t.format === `single-elimination` ? (
+                            <SingleElimView matches={t.matches} onSpectate={handleSpectate} scale={scale} />
                         ) : (
                             <DoubleElimView matches={t.matches} onSpectate={handleSpectate} scale={scale} />
                         )}
