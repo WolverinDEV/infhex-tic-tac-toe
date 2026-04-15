@@ -323,6 +323,23 @@ function getMatchExtensionMinutes(tournament: TournamentRecord): number {
     return tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes;
 }
 
+function describeTournamentMatch(match: TournamentMatch): string {
+    switch (match.bracket) {
+        case `winners`:
+            return `Winners R${match.round} M${match.order}`;
+        case `losers`:
+            return `Losers R${match.round} M${match.order}`;
+        case `grand-final`:
+            return `Grand Final`;
+        case `grand-final-reset`:
+            return `Grand Final Reset`;
+        case `third-place`:
+            return `Third-Place Match`;
+        case `swiss`:
+            return `Swiss R${match.round} M${match.order}`;
+    }
+}
+
 function getTournamentStandings(tournament: TournamentRecord): TournamentStanding[] {
     if (tournament.format === `swiss`) {
         return calculateSwissStandings(
@@ -2514,29 +2531,7 @@ export class TournamentService {
     }
 
     private getPlayerFinalRank(tournament: TournamentRecord, userId: string): number | null {
-        if (tournament.format === `swiss`) {
-            const standings = calculateSwissStandings(
-                tournament.participants.filter((p) => p.status !== `removed`),
-                tournament.matches,
-            );
-            return standings.find((s) => s.profileId === userId)?.rank ?? null;
-        }
-
-        const completedMatches = tournament.matches
-            .filter((m) => m.state === `completed` && m.slots.some((s) => s.profileId === userId));
-        if (completedMatches.length === 0) return null;
-
-        const bracketOrder: Record<string, number> = { 'grand-final-reset': 4, 'grand-final': 3, 'winners': 2, 'losers': 1, 'swiss': 0 };
-        const lastMatch = completedMatches.sort((a, b) =>
-            (bracketOrder[b.bracket] ?? 0) - (bracketOrder[a.bracket] ?? 0) || b.round - a.round,
-        )[0]!;
-
-        if (lastMatch.winnerProfileId === userId) {
-            if (lastMatch.bracket === `grand-final` || lastMatch.bracket === `grand-final-reset`) return 1;
-            if (lastMatch.bracket === `winners` && lastMatch.round === Math.log2(tournament.maxPlayers)) return 1;
-        }
-        if (lastMatch.bracket === `grand-final` || lastMatch.bracket === `grand-final-reset`) return 2;
-        return null;
+        return getTournamentStandings(tournament).find((standing) => standing.profileId === userId)?.rank ?? null;
     }
 
     private computeUpcomingMatches(activeRecords: TournamentRecord[], userId: string): TournamentUpcomingMatch[] {
@@ -2631,7 +2626,7 @@ export class TournamentService {
             }
 
             // Already sent a warning for this match since the current timeout window started?
-            const timeoutWarningMessage = `Match ${match.order} in round ${match.round} timed out — waiting for player(s) to join.`;
+            const timeoutWarningMessage = `${describeTournamentMatch(match)} timed out — waiting for player(s) to join.`;
             const alreadyWarned = tournament.activity.some((activity) =>
                 activity.type === `timeout-warning`
                 && activity.message === timeoutWarningMessage
