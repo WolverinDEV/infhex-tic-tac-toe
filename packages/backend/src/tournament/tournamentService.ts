@@ -53,6 +53,7 @@ type ActiveClaimWin = {
     tournamentId: string;
     matchId: string;
     sessionId: string;
+    gameNumber: number;
     claimantProfileId: string;
     startedAt: number;
     expiresAt: number;
@@ -113,6 +114,14 @@ function canUserAccessTournamentRegistration(tournament: TournamentRecord, userI
 
 function getWinsRequired(bestOf: 1 | 3 | 5 | 7): number {
     return Math.floor(bestOf / 2) + 1;
+}
+
+function getExtensionGameNumber(extension: Pick<TournamentExtensionRequest, `gameNumber`>): number {
+    return extension.gameNumber ?? 1;
+}
+
+function isExtensionForMatchGame(extension: TournamentExtensionRequest, matchId: string, gameNumber: number): boolean {
+    return extension.matchId === matchId && getExtensionGameNumber(extension) === gameNumber;
 }
 
 function normalizeDescription(value: string | null | undefined): string | null {
@@ -495,12 +504,14 @@ function toDetail(
     profileMap?: Map<string, string>,
     autoSubscribedOnView = false,
     isMatchWaitingForPlayers?: (match: TournamentMatch) => boolean,
+    getMatchClaimWinExpiresAt?: (match: TournamentMatch) => number | null,
 ): TournamentDetail {
     return {
         ...toSummary(tournament),
         participants: tournament.participants.map(cloneParticipant),
         matches: tournament.matches.map((match) => ({
             ...cloneMatch(match),
+            claimWinExpiresAt: getMatchClaimWinExpiresAt?.(match) ?? null,
             waitingForPlayers: isMatchWaitingForPlayers?.(match) ?? false,
         })),
         standings: getTournamentStandings(tournament),
@@ -554,6 +565,7 @@ export class TournamentService {
             profileMap,
             autoSubscribedOnView,
             (match) => this.isMatchWaitingForPlayers(match),
+            (match) => this.getActiveClaimWinForMatch(match)?.expiresAt ?? null,
         );
     }
 
@@ -1839,8 +1851,15 @@ export class TournamentService {
                 }
 
                 if (match.state !== `in-progress`) {
+                    const matchStartedAt = match.startedAt ?? Date.now();
                     match.state = `in-progress`;
-                    match.startedAt ??= Date.now();
+                    match.startedAt = matchStartedAt;
+                    this.sessionManager.updateSessionTournamentInfo(match.sessionId, {
+                        currentGameNumber: match.currentGameNumber,
+                        leftWins: match.leftWins,
+                        rightWins: match.rightWins,
+                        matchStartedAt,
+                    });
                     return true;
                 }
 
@@ -1875,6 +1894,7 @@ export class TournamentService {
         }
 
         try {
+            const matchStartedAt = Date.now();
             const response = this.sessionManager.createSession({
                 client: kTournamentSystemClient,
                 lobbyOptions: {
@@ -1884,12 +1904,12 @@ export class TournamentService {
                     firstPlayer: `random`,
                 },
                 reservedPlayerProfileIds: this.getReservedSeatOrder(match),
-                tournament: this.toSessionTournamentInfo(tournament, match),
+                tournament: this.toSessionTournamentInfo(tournament, match, matchStartedAt),
             } satisfies CreateSessionParams);
 
             match.sessionId = response.sessionId;
             match.state = `in-progress`;
-            match.startedAt ??= Date.now();
+            match.startedAt = matchStartedAt;
             this.notifyMatchReady(tournament, match);
             return true;
         } catch (error: unknown) {
@@ -1917,6 +1937,9 @@ export class TournamentService {
         if (match.gameIds.includes(gameId)) {
             return;
         }
+        if (match.sessionId) {
+            this.cancelClaimWin(match.id, match.sessionId);
+        }
         match.gameIds.push(gameId);
 
         const winnerSlotIndex = match.slots.findIndex((slot) => slot.profileId === winnerProfileId);
@@ -1936,6 +1959,7 @@ export class TournamentService {
             this.completeMatchSet(tournament, match, winnerProfileId, `played`);
         } else {
             match.state = `ready`;
+            match.startedAt = null;
         }
     }
 
@@ -2292,7 +2316,7 @@ export class TournamentService {
         return session.players.find((player) => player.id === winningParticipantId)?.profileId ?? null;
     }
 
-    private toSessionTournamentInfo(tournament: TournamentRecord, match: TournamentMatch): SessionTournamentInfo {
+    private toSessionTournamentInfo(tournament: TournamentRecord, match: TournamentMatch, matchStartedAt = match.startedAt ?? Date.now()): SessionTournamentInfo {
         return {
             tournamentId: tournament.id,
             tournamentName: tournament.name,
@@ -2306,7 +2330,7 @@ export class TournamentService {
             rightWins: match.rightWins,
             matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
             matchExtensionMs: getMatchExtensionMinutes(tournament) * 60_000,
-            matchStartedAt: match.startedAt ?? Date.now(),
+            matchStartedAt,
             leftDisplayName: match.slots[0].displayName,
             rightDisplayName: match.slots[1].displayName,
         };
@@ -2593,7 +2617,7 @@ export class TournamentService {
             const connectedPlayerCount = session.players.filter((p) => p.connection.status === `connected`).length;
             if (connectedPlayerCount >= 2) {
                 // Cancel any active claim — opponent joined
-                if (this.activeClaimWins.has(match.id)) {
+                if (this.getActiveClaimWinForMatch(match)) {
                     this.cancelClaimWin(match.id, match.sessionId);
                     tournament.activity.unshift(createTournamentActivity(
                         null,
@@ -2618,7 +2642,8 @@ export class TournamentService {
 
             // Check if there's a pending or approved extension for this match
             const hasActiveExtension = tournament.extensionRequests.some((r) =>
-                r.matchId === match.id && (r.status === `pending` || (r.status === `approved` && now - r.resolvedAt! < extensionMs)));
+                isExtensionForMatchGame(r, match.id, match.currentGameNumber)
+                && (r.status === `pending` || (r.status === `approved` && now - r.resolvedAt! < extensionMs)));
             if (hasActiveExtension) {
                 continue;
             }
@@ -2650,6 +2675,20 @@ export class TournamentService {
         return changed;
     }
 
+    private getActiveClaimWinForMatch(match: TournamentMatch): ActiveClaimWin | null {
+        const claim = this.activeClaimWins.get(match.id);
+        if (!claim) {
+            return null;
+        }
+
+        if (claim.sessionId !== match.sessionId || claim.gameNumber !== match.currentGameNumber) {
+            this.cancelClaimWin(match.id, claim.sessionId);
+            return null;
+        }
+
+        return claim;
+    }
+
     getActiveClaimWin(matchId: string): MatchClaimWinState | null {
         const claim = this.activeClaimWins.get(matchId);
         if (!claim) {
@@ -2658,6 +2697,7 @@ export class TournamentService {
 
         return {
             matchId: claim.matchId,
+            gameNumber: claim.gameNumber,
             claimantProfileId: claim.claimantProfileId,
             startedAt: claim.startedAt,
             expiresAt: claim.expiresAt,
@@ -2687,10 +2727,12 @@ export class TournamentService {
             const timeoutMs = tournament.matchJoinTimeoutMinutes * 60_000;
             const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
             const hasActiveExtension = tournament.extensionRequests.some((r) =>
-                r.matchId === matchId && (r.status === `approved` && Date.now() - r.resolvedAt! < extensionMs));
+                isExtensionForMatchGame(r, matchId, match.currentGameNumber)
+                && r.status === `approved`
+                && Date.now() - r.resolvedAt! < extensionMs);
             const effectiveStartedAt = hasActiveExtension
                 ? tournament.extensionRequests
-                    .filter((r) => r.matchId === matchId && r.status === `approved`)
+                    .filter((r) => isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.status === `approved`)
                     .reduce((latest, r) => Math.max(latest, r.resolvedAt!), match.startedAt)
                 : match.startedAt;
 
@@ -2700,7 +2742,7 @@ export class TournamentService {
 
             // Check there's no pending extension blocking the claim
             const hasPendingExtension = tournament.extensionRequests.some((r) =>
-                r.matchId === matchId && r.status === `pending`);
+                isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.status === `pending`);
             if (hasPendingExtension) {
                 throw new SessionError(`A pending extension request is blocking this claim. Wait for the organizer to respond.`);
             }
@@ -2724,7 +2766,7 @@ export class TournamentService {
             }
 
             // Check for existing claim on this match
-            if (this.activeClaimWins.has(matchId)) {
+            if (this.getActiveClaimWinForMatch(match)) {
                 throw new SessionError(`A win claim is already active for this match.`);
             }
 
@@ -2732,6 +2774,7 @@ export class TournamentService {
             const expiresAt = now + kClaimWinCountdownMs;
             const claimState: MatchClaimWinState = {
                 matchId,
+                gameNumber: match.currentGameNumber,
                 claimantProfileId: user.id,
                 startedAt: now,
                 expiresAt,
@@ -2745,6 +2788,7 @@ export class TournamentService {
                 tournamentId,
                 matchId,
                 sessionId: match.sessionId,
+                gameNumber: match.currentGameNumber,
                 claimantProfileId: user.id,
                 startedAt: now,
                 expiresAt,
@@ -2780,7 +2824,7 @@ export class TournamentService {
         });
     }
 
-    private cancelClaimWin(matchId: string, sessionId: string) {
+    private cancelClaimWin(matchId: string, sessionId?: string) {
         const claim = this.activeClaimWins.get(matchId);
         if (!claim) {
             return;
@@ -2790,7 +2834,7 @@ export class TournamentService {
         this.activeClaimWins.delete(matchId);
 
         this.emitSessionClaimWin({
-            sessionId,
+            sessionId: sessionId ?? claim.sessionId,
             state: null,
         } satisfies SessionClaimWinEvent);
     }
@@ -2807,6 +2851,18 @@ export class TournamentService {
             const tournament = await this.requireTournament(tournamentId);
             const match = tournament.matches.find((m) => m.id === matchId);
             if (!match || match.state !== `in-progress` || !match.sessionId) {
+                this.emitSessionClaimWin({
+                    sessionId: claim.sessionId,
+                    state: null,
+                } satisfies SessionClaimWinEvent);
+                return;
+            }
+
+            if (claim.sessionId !== match.sessionId || claim.gameNumber !== match.currentGameNumber) {
+                this.emitSessionClaimWin({
+                    sessionId: claim.sessionId,
+                    state: null,
+                } satisfies SessionClaimWinEvent);
                 return;
             }
 
@@ -2879,26 +2935,27 @@ export class TournamentService {
             }
 
             const pendingExtension = tournament.extensionRequests.find((r) =>
-                r.matchId === matchId && r.status === `pending`);
+                isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.status === `pending`);
             if (pendingExtension) {
                 throw new SessionError(`An extension request is already pending for this match.`);
             }
 
-            // Enforce 1 extension per player per match
+            // Enforce 1 extension per player per game in a best-of series.
             const userExtensionCount = tournament.extensionRequests.filter((r) =>
-                r.matchId === matchId && r.requestedByProfileId === user.id).length;
+                isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.requestedByProfileId === user.id).length;
             if (userExtensionCount >= 1) {
                 throw new SessionError(`You have already used your extension request for this match.`);
             }
 
             // Cancel any active claim win — extension blocks it
-            if (match.sessionId && this.activeClaimWins.has(matchId)) {
+            if (match.sessionId && this.getActiveClaimWinForMatch(match)) {
                 this.cancelClaimWin(matchId, match.sessionId);
             }
 
             const extensionRequest: TournamentExtensionRequest = {
                 id: randomUUID(),
                 matchId,
+                gameNumber: match.currentGameNumber,
                 requestedByProfileId: user.id,
                 requestedByDisplayName: user.username,
                 requestedAt: Date.now(),
@@ -2959,7 +3016,7 @@ export class TournamentService {
             if (approve) {
                 // Add time on top of the current deadline, don't restart
                 const match = tournament.matches.find((m) => m.id === extension.matchId);
-                if (match && match.startedAt) {
+                if (match && match.startedAt && getExtensionGameNumber(extension) === match.currentGameNumber) {
                     const now = Date.now();
                     const oldDeadline = match.startedAt + timeoutMs;
                     // New startedAt so that new deadline = max(now, oldDeadline) + extensionMs
