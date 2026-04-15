@@ -877,7 +877,7 @@ function MatchCard({ match, canManage, viewerProfileId, timeoutAt, extensionMinu
     const timedOut = countdown?.expired ?? false;
     const stateColor = match.state === `completed` ? `emerald` as const : match.state === `in-progress` ? `sky` as const : match.state === `ready` ? `amber` as const : `default` as const;
     const isParticipant = Boolean(viewerProfileId && match.slots.some((s) => s.profileId === viewerProfileId));
-    const canJoin = isParticipant && match.sessionId && (match.state === `ready` || match.state === `in-progress`) && !timedOut;
+    const canJoin = isParticipant && match.sessionId && (match.state === `ready` || match.state === `in-progress`);
     const canSpectate = !isParticipant && match.sessionId && match.state === `in-progress` && match.startedAt !== null;
     const isInProgress = match.state === `in-progress`;
 
@@ -1062,12 +1062,20 @@ function MatchCard({ match, canManage, viewerProfileId, timeoutAt, extensionMinu
 
             {match.state === `completed` && match.gameIds.length > 0 && (
                 <div className="mt-1.5 flex items-center gap-1.5">
-                    <Link
-                        to={`/games/${match.gameIds[match.gameIds.length - 1]}`}
-                        className="rounded bg-white/6 px-2 py-0.5 text-[9px] text-slate-400 transition hover:text-white"
-                    >
-                        Review
-                    </Link>
+                    {match.gameIds.length === 1 && (
+                        <Link
+                            to={`/games/${match.gameIds[0]}`}
+                            className="rounded bg-white/6 px-2 py-0.5 text-[9px] text-slate-400 transition hover:text-white"
+                        >
+                            Review
+                        </Link>
+                    )}
+
+                    {match.gameIds.length > 1 && (
+                        <span className="text-[9px] font-semibold text-slate-500">
+                            Review:
+                        </span>
+                    )}
 
                     {match.gameIds.length > 1 && match.gameIds.map((gid, i) => (
                         <Link key={gid} to={`/games/${gid}`} className="rounded bg-white/4 px-1.5 py-0.5 text-[9px] text-slate-500 transition hover:text-white">
@@ -1442,8 +1450,8 @@ function TournamentRoute() {
                                                             viewerProfileId={acct?.id ?? null}
                                                             timeoutAt={t.matchJoinTimeoutMinutes > 0 && m.waitingForPlayers && m.startedAt !== null ? m.startedAt + t.matchJoinTimeoutMinutes * 60_000 : null}
                                                             extensionMinutes={t.matchExtensionMinutes}
-                                                            pendingExtension={t.extensionRequests.find((r) => r.matchId === m.id && r.status === `pending`) ?? null}
-                                                            claimWinExpiresAt={null}
+                                                            pendingExtension={t.extensionRequests.find((r) => r.matchId === m.id && (r.gameNumber ?? 1) === m.currentGameNumber && r.status === `pending`) ?? null}
+                                                            claimWinExpiresAt={m.claimWinExpiresAt ?? null}
                                                             onOpen={(sid) => void nav(`/session/${sid}`)}
                                                             onWalkover={(mid, pid) => void run(() => awardTournamentWalkover(t.id, mid, pid), `Walkover.`)}
                                                             onReopen={(mid) => void run(() => reopenTournamentMatch(t.id, mid), `Reopened.`)}

@@ -303,7 +303,12 @@ export function startLiveGameClient() {
          * so the match card updates immediately instead of waiting for reconciliation. */
         if (data.session.state?.status === `finished`) {
             const store = useLiveGameStore.getState();
-            if (store.session?.tournament || data.session.tournament || watchedTile?.session?.tournament) {
+            const tournamentId = store.session?.tournament?.tournamentId
+                ?? data.session.tournament?.tournamentId
+                ?? watchedTile?.session?.tournament?.tournamentId
+                ?? null;
+            if (tournamentId) {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.tournament(tournamentId) });
                 void queryClient.invalidateQueries({ queryKey: queryKeys.tournaments });
             }
         }
