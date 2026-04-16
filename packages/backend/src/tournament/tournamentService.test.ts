@@ -195,6 +195,31 @@ class FakeTournamentRepository {
     async removeSubscriber(): Promise<void> { }
 }
 
+class DelayedDetailSaveTournamentRepository extends FakeTournamentRepository {
+    private staleSaveStartedResolver: (() => void) | null = null;
+    private releaseStaleSaveResolver: (() => void) | null = null;
+    readonly staleSaveStarted = new Promise<void>((resolve) => {
+        this.staleSaveStartedResolver = resolve;
+    });
+    private readonly releaseStaleSave = new Promise<void>((resolve) => {
+        this.releaseStaleSaveResolver = resolve;
+    });
+
+    allowStaleSave(): void {
+        this.releaseStaleSaveResolver?.();
+    }
+
+    override async saveTournament(tournament: TournamentRecord): Promise<void> {
+        const timedOutMatch = tournament.matches.find((match) => match.id === `match-swiss-1-1`);
+        if (timedOutMatch?.state === `in-progress`) {
+            this.staleSaveStartedResolver?.();
+            await this.releaseStaleSave;
+        }
+
+        await super.saveTournament(tournament);
+    }
+}
+
 type FakeSession = {
     id: string;
     players: Array<{
@@ -257,6 +282,7 @@ class FakeGameHistoryRepository {
 
 class FakeTournamentEventSink {
     readonly tournamentNotifications: Array<{ profileId: string; kind: string }> = [];
+    readonly sessionClaimWins: Array<{ sessionId: string; state: unknown | null }> = [];
 
     tournamentUpdated(): void { }
 
@@ -264,7 +290,12 @@ class FakeTournamentEventSink {
         this.tournamentNotifications.push({ profileId, kind: event.kind });
     }
 
-    sessionClaimWin(): void { }
+    sessionClaimWin(event: { sessionId: string; state: unknown | null }): void {
+        this.sessionClaimWins.push({
+            sessionId: event.sessionId,
+            state: event.state,
+        });
+    }
 
     sessionUpdated(): void { }
 }
@@ -286,6 +317,30 @@ function createService(initialTournament: TournamentRecord) {
     const repository = new FakeTournamentRepository(initialTournament);
     const sessionManager = new FakeSessionManager();
     const eventSink = new FakeTournamentEventSink();
+    const service = new TournamentService(
+        repository as never,
+        {} as never,
+        sessionManager as never,
+        new FakeGameHistoryRepository() as never,
+    );
+    service.setEventHandlers(eventSink);
+
+    return {
+        repository,
+        sessionManager,
+        eventSink,
+        service,
+    };
+}
+
+function createServiceWithOverrides(options: {
+    repository: FakeTournamentRepository;
+    sessionManager?: FakeSessionManager;
+    eventSink?: FakeTournamentEventSink;
+}) {
+    const repository = options.repository;
+    const sessionManager = options.sessionManager ?? new FakeSessionManager();
+    const eventSink = options.eventSink ?? new FakeTournamentEventSink();
     const service = new TournamentService(
         repository as never,
         {} as never,
@@ -973,4 +1028,119 @@ test(`claimWin ignores approved extensions from earlier best-of games`, async ()
     (service as unknown as {
         cancelClaimWin: (matchId: string, sessionId: string) => void;
     }).cancelClaimWin(`match-winners-1-1`, `session-2`);
+});
+
+test(`resolveClaimWin clears the session claim state after awarding the walkover`, async () => {
+    const user = createAccountUser({ id: `player-1`, username: `Player 1` });
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        matchJoinTimeoutMinutes: 5,
+        participants: [
+            createParticipant({ profileId: user.id, displayName: user.username, registeredAt: 1, checkedInAt: 1, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 2, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-claim`,
+                startedAt: now - 10 * 60_000,
+                slots: [
+                    createSlot({ profileId: user.id, displayName: user.username, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service, repository, sessionManager, eventSink } = createService(tournament);
+    sessionManager.sessions.set(`session-claim`, {
+        id: `session-claim`,
+        players: [
+            { id: `session-claim-player-1`, profileId: user.id, connection: { status: `connected` } },
+            { id: `session-claim-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+
+    await service.claimWin(tournament.id, `match-winners-1-1`, user);
+    await (service as unknown as {
+        resolveClaimWin: (tournamentId: string, matchId: string) => Promise<void>;
+    }).resolveClaimWin(tournament.id, `match-winners-1-1`);
+
+    const stored = repository.getSync(tournament.id);
+    const match = stored.matches.find((entry) => entry.id === `match-winners-1-1`);
+    const clearEvent = eventSink.sessionClaimWins.at(-1);
+
+    assert.equal(match?.state, `completed`);
+    assert.equal(match?.winnerProfileId, user.id);
+    assert.deepEqual(clearEvent, {
+        sessionId: `session-claim`,
+        state: null,
+    });
+});
+
+test(`getTournamentDetail does not overwrite a newer live tournament update`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        status: `live`,
+        format: `swiss`,
+        matchJoinTimeoutMinutes: 5,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-swiss-1-1`,
+                bracket: `swiss`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                startedAt: Date.now() - 10 * 60_000,
+                sessionId: `session-timeout-race`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const repository = new DelayedDetailSaveTournamentRepository(tournament);
+    const sessionManager = new FakeSessionManager();
+    sessionManager.sessions.set(`session-timeout-race`, {
+        id: `session-timeout-race`,
+        players: [
+            { id: `p1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `p2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+    const { service } = createServiceWithOverrides({
+        repository,
+        sessionManager,
+    });
+
+    const detailPromise = service.getTournamentDetail(tournament.id, null);
+    await repository.staleSaveStarted;
+
+    const awardPromise = service.awardWalkover(tournament.id, `match-swiss-1-1`, `player-1`, organizer);
+
+    repository.allowStaleSave();
+    await Promise.all([
+        detailPromise,
+        awardPromise,
+    ]);
+
+    const stored = repository.getSync(tournament.id);
+    const match = stored.matches.find((entry) => entry.id === `match-swiss-1-1`);
+
+    assert.equal(match?.state, `completed`);
+    assert.equal(match?.winnerProfileId, `player-1`);
 });
