@@ -730,6 +730,228 @@ test(`getTournamentDetail refreshes double-elimination participant statuses when
     assert.equal(runnerUp?.status, `eliminated`);
 });
 
+test(`roundDelayMinutes keeps the grand final pending until its cooldown expires`, async () => {
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `double-elimination`,
+        roundDelayMinutes: 10,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-2-1`,
+                bracket: `winners`,
+                round: 2,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-1`,
+                loserProfileId: `player-2`,
+                resolvedAt: now - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+            createMatch({
+                id: `match-losers-2-1`,
+                bracket: `losers`,
+                round: 2,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-2`,
+                loserProfileId: `player-1`,
+                resolvedAt: now - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                ],
+            }),
+            createMatch({
+                id: `match-grand-final-1-1`,
+                bracket: `grand-final`,
+                round: 1,
+                order: 1,
+                state: `pending`,
+                slots: [
+                    createSlot({ source: { type: `winner`, matchId: `match-winners-2-1` } }),
+                    createSlot({ source: { type: `winner`, matchId: `match-losers-2-1` } }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const detail = await service.getTournamentDetail(tournament.id, null);
+    const grandFinal = detail?.matches.find((match) => match.id === `match-grand-final-1-1`);
+
+    assert.equal(grandFinal?.state, `pending`);
+    assert.equal(grandFinal?.sessionId, null);
+    assert.equal(grandFinal?.slots[0].profileId, `player-1`);
+    assert.equal(grandFinal?.slots[1].profileId, `player-2`);
+});
+
+test(`roundDelayMinutes keeps the grand-final reset pending until its cooldown expires`, async () => {
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `double-elimination`,
+        roundDelayMinutes: 10,
+        seriesSettings: {
+            earlyRoundsBestOf: 1,
+            finalsBestOf: 1,
+            grandFinalBestOf: 1,
+            grandFinalResetEnabled: true,
+        },
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-grand-final-1-1`,
+                bracket: `grand-final`,
+                round: 1,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-2`,
+                loserProfileId: `player-1`,
+                resolvedAt: now - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+            createMatch({
+                id: `match-grand-final-reset-1-1`,
+                bracket: `grand-final-reset`,
+                round: 1,
+                order: 1,
+                state: `pending`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const detail = await service.getTournamentDetail(tournament.id, null);
+    const grandFinalReset = detail?.matches.find((match) => match.id === `match-grand-final-reset-1-1`);
+
+    assert.equal(detail?.status, `live`);
+    assert.equal(grandFinalReset?.state, `pending`);
+    assert.equal(grandFinalReset?.sessionId, null);
+});
+
+test(`grand-final reset creation respects roundDelayMinutes in the production flow`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        status: `live`,
+        format: `double-elimination`,
+        roundDelayMinutes: 10,
+        seriesSettings: {
+            earlyRoundsBestOf: 1,
+            finalsBestOf: 1,
+            grandFinalBestOf: 1,
+            grandFinalResetEnabled: true,
+        },
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-grand-final-1-1`,
+                bracket: `grand-final`,
+                round: 1,
+                order: 1,
+                state: `ready`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1, source: { type: `winner`, matchId: `match-winners-2-1` } }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2, source: { type: `winner`, matchId: `match-losers-2-1` } }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const detail = await service.awardWalkover(tournament.id, `match-grand-final-1-1`, `player-2`, organizer);
+    const grandFinalReset = detail.matches.find((match) => match.bracket === `grand-final-reset`);
+
+    assert.equal(detail.status, `live`);
+    assert.equal(grandFinalReset?.state, `pending`);
+    assert.equal(grandFinalReset?.sessionId, null);
+});
+
+test(`even losers rounds wait for both prerequisite matches before becoming ready`, async () => {
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `double-elimination`,
+        roundDelayMinutes: 10,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, checkedInAt: 13, status: `checked-in`, checkInState: `checked-in`, seed: 3 }),
+            createParticipant({ profileId: `player-4`, displayName: `Player 4`, registeredAt: 4, checkedInAt: 14, status: `checked-in`, checkInState: `checked-in`, seed: 4 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-losers-1-1`,
+                bracket: `losers`,
+                round: 1,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-3`,
+                loserProfileId: `player-4`,
+                resolvedAt: now - 20 * 60_000,
+                slots: [
+                    createSlot({ profileId: `player-3`, displayName: `Player 3`, seed: 3 }),
+                    createSlot({ profileId: `player-4`, displayName: `Player 4`, seed: 4 }),
+                ],
+            }),
+            createMatch({
+                id: `match-winners-2-1`,
+                bracket: `winners`,
+                round: 2,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-1`,
+                loserProfileId: `player-2`,
+                resolvedAt: now - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+            createMatch({
+                id: `match-losers-2-1`,
+                bracket: `losers`,
+                round: 2,
+                order: 1,
+                state: `pending`,
+                slots: [
+                    createSlot({ source: { type: `winner`, matchId: `match-losers-1-1` } }),
+                    createSlot({ source: { type: `loser`, matchId: `match-winners-2-1` } }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const detail = await service.getTournamentDetail(tournament.id, null);
+    const losersRoundTwo = detail?.matches.find((match) => match.id === `match-losers-2-1`);
+
+    assert.equal(losersRoundTwo?.state, `pending`);
+    assert.equal(losersRoundTwo?.sessionId, null);
+    assert.equal(losersRoundTwo?.slots[0].profileId, `player-3`);
+    assert.equal(losersRoundTwo?.slots[1].profileId, `player-2`);
+});
+
 test(`reconcileAllTournaments only records one timeout warning per timeout window`, async () => {
     const matchStartedAt = Date.now() - 10 * 60_000;
     const tournament = createTournament({

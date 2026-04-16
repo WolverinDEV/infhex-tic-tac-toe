@@ -1631,13 +1631,36 @@ export class TournamentService {
         await this.tournamentRepository.saveTournament(tournament);
     }
 
+    private getRoundDelayDependencyMatches(tournament: TournamentRecord, match: TournamentMatch): TournamentMatch[] {
+        if (match.bracket === `grand-final-reset`) {
+            return tournament.matches.filter((entry) => entry.bracket === `grand-final`);
+        }
+
+        const dependencyIds = new Set(match.slots.flatMap((slot) => {
+            const source = slot.source;
+            if (!source || source.type === `seed`) {
+                return [];
+            }
+
+            return [source.matchId];
+        }));
+        if (dependencyIds.size > 0) {
+            return tournament.matches.filter((entry) => dependencyIds.has(entry.id));
+        }
+
+        if (match.round <= 1) {
+            return [];
+        }
+
+        return tournament.matches.filter(
+            (entry) => entry.bracket === match.bracket && entry.round === match.round - 1,
+        );
+    }
+
     private canMatchBecomeReady(tournament: TournamentRecord, match: TournamentMatch): boolean {
         if (tournament.roundDelayMinutes <= 0) return true;
-        if (match.round <= 1) return true;
 
-        const previousRoundMatches = tournament.matches.filter(
-            (m) => m.bracket === match.bracket && m.round === match.round - 1,
-        );
+        const previousRoundMatches = this.getRoundDelayDependencyMatches(tournament, match);
         if (previousRoundMatches.length === 0) return true;
 
         const allPreviousCompleted = previousRoundMatches.every((m) => m.state === `completed`);
@@ -2066,7 +2089,7 @@ export class TournamentService {
                     bracket: `grand-final-reset`,
                     round: 1,
                     order: 1,
-                    state: `ready`,
+                    state: `pending`,
                     bestOf: tournament.seriesSettings.grandFinalBestOf,
                     slots: match.slots.map((slot) => ({
                         ...slot,
