@@ -626,31 +626,46 @@ export class TournamentService {
     }
 
     async getTournamentDetail(tournamentId: string, currentUser: AccountUserProfile | null): Promise<TournamentDetail | null> {
-        let tournament = await this.tournamentRepository.getTournament(tournamentId);
+        const { tournament, shouldBroadcastUpdate } = await this.withTournamentLock(tournamentId, async () => {
+            const tournament = await this.tournamentRepository.getTournament(tournamentId);
+            if (!tournament) {
+                return {
+                    tournament: null,
+                    shouldBroadcastUpdate: false,
+                };
+            }
+
+            let shouldBroadcastUpdate = false;
+
+            /* Eagerly reconcile live tournaments so the detail is always fresh */
+            if (tournament.status === `live`) {
+                const changed = await this.reconcileLiveTournamentRecord(tournament);
+                const timeoutChanged = tournament.status === `live`
+                    ? this.checkMatchTimeouts(tournament)
+                    : false;
+                const participantStatusChanged = this.refreshParticipantStatuses(tournament);
+                if (changed || timeoutChanged || participantStatusChanged) {
+                    tournament.updatedAt = Date.now();
+                    await this.tournamentRepository.saveTournament(tournament);
+                    shouldBroadcastUpdate = true;
+                }
+            }
+
+            return {
+                tournament,
+                shouldBroadcastUpdate,
+            };
+        });
+
         if (!tournament) {
             return null;
         }
-        let autoSubscribedOnView = false;
 
-        /* Eagerly reconcile live tournaments so the detail is always fresh */
-        if (tournament.status === `live`) {
-            const changed = await this.reconcileLiveTournamentRecord(tournament);
-            const timeoutChanged = tournament.status === `live`
-                ? this.checkMatchTimeouts(tournament)
-                : false;
-            const participantStatusChanged = this.refreshParticipantStatuses(tournament);
-            if (changed) {
-                tournament.updatedAt = Date.now();
-                await this.tournamentRepository.saveTournament(tournament);
-                this.broadcastTournamentUpdate(tournament);
-                tournament = await this.tournamentRepository.getTournament(tournamentId) ?? tournament;
-            } else if (timeoutChanged || participantStatusChanged) {
-                tournament.updatedAt = Date.now();
-                await this.tournamentRepository.saveTournament(tournament);
-                this.broadcastTournamentUpdate(tournament);
-                tournament = await this.tournamentRepository.getTournament(tournamentId) ?? tournament;
-            }
+        if (shouldBroadcastUpdate) {
+            this.broadcastTournamentUpdate(tournament);
         }
+
+        let autoSubscribedOnView = false;
 
         /* Auto-subscribe on view */
         if (currentUser) {
@@ -2848,6 +2863,7 @@ export class TournamentService {
                 return;
             }
 
+            clearTimeout(claim.timer);
             this.activeClaimWins.delete(matchId);
 
             const tournament = await this.requireTournament(tournamentId);
@@ -2882,6 +2898,7 @@ export class TournamentService {
             }
 
             // Award walkover to claimant
+            const sessionId = match.sessionId;
             this.completeMatchSet(tournament, match, claim.claimantProfileId, `walkover`);
             tournament.activity.unshift(createTournamentActivity(
                 null,
@@ -2908,9 +2925,9 @@ export class TournamentService {
                 }
             }
 
-            if (match.sessionId) {
+            if (sessionId) {
                 this.emitSessionClaimWin({
-                    sessionId: match.sessionId,
+                    sessionId,
                     state: null,
                 } satisfies SessionClaimWinEvent);
             }
