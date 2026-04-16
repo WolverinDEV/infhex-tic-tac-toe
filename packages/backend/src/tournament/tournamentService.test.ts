@@ -160,13 +160,28 @@ class FakeTournamentRepository {
         return [...this.tournaments.values()]
             .filter((tournament) =>
                 tournament.createdByProfileId === userId
-                || tournament.participants.some((participant) => participant.profileId === userId))
+                || tournament.participants.some((participant) => participant.profileId === userId)
+                || tournament.organizers.includes(userId)
+                || tournament.subscriberProfileIds.includes(userId))
             .map((tournament) => structuredClone(tournament));
     }
 
-    async listPastTournaments(_userId: string | null, _page: number, limit: number): Promise<{ tournaments: TournamentRecord[]; total: number }> {
+    async listPastTournaments(userId: string | null, _page: number, limit: number): Promise<{ tournaments: TournamentRecord[]; total: number }> {
         const tournaments = [...this.tournaments.values()]
-            .filter((tournament) => tournament.status === `completed` || tournament.status === `cancelled`)
+            .filter((tournament) =>
+                (tournament.status === `completed` || tournament.status === `cancelled`)
+                && (
+                    tournament.isPublished
+                    || (
+                        userId !== null
+                        && (
+                            tournament.createdByProfileId === userId
+                            || tournament.participants.some((participant) => participant.profileId === userId)
+                            || tournament.organizers.includes(userId)
+                            || tournament.subscriberProfileIds.includes(userId)
+                        )
+                    )
+                ))
             .sort((left, right) => (right.completedAt ?? right.updatedAt) - (left.completedAt ?? left.updatedAt));
         return {
             tournaments: tournaments.slice(0, limit).map((tournament) => structuredClone(tournament)),
@@ -212,6 +227,32 @@ class DelayedDetailSaveTournamentRepository extends FakeTournamentRepository {
     override async saveTournament(tournament: TournamentRecord): Promise<void> {
         const timedOutMatch = tournament.matches.find((match) => match.id === `match-swiss-1-1`);
         if (timedOutMatch?.state === `in-progress`) {
+            this.staleSaveStartedResolver?.();
+            await this.releaseStaleSave;
+        }
+
+        await super.saveTournament(tournament);
+    }
+}
+
+class DelayedUnsubscribeSaveTournamentRepository extends FakeTournamentRepository {
+    private staleSaveStartedResolver: (() => void) | null = null;
+    private releaseStaleSaveResolver: (() => void) | null = null;
+    readonly staleSaveStarted = new Promise<void>((resolve) => {
+        this.staleSaveStartedResolver = resolve;
+    });
+    private readonly releaseStaleSave = new Promise<void>((resolve) => {
+        this.releaseStaleSaveResolver = resolve;
+    });
+
+    allowStaleSave(): void {
+        this.releaseStaleSaveResolver?.();
+    }
+
+    override async saveTournament(tournament: TournamentRecord): Promise<void> {
+        const isUnsubscribeMutation = tournament.organizers.length === 0
+            && tournament.matches.some((match) => match.state === `in-progress`);
+        if (isUnsubscribeMutation) {
             this.staleSaveStartedResolver?.();
             await this.releaseStaleSave;
         }
@@ -361,6 +402,7 @@ test(`registerCurrentUser reuses a dropped participant record instead of creatin
     const user = createAccountUser({ id: `player-1`, username: `Player One` });
     const tournament = createTournament({
         status: `registration-open`,
+        checkInOpensAt: Date.now() + 60_000,
         participants: [
             createParticipant({
                 profileId: user.id,
@@ -655,13 +697,116 @@ test(`waitlist check-in rejects attempts after the waitlist window closes`, asyn
 
     await assert.rejects(
         () => service.checkInCurrentUser(tournament.id, player),
-        /Waitlist check-in has closed/,
+        /Check-in is not open/,
     );
 
     const stored = repository.getSync(tournament.id);
     const waitlistedParticipant = stored.participants.find((participant) => participant.profileId === player.id);
-    assert.equal(waitlistedParticipant?.status, `waitlisted`);
+    assert.equal(stored.status, `cancelled`);
+    assert.equal(waitlistedParticipant?.status, `dropped`);
     assert.equal(waitlistedParticipant?.checkedInAt, null);
+});
+
+test(`swiss pairings keep players within their score groups when a same-record pairing is available`, async () => {
+    const tournament = createTournament({
+        status: `live`,
+        format: `swiss`,
+        maxPlayers: 4,
+        swissRoundCount: 3,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, checkedInAt: 13, status: `checked-in`, checkInState: `checked-in`, seed: 3 }),
+            createParticipant({ profileId: `player-4`, displayName: `Player 4`, registeredAt: 4, checkedInAt: 14, status: `checked-in`, checkInState: `checked-in`, seed: 4 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-swiss-1-1`,
+                bracket: `swiss`,
+                round: 1,
+                order: 1,
+                state: `completed`,
+                winnerProfileId: `player-1`,
+                loserProfileId: `player-2`,
+                resultType: `played`,
+                resolvedAt: 100,
+                gameIds: [`game-1`],
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+            createMatch({
+                id: `match-swiss-1-2`,
+                bracket: `swiss`,
+                round: 1,
+                order: 2,
+                state: `completed`,
+                winnerProfileId: `player-4`,
+                loserProfileId: `player-3`,
+                resultType: `played`,
+                resolvedAt: 101,
+                gameIds: [`game-2`],
+                slots: [
+                    createSlot({ profileId: `player-3`, displayName: `Player 3`, seed: 3 }),
+                    createSlot({ profileId: `player-4`, displayName: `Player 4`, seed: 4 }),
+                ],
+            }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    await service.reconcileAllTournaments();
+
+    const roundTwoMatches = repository.getSync(tournament.id).matches
+        .filter((match) => match.bracket === `swiss` && match.round === 2)
+        .sort((left, right) => left.order - right.order)
+        .map((match) => match.slots.map((slot) => slot.profileId));
+
+    assert.deepEqual(roundTwoMatches, [
+        [`player-1`, `player-4`],
+        [`player-2`, `player-3`],
+    ]);
+});
+
+test(`getTournamentDetail eagerly advances stale pre-start tournaments`, async () => {
+    const tournament = createTournament({
+        status: `registration-open`,
+        scheduledStartAt: Date.now() + 60_000,
+        checkInOpensAt: Date.now() - 1_000,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, status: `registered`, checkInState: `not-open` }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    const detail = await service.getTournamentDetail(tournament.id, null);
+    const stored = repository.getSync(tournament.id);
+
+    assert.equal(detail?.status, `check-in-open`);
+    assert.equal(detail?.participants[0]?.checkInState, `pending`);
+    assert.equal(stored.status, `check-in-open`);
+});
+
+test(`checkInCurrentUser reconciles stale pre-start status before validating the request`, async () => {
+    const player = createAccountUser({ id: `player-1`, username: `Player 1` });
+    const tournament = createTournament({
+        status: `registration-open`,
+        scheduledStartAt: Date.now() + 60_000,
+        checkInOpensAt: Date.now() - 1_000,
+        participants: [
+            createParticipant({ profileId: player.id, displayName: player.username, registeredAt: 1, status: `registered`, checkInState: `not-open` }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    const detail = await service.checkInCurrentUser(tournament.id, player);
+    const storedParticipant = repository.getSync(tournament.id).participants.find((participant) => participant.profileId === player.id);
+
+    assert.equal(detail.status, `check-in-open`);
+    assert.equal(detail.participants.find((participant) => participant.profileId === player.id)?.status, `checked-in`);
+    assert.equal(storedParticipant?.status, `checked-in`);
+    assert.notEqual(storedParticipant?.checkedInAt, null);
 });
 
 test(`viewer state hides register and waitlist actions for ineligible users`, async () => {
@@ -692,6 +837,32 @@ test(`viewer state hides register and waitlist actions for ineligible users`, as
 
     assert.equal(whitelistDetail?.viewer.canRegister, false);
     assert.equal(blacklistDetail?.viewer.canJoinWaitlist, false);
+});
+
+test(`private tournaments appear in listings for organizers`, async () => {
+    const organizer = createAccountUser({ id: `helper-organizer`, username: `Helper Organizer` });
+    const activeTournament = createTournament({
+        id: `tournament-active`,
+        visibility: `private`,
+        isPublished: false,
+        status: `registration-open`,
+        organizers: [organizer.id],
+    });
+    const completedTournament = createTournament({
+        id: `tournament-completed`,
+        visibility: `private`,
+        isPublished: false,
+        status: `completed`,
+        completedAt: 100,
+        organizers: [organizer.id],
+    });
+    const { service, repository } = createService(activeTournament);
+    repository.saveSync(completedTournament);
+
+    const listing = await service.listTournaments(organizer);
+
+    assert.deepEqual(listing.tournaments.map((tournament) => tournament.id), [activeTournament.id]);
+    assert.ok(listing.past.some((tournament) => tournament.id === completedTournament.id));
 });
 
 test(`getTournamentDetail refreshes double-elimination participant statuses when a live tournament completes during eager reconciliation`, async () => {
@@ -1363,6 +1534,53 @@ test(`getTournamentDetail does not overwrite a newer live tournament update`, as
     const stored = repository.getSync(tournament.id);
     const match = stored.matches.find((entry) => entry.id === `match-swiss-1-1`);
 
+    assert.equal(match?.state, `completed`);
+    assert.equal(match?.winnerProfileId, `player-1`);
+});
+
+test(`unsubscribeFromTournament does not overwrite newer live tournament updates`, async () => {
+    const creator = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const helperOrganizer = createAccountUser({ id: `helper-organizer`, username: `Helper Organizer` });
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        organizers: [helperOrganizer.id],
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const repository = new DelayedUnsubscribeSaveTournamentRepository(tournament);
+    const { service } = createServiceWithOverrides({ repository });
+
+    const unsubscribePromise = service.unsubscribeFromTournament(tournament.id, helperOrganizer);
+    await repository.staleSaveStarted;
+
+    const awardPromise = service.awardWalkover(tournament.id, `match-winners-1-1`, `player-1`, creator);
+
+    repository.allowStaleSave();
+    await Promise.all([
+        unsubscribePromise,
+        awardPromise,
+    ]);
+
+    const stored = repository.getSync(tournament.id);
+    const match = stored.matches.find((entry) => entry.id === `match-winners-1-1`);
+
+    assert.deepEqual(stored.organizers, []);
     assert.equal(match?.state, `completed`);
     assert.equal(match?.winnerProfileId, `player-1`);
 });

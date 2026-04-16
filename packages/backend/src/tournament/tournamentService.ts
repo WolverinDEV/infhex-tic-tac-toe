@@ -92,6 +92,16 @@ function countCheckedInParticipants(tournament: TournamentRecord): number {
     return tournament.participants.filter((participant) => isActiveParticipant(participant) && participant.checkedInAt !== null).length;
 }
 
+function isPreStartTournamentStatus(status: TournamentRecord[`status`]): boolean {
+    return status === `registration-open`
+        || status === `check-in-open`
+        || status === `waitlist-open`;
+}
+
+function shouldEagerlyReconcileTournamentStatus(status: TournamentRecord[`status`]): boolean {
+    return isPreStartTournamentStatus(status) || status === `live`;
+}
+
 function getMinimumParticipantsToStart(format: TournamentFormat): number {
     return format === `swiss` ? 2 : 4;
 }
@@ -635,25 +645,11 @@ export class TournamentService {
                 };
             }
 
-            let shouldBroadcastUpdate = false;
-
-            /* Eagerly reconcile live tournaments so the detail is always fresh */
-            if (tournament.status === `live`) {
-                const changed = await this.reconcileLiveTournamentRecord(tournament);
-                const timeoutChanged = tournament.status === `live`
-                    ? this.checkMatchTimeouts(tournament)
-                    : false;
-                const participantStatusChanged = this.refreshParticipantStatuses(tournament);
-                if (changed || timeoutChanged || participantStatusChanged) {
-                    tournament.updatedAt = Date.now();
-                    await this.tournamentRepository.saveTournament(tournament);
-                    shouldBroadcastUpdate = true;
-                }
-            }
-
             return {
                 tournament,
-                shouldBroadcastUpdate,
+                shouldBroadcastUpdate: shouldEagerlyReconcileTournamentStatus(tournament.status)
+                    ? await this.reconcileTournamentRecord(tournament)
+                    : false,
             };
         });
 
@@ -714,6 +710,7 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            await this.reconcileTournamentForMutation(tournament);
 
             if (tournament.status === `live` || tournament.status === `completed` || tournament.status === `cancelled`) {
                 throw new SessionError(`Tournament settings can only be changed before the event goes live.`);
@@ -803,6 +800,7 @@ export class TournamentService {
     async registerCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
+            await this.reconcileTournamentForMutation(tournament);
             const canRegister = tournament.status === `registration-open`
                 || (tournament.status === `check-in-open` && tournament.lateRegistrationEnabled);
             if (!canRegister) {
@@ -872,6 +870,7 @@ export class TournamentService {
             if (!canManageTournament(user, tournament)) {
                 throw new SessionError(`Only organizers can reorder seeds.`);
             }
+            await this.reconcileTournamentForMutation(tournament);
 
             if (tournament.status !== `registration-open` && tournament.status !== `check-in-open`) {
                 throw new SessionError(`Seeds can only be reordered before the tournament starts.`);
@@ -918,6 +917,7 @@ export class TournamentService {
     async withdrawCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
+            await this.reconcileTournamentForMutation(tournament);
             const participant = tournament.participants.find((entry) =>
                 entry.profileId === user.id && (isActiveParticipant(entry) || entry.status === `waitlisted`));
             if (!participant) {
@@ -959,6 +959,7 @@ export class TournamentService {
     async checkInCurrentUser(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
+            await this.reconcileTournamentForMutation(tournament);
 
             // Waitlist check-in: waitlisted player claiming a freed slot
             if (tournament.status === `waitlist-open`) {
@@ -1010,6 +1011,7 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            await this.reconcileTournamentForMutation(tournament);
 
             if (tournament.status === `live`) {
                 throw new SessionError(`Use participant replacement once the tournament is live.`);
@@ -1062,6 +1064,7 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            await this.reconcileTournamentForMutation(tournament);
 
             const participant = tournament.participants.find((entry) => entry.profileId === profileId && isActiveParticipant(entry));
             if (!participant) {
@@ -1100,6 +1103,7 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            await this.reconcileTournamentForMutation(tournament);
 
             const currentParticipant = tournament.participants.find((entry) => entry.profileId === request.profileId && isActiveParticipant(entry));
             if (!currentParticipant) {
@@ -1163,15 +1167,27 @@ export class TournamentService {
     }
 
     async startTournament(tournamentId: string, user: AccountUserProfile): Promise<TournamentDetail> {
-        const tournament = await this.withTournamentLock(tournamentId, async () => {
+        const { tournament, shouldBroadcastUpdate } = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            const stateChanged = await this.reconcileTournamentForMutation(tournament);
+            if (tournament.status === `live`) {
+                return {
+                    tournament,
+                    shouldBroadcastUpdate: stateChanged,
+                };
+            }
             await this.startTournamentRecord(tournament, user);
             await this.tournamentRepository.saveTournament(tournament);
-            return tournament;
+            return {
+                tournament,
+                shouldBroadcastUpdate: true,
+            };
         });
 
-        this.broadcastTournamentUpdate(tournament);
+        if (shouldBroadcastUpdate) {
+            this.broadcastTournamentUpdate(tournament);
+        }
         return this.toDetail(tournament, user);
     }
 
@@ -1238,44 +1254,55 @@ export class TournamentService {
     }
 
     async unsubscribeFromTournament(tournamentId: string, user: AccountUserProfile, transferTo?: string): Promise<void> {
-        const tournament = await this.requireTournament(tournamentId);
-        const isCreator = tournament.createdByProfileId === user.id;
-        const isOrganizer = tournament.organizers?.includes(user.id) === true;
+        const { tournament, shouldBroadcastUpdate } = await this.withTournamentLock(tournamentId, async () => {
+            const tournament = await this.requireTournament(tournamentId);
+            const isCreator = tournament.createdByProfileId === user.id;
+            const isOrganizer = tournament.organizers?.includes(user.id) === true;
+            let shouldBroadcastUpdate = false;
 
-        if (isCreator) {
-            const otherOrganizers = (tournament.organizers ?? []).filter((id) => id !== user.id);
-            if (otherOrganizers.length === 0 && tournament.status !== `completed` && tournament.status !== `cancelled`) {
-                throw new SessionError(`You are the only organizer. Add another organizer before unsubscribing, or cancel the tournament.`);
-            }
-
-            if (!transferTo) {
-                if (otherOrganizers.length > 0 && tournament.status !== `completed` && tournament.status !== `cancelled`) {
-                    throw new SessionError(`Choose a new primary organizer before unsubscribing.`);
-                }
-            } else {
-                if (!otherOrganizers.includes(transferTo)) {
-                    throw new SessionError(`The selected user is not an organizer of this tournament.`);
+            if (isCreator) {
+                const otherOrganizers = (tournament.organizers ?? []).filter((id) => id !== user.id);
+                if (otherOrganizers.length === 0 && tournament.status !== `completed` && tournament.status !== `cancelled`) {
+                    throw new SessionError(`You are the only organizer. Add another organizer before unsubscribing, or cancel the tournament.`);
                 }
 
-                tournament.createdByProfileId = transferTo;
-                tournament.organizers = otherOrganizers.filter((id) => id !== transferTo);
+                if (!transferTo) {
+                    if (otherOrganizers.length > 0 && tournament.status !== `completed` && tournament.status !== `cancelled`) {
+                        throw new SessionError(`Choose a new primary organizer before unsubscribing.`);
+                    }
+                } else {
+                    if (!otherOrganizers.includes(transferTo)) {
+                        throw new SessionError(`The selected user is not an organizer of this tournament.`);
+                    }
+
+                    tournament.createdByProfileId = transferTo;
+                    tournament.organizers = otherOrganizers.filter((id) => id !== transferTo);
+                    tournament.updatedAt = Date.now();
+                    tournament.activity.unshift(createTournamentActivity(
+                        user,
+                        `organizer-transferred`,
+                        `${user.username} transferred tournament ownership.`,
+                    ));
+                    await this.tournamentRepository.saveTournament(tournament);
+                    shouldBroadcastUpdate = true;
+                }
+            } else if (isOrganizer) {
+                tournament.organizers = (tournament.organizers ?? []).filter((id) => id !== user.id);
                 tournament.updatedAt = Date.now();
-                tournament.activity.unshift(createTournamentActivity(
-                    user,
-                    `organizer-transferred`,
-                    `${user.username} transferred tournament ownership.`,
-                ));
                 await this.tournamentRepository.saveTournament(tournament);
-                this.broadcastTournamentUpdate(tournament);
+                shouldBroadcastUpdate = true;
             }
-        } else if (isOrganizer) {
-            tournament.organizers = (tournament.organizers ?? []).filter((id) => id !== user.id);
-            tournament.updatedAt = Date.now();
-            await this.tournamentRepository.saveTournament(tournament);
+
+            await this.tournamentRepository.removeSubscriber(tournamentId, user.id);
+            return {
+                tournament,
+                shouldBroadcastUpdate,
+            };
+        });
+
+        if (shouldBroadcastUpdate) {
             this.broadcastTournamentUpdate(tournament);
         }
-
-        await this.tournamentRepository.removeSubscriber(tournamentId, user.id);
     }
 
     async grantTournamentOrganizer(tournamentId: string, user: AccountUserProfile, profileId: string): Promise<TournamentDetail> {
@@ -1492,7 +1519,24 @@ export class TournamentService {
         return Math.min(size, maxPlayers);
     }
 
-    private async reconcileTournamentRecord(tournament: TournamentRecord): Promise<void> {
+    private async reconcileTournamentForMutation(tournament: TournamentRecord): Promise<boolean> {
+        if (!isPreStartTournamentStatus(tournament.status)) {
+            return false;
+        }
+
+        return await this.reconcileTournamentRecord(tournament);
+    }
+
+    private async reconcileTournamentRecord(tournament: TournamentRecord): Promise<boolean> {
+        const changed = await this.applyTournamentReconciliation(tournament);
+        if (changed) {
+            await this.tournamentRepository.saveTournament(tournament);
+        }
+
+        return changed;
+    }
+
+    private async applyTournamentReconciliation(tournament: TournamentRecord): Promise<boolean> {
         const now = Date.now();
         let changed = false;
 
@@ -1626,9 +1670,10 @@ export class TournamentService {
 
         if (tournament.activity.length > 200) {
             tournament.activity = tournament.activity.slice(0, 200);
+            changed = true;
         }
 
-        await this.tournamentRepository.saveTournament(tournament);
+        return changed;
     }
 
     private getRoundDelayDependencyMatches(tournament: TournamentRecord, match: TournamentMatch): TournamentMatch[] {
