@@ -154,6 +154,7 @@ export class TournamentRepository {
                     ? [
                         { 'participants.profileId': profileId },
                         { createdByProfileId: profileId },
+                        { organizers: profileId },
                         { subscriberProfileIds: profileId },
                     ]
                     : []),
@@ -195,6 +196,7 @@ export class TournamentRepository {
             $or: [
                 { 'participants.profileId': profileId },
                 { createdByProfileId: profileId },
+                { organizers: profileId },
                 { subscriberProfileIds: profileId },
             ],
         })

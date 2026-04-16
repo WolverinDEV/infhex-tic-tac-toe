@@ -104,29 +104,21 @@ function pairParticipants(
     }
 
     const [firstParticipant, ...remainingParticipants] = participants;
-    const sortedCandidates = remainingParticipants
-        .map((participant, index) => ({
-            participant,
-            index,
-        }))
-        .sort((left, right) =>
-            Math.abs((left.participant.seed ?? 0) - (firstParticipant.seed ?? 0))
-            - Math.abs((right.participant.seed ?? 0) - (firstParticipant.seed ?? 0))
-            || (left.participant.seed ?? Number.MAX_SAFE_INTEGER) - (right.participant.seed ?? Number.MAX_SAFE_INTEGER));
 
-    for (const candidate of sortedCandidates) {
-        if (playedPairings.has(getPairingKey(firstParticipant.profileId, candidate.participant.profileId))) {
+    for (let index = 0; index < remainingParticipants.length; index += 1) {
+        const candidate = remainingParticipants[index]!;
+        if (playedPairings.has(getPairingKey(firstParticipant.profileId, candidate.profileId))) {
             continue;
         }
 
-        const nextParticipants = remainingParticipants.filter((_, index) => index !== candidate.index);
+        const nextParticipants = remainingParticipants.filter((_, candidateIndex) => candidateIndex !== index);
         const remainingPairings = pairParticipants(nextParticipants, playedPairings);
         if (!remainingPairings) {
             continue;
         }
 
         return [
-            [firstParticipant, candidate.participant],
+            [firstParticipant, candidate],
             ...remainingPairings,
         ];
     }
