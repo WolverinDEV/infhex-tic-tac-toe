@@ -947,6 +947,10 @@ export class TournamentService {
 
             // Waitlist check-in: waitlisted player claiming a freed slot
             if (tournament.status === `waitlist-open`) {
+                if (Date.now() >= (tournament.waitlistClosesAt ?? 0)) {
+                    throw new SessionError(`Waitlist check-in has closed for this tournament.`);
+                }
+
                 const waitlistedParticipant = tournament.participants.find((p) => p.profileId === user.id && p.status === `waitlisted`);
                 if (!waitlistedParticipant) {
                     throw new SessionError(`You are not on the waitlist for this tournament.`);
@@ -1576,6 +1580,9 @@ export class TournamentService {
             }
 
             if (countCheckedInParticipants(tournament) >= getMinimumParticipantsToStart(tournament.format)) {
+                tournament.status = `check-in-open`;
+                tournament.waitlistOpensAt = null;
+                tournament.waitlistClosesAt = null;
                 tournament.activity.unshift(createTournamentActivity(null, `waitlist-closed`, `Waitlist check-in closed.`));
                 await this.startTournamentRecord(tournament, null);
                 changed = true;

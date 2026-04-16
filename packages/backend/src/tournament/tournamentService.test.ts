@@ -556,6 +556,59 @@ test(`swiss tournaments can start with two checked-in players`, async () => {
     assert.equal(detail.matches[0]?.bracket, `swiss`);
 });
 
+test(`waitlist timeout starts the tournament cleanly after replacement check-ins`, async () => {
+    const tournament = createTournament({
+        status: `waitlist-open`,
+        format: `swiss`,
+        maxPlayers: 3,
+        swissRoundCount: 1,
+        waitlistEnabled: true,
+        waitlistClosesAt: Date.now() - 1_000,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, status: `waitlisted`, checkInState: `not-open` }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    await service.reconcileAllTournaments();
+
+    const stored = repository.getSync(tournament.id);
+    assert.equal(stored.status, `live`);
+    assert.equal(stored.waitlistOpensAt, null);
+    assert.equal(stored.waitlistClosesAt, null);
+    assert.equal(stored.matches.length, 1);
+    assert.equal(stored.matches[0]?.bracket, `swiss`);
+    assert.equal(stored.participants.find((participant) => participant.profileId === `player-3`)?.status, `dropped`);
+});
+
+test(`waitlist check-in rejects attempts after the waitlist window closes`, async () => {
+    const player = createAccountUser({ id: `player-3`, username: `Player 3` });
+    const tournament = createTournament({
+        status: `waitlist-open`,
+        waitlistEnabled: true,
+        maxPlayers: 2,
+        waitlistClosesAt: Date.now() - 1_000,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkInState: `missed`, status: `dropped`, removedAt: 22 }),
+            createParticipant({ profileId: player.id, displayName: player.username, registeredAt: 3, status: `waitlisted`, checkInState: `not-open` }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    await assert.rejects(
+        () => service.checkInCurrentUser(tournament.id, player),
+        /Waitlist check-in has closed/,
+    );
+
+    const stored = repository.getSync(tournament.id);
+    const waitlistedParticipant = stored.participants.find((participant) => participant.profileId === player.id);
+    assert.equal(waitlistedParticipant?.status, `waitlisted`);
+    assert.equal(waitlistedParticipant?.checkedInAt, null);
+});
+
 test(`viewer state hides register and waitlist actions for ineligible users`, async () => {
     const outsider = createAccountUser({ id: `player-out`, username: `Outsider` });
     const whitelistTournament = createTournament({
