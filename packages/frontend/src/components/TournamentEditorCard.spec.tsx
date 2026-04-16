@@ -107,6 +107,85 @@ test(`preserves a zero join timeout when editing an existing tournament`, async 
     await expect.poll(() => submitted?.matchJoinTimeoutMinutes ?? null).toBe(0);
 });
 
+test(`preserves unsaved format changes across equivalent prop rerenders`, async ({ mount }) => {
+    let submitted: CreateTournamentRequest | null = null;
+
+    const component = await mount(
+        <TournamentEditorCardComponent
+            formKey="edit:tournament-1"
+            title="Edit Tournament"
+            description=""
+            defaultRequest={{ ...baseRequest }}
+            submitLabel="Save"
+            submitting={false}
+            onSubmit={(request) => {
+                submitted = request;
+            }}
+        />,
+    );
+
+    await component.getByRole(`button`, { name: `Swiss` }).click();
+
+    await component.update(
+        <TournamentEditorCardComponent
+            formKey="edit:tournament-1"
+            title="Edit Tournament"
+            description=""
+            defaultRequest={{ ...baseRequest }}
+            submitLabel="Save"
+            submitting={false}
+            onSubmit={(request) => {
+                submitted = request;
+            }}
+        />,
+    );
+
+    await component.getByRole(`button`, { name: `Save` }).click();
+
+    await expect.poll(() => submitted?.format ?? null).toBe(`swiss`);
+});
+
+test(`resets form state when the form key changes to a different tournament revision`, async ({ mount }) => {
+    let submitted: CreateTournamentRequest | null = null;
+
+    const component = await mount(
+        <TournamentEditorCardComponent
+            formKey="edit:tournament-1:1"
+            title="Edit Tournament"
+            description=""
+            defaultRequest={{ ...baseRequest }}
+            submitLabel="Save"
+            submitting={false}
+            onSubmit={(request) => {
+                submitted = request;
+            }}
+        />,
+    );
+
+    await component.getByRole(`button`, { name: `Swiss` }).click();
+
+    await component.update(
+        <TournamentEditorCardComponent
+            formKey="edit:tournament-1:2"
+            title="Edit Tournament"
+            description=""
+            defaultRequest={{
+                ...baseRequest,
+                format: `single-elimination`,
+            }}
+            submitLabel="Save"
+            submitting={false}
+            onSubmit={(request) => {
+                submitted = request;
+            }}
+        />,
+    );
+
+    await component.getByRole(`button`, { name: `Save` }).click();
+
+    await expect.poll(() => submitted?.format ?? null).toBe(`single-elimination`);
+});
+
 test(`maps join timeout and extension settings from tournament detail into the edit request`, async () => {
     const { buildCreateTournamentRequestFromDetail, createDefaultTournamentRequest } = await import(`./TournamentEditorCard`);
     const request = buildCreateTournamentRequestFromDetail({
