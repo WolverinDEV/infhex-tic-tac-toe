@@ -262,7 +262,8 @@ function TournamentEditorCard({
 }: TournamentEditorCardProps) {
     const [f, setF] = useState<TournamentFormState>(() => init(defaultRequest));
 
-    useEffect(() => { setF(init(defaultRequest)); }, [defaultRequest, formKey]);
+    // Only reset when the caller intentionally swaps to a different form payload.
+    useEffect(() => { setF(init(defaultRequest)); }, [formKey]);
 
     const set = <K extends keyof TournamentFormState>(k: K, v: TournamentFormState[K]) =>
         setF((c) => ({ ...c, [k]: v }));
