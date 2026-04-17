@@ -134,14 +134,18 @@ function isExtensionForMatchGame(extension: TournamentExtensionRequest, matchId:
     return extension.matchId === matchId && getExtensionGameNumber(extension) === gameNumber;
 }
 
+function hasPendingExtensionForMatchGame(tournament: TournamentRecord, matchId: string, gameNumber: number): boolean {
+    return tournament.extensionRequests.some((extension) =>
+        isExtensionForMatchGame(extension, matchId, gameNumber) && extension.status === `pending`);
+}
+
 function normalizeDescription(value: string | null | undefined): string | null {
     const description = value?.trim() ?? ``;
     return description.length > 0 ? description : null;
 }
 
-function normalizeSwissRoundCount(
+function normalizeSwissRoundCountSetting(
     format: TournamentFormat,
-    maxPlayers: number,
     value: number | null | undefined,
 ): number | null {
     if (format !== `swiss`) {
@@ -152,7 +156,23 @@ function normalizeSwissRoundCount(
         return Math.max(1, Math.min(15, Math.floor(value)));
     }
 
-    return Math.max(1, Math.ceil(Math.log2(maxPlayers)));
+    return null;
+}
+
+function resolveSwissRoundCount(
+    format: TournamentFormat,
+    entrantCount: number,
+    value: number | null | undefined,
+): number | null {
+    if (format !== `swiss`) {
+        return null;
+    }
+
+    if (typeof value === `number` && Number.isFinite(value)) {
+        return Math.max(1, Math.min(15, Math.floor(value)));
+    }
+
+    return Math.max(1, Math.ceil(Math.log2(Math.max(2, entrantCount))));
 }
 
 function createTournamentActivity(
@@ -718,9 +738,14 @@ export class TournamentService {
 
             const nextFormat = update.format ?? tournament.format;
             const nextMaxPlayers = update.maxPlayers ?? tournament.maxPlayers;
+            const currentFieldSize = countRegisteredParticipants(tournament);
 
             if ((nextFormat === `single-elimination` || nextFormat === `double-elimination`) && !(TOURNAMENT_BRACKET_SIZES as readonly number[]).includes(nextMaxPlayers)) {
                 throw new SessionError(`Elimination formats require a bracket size of ${TOURNAMENT_BRACKET_SIZES.join(`, `)}.`);
+            }
+
+            if (nextMaxPlayers < currentFieldSize) {
+                throw new SessionError(`Max players cannot be reduced below the current field size of ${currentFieldSize}.`);
             }
 
             tournament.name = update.name ?? tournament.name;
@@ -732,7 +757,10 @@ export class TournamentService {
             tournament.checkInOpensAt = Math.max(0, tournament.scheduledStartAt - tournament.checkInWindowMinutes * 60_000);
             tournament.checkInClosesAt = tournament.scheduledStartAt;
             tournament.maxPlayers = nextMaxPlayers;
-            tournament.swissRoundCount = normalizeSwissRoundCount(nextFormat, nextMaxPlayers, update.swissRoundCount ?? tournament.swissRoundCount);
+            tournament.swissRoundCount = normalizeSwissRoundCountSetting(
+                nextFormat,
+                update.swissRoundCount === undefined ? tournament.swissRoundCount : update.swissRoundCount,
+            );
 
             if (update.timeControl) {
                 tournament.timeControl = { ...update.timeControl };
@@ -1195,6 +1223,9 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            if (tournament.status !== `live`) {
+                throw new SessionError(`Matches can only be managed while the tournament is live.`);
+            }
             const match = getMatchById(tournament, matchId);
             if (!(match.state === `ready` || match.state === `in-progress`)) {
                 throw new SessionError(`Only unresolved matches can be awarded.`);
@@ -1214,6 +1245,9 @@ export class TournamentService {
         const tournament = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
+            if (tournament.status !== `live`) {
+                throw new SessionError(`Matches can only be managed while the tournament is live.`);
+            }
             const match = getMatchById(tournament, matchId);
 
             if (match.state === `completed` || match.state === `pending`) {
@@ -1241,10 +1275,17 @@ export class TournamentService {
                 throw new SessionError(`Completed tournaments cannot be cancelled.`);
             }
 
+            this.cancelActiveClaimsForTournament(tournament);
+            const now = Date.now();
+            const cancelledPendingExtensions = this.cancelPendingExtensionsForTournament(tournament, now);
             tournament.status = `cancelled`;
-            tournament.cancelledAt = Date.now();
-            tournament.updatedAt = Date.now();
+            tournament.cancelledAt = now;
+            tournament.updatedAt = now;
+            this.clearTournamentSessions(tournament);
             tournament.activity.unshift(createTournamentActivity(user, `tournament-cancelled`, `Cancelled the tournament.`));
+            if (cancelledPendingExtensions) {
+                tournament.activity.unshift(createTournamentActivity(null, `extensions-cancelled`, `Pending extension requests were cancelled.`));
+            }
             await this.tournamentRepository.saveTournament(tournament);
             return tournament;
         });
@@ -1275,7 +1316,14 @@ export class TournamentService {
                         throw new SessionError(`The selected user is not an organizer of this tournament.`);
                     }
 
+                    const nextOwnerParticipant = tournament.participants.find((participant) => participant.profileId === transferTo) ?? null;
+                    const nextOwnerProfile = nextOwnerParticipant
+                        ? null
+                        : await this.authRepository.getUserProfileById(transferTo);
                     tournament.createdByProfileId = transferTo;
+                    tournament.createdByDisplayName = nextOwnerParticipant?.displayName
+                        ?? nextOwnerProfile?.username
+                        ?? tournament.createdByDisplayName;
                     tournament.organizers = otherOrganizers.filter((id) => id !== transferTo);
                     tournament.updatedAt = Date.now();
                     tournament.activity.unshift(createTournamentActivity(
@@ -1374,7 +1422,7 @@ export class TournamentService {
         } else if (request.maxPlayers < 2) {
             throw new SessionError(`At least 2 players are required.`);
         }
-        const swissRoundCount = normalizeSwissRoundCount(format, request.maxPlayers, request.swissRoundCount);
+        const swissRoundCount = normalizeSwissRoundCountSetting(format, request.swissRoundCount);
 
         return {
             version: 1,
@@ -1467,10 +1515,10 @@ export class TournamentService {
             }
         }
 
-        tournament.swissRoundCount = normalizeSwissRoundCount(
+        tournament.swissRoundCount = resolveSwissRoundCount(
             tournament.format,
-            tournament.maxPlayers,
-            tournament.swissRoundCount ?? checkedInParticipants.length,
+            checkedInParticipants.length,
+            tournament.swissRoundCount,
         );
 
         if (tournament.format === `single-elimination` || tournament.format === `double-elimination`) {
@@ -1961,12 +2009,7 @@ export class TournamentService {
                     const matchStartedAt = match.startedAt ?? Date.now();
                     match.state = `in-progress`;
                     match.startedAt = matchStartedAt;
-                    this.sessionManager.updateSessionTournamentInfo(match.sessionId, {
-                        currentGameNumber: match.currentGameNumber,
-                        leftWins: match.leftWins,
-                        rightWins: match.rightWins,
-                        matchStartedAt,
-                    });
+                    this.syncSessionTournamentInfo(tournament, match);
                     return true;
                 }
 
@@ -2110,12 +2153,17 @@ export class TournamentService {
         }
 
         const loserSlot = match.slots.find((slot) => slot.profileId !== winnerProfileId && !slot.isBye) ?? null;
+        const sessionId = match.sessionId;
         match.winnerProfileId = winnerProfileId;
         match.loserProfileId = loserSlot?.profileId ?? null;
         match.resultType = resultType;
         match.state = `completed`;
         match.resolvedAt = Date.now();
         match.sessionId = null;
+
+        if (sessionId && resultType !== `played`) {
+            this.clearSessionTournamentInfo(sessionId);
+        }
 
         if (match.bracket === `grand-final` && tournament.seriesSettings.grandFinalResetEnabled) {
             const winnersSlot = match.slots.find((slot) => slot.source?.type === `winner` && slot.source.matchId.includes(`winners`));
@@ -2437,10 +2485,34 @@ export class TournamentService {
             rightWins: match.rightWins,
             matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
             matchExtensionMs: getMatchExtensionMinutes(tournament) * 60_000,
+            pendingExtension: hasPendingExtensionForMatchGame(tournament, match.id, match.currentGameNumber),
             matchStartedAt,
             leftDisplayName: match.slots[0].displayName,
             rightDisplayName: match.slots[1].displayName,
         };
+    }
+
+    private syncSessionTournamentInfo(tournament: TournamentRecord, match: TournamentMatch): void {
+        if (!match.sessionId) {
+            return;
+        }
+
+        this.sessionManager.updateSessionTournamentInfo(match.sessionId, this.toSessionTournamentInfo(tournament, match));
+        const sessionInfo = this.sessionManager.getSessionInfo(match.sessionId);
+        if (sessionInfo) {
+            this.emitSessionUpdated({
+                sessionId: match.sessionId as SessionInfo[`id`],
+                session: { tournament: sessionInfo.tournament },
+            });
+        }
+    }
+
+    private clearSessionTournamentInfo(sessionId: string): void {
+        this.sessionManager.clearSessionTournamentInfo(sessionId);
+        this.emitSessionUpdated({
+            sessionId: sessionId as SessionInfo[`id`],
+            session: { tournament: null },
+        });
     }
 
     private notifyMatchReady(tournament: TournamentRecord, match: TournamentMatch) {
@@ -2681,7 +2753,7 @@ export class TournamentService {
         const now = Date.now();
         const timeoutMs = tournament.matchJoinTimeoutMinutes * 60_000;
         const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
-        let changed = false;
+        let changed = this.expireStalePendingExtensions(tournament, now);
 
         for (const match of tournament.matches) {
             if (match.state !== `in-progress` || !match.startedAt || !match.sessionId) {
@@ -2728,7 +2800,7 @@ export class TournamentService {
             // Check if there's a pending or approved extension for this match
             const hasActiveExtension = tournament.extensionRequests.some((r) =>
                 isExtensionForMatchGame(r, match.id, match.currentGameNumber)
-                && (r.status === `pending` || (r.status === `approved` && now - r.resolvedAt! < extensionMs)));
+                && (r.status === `approved` && now - r.resolvedAt! < extensionMs));
             if (hasActiveExtension) {
                 continue;
             }
@@ -2755,6 +2827,74 @@ export class TournamentService {
                 timeoutWarningMessage,
             ));
             changed = true;
+        }
+
+        return changed;
+    }
+
+    private denyPendingExtension(
+        tournament: TournamentRecord,
+        extension: TournamentExtensionRequest,
+        now: number,
+        activityType: string,
+        activityMessage: string,
+        notificationMessage: string,
+    ): boolean {
+        if (extension.status !== `pending`) {
+            return false;
+        }
+
+        extension.status = `denied`;
+        extension.resolvedByProfileId = null;
+        extension.resolvedAt = now;
+        tournament.activity.unshift(createTournamentActivity(
+            null,
+            activityType,
+            activityMessage,
+        ));
+        this.emitTournamentNotification(extension.requestedByProfileId, {
+            tournamentId: tournament.id,
+            kind: `extension-resolved`,
+            message: notificationMessage,
+        } satisfies TournamentNotificationEvent);
+
+        const match = tournament.matches.find((entry) => entry.id === extension.matchId) ?? null;
+        if (match?.sessionId && getExtensionGameNumber(extension) === match.currentGameNumber) {
+            this.syncSessionTournamentInfo(tournament, match);
+        }
+
+        return true;
+    }
+
+    private expireStalePendingExtensions(
+        tournament: TournamentRecord,
+        now: number,
+        matchId?: string,
+    ): boolean {
+        const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
+        let changed = false;
+
+        for (const extension of tournament.extensionRequests) {
+            if (extension.status !== `pending`) {
+                continue;
+            }
+
+            if (matchId && extension.matchId !== matchId) {
+                continue;
+            }
+
+            if (now - extension.requestedAt < extensionMs) {
+                continue;
+            }
+
+            changed = this.denyPendingExtension(
+                tournament,
+                extension,
+                now,
+                `extension-expired`,
+                `Extension request from ${extension.requestedByDisplayName} expired without organizer action.`,
+                `Your extension request in ${tournament.name} expired before an organizer responded.`,
+            ) || changed;
         }
 
         return changed;
@@ -2809,19 +2949,26 @@ export class TournamentService {
             }
 
             // Check the join timeout has actually expired
+            const now = Date.now();
             const timeoutMs = tournament.matchJoinTimeoutMinutes * 60_000;
             const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
+            const expiredPendingExtensions = this.expireStalePendingExtensions(tournament, now, matchId);
+            if (expiredPendingExtensions) {
+                tournament.updatedAt = now;
+                await this.tournamentRepository.saveTournament(tournament);
+                this.broadcastTournamentUpdate(tournament);
+            }
             const hasActiveExtension = tournament.extensionRequests.some((r) =>
                 isExtensionForMatchGame(r, matchId, match.currentGameNumber)
                 && r.status === `approved`
-                && Date.now() - r.resolvedAt! < extensionMs);
+                && now - r.resolvedAt! < extensionMs);
             const effectiveStartedAt = hasActiveExtension
                 ? tournament.extensionRequests
                     .filter((r) => isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.status === `approved`)
                     .reduce((latest, r) => Math.max(latest, r.resolvedAt!), match.startedAt)
                 : match.startedAt;
 
-            if (Date.now() - effectiveStartedAt < timeoutMs) {
+            if (now - effectiveStartedAt < timeoutMs) {
                 throw new SessionError(`The join timeout has not expired yet.`);
             }
 
@@ -2855,7 +3002,6 @@ export class TournamentService {
                 throw new SessionError(`A win claim is already active for this match.`);
             }
 
-            const now = Date.now();
             const expiresAt = now + kClaimWinCountdownMs;
             const claimState: MatchClaimWinState = {
                 matchId,
@@ -2924,6 +3070,43 @@ export class TournamentService {
         } satisfies SessionClaimWinEvent);
     }
 
+    private cancelActiveClaimsForTournament(tournament: TournamentRecord) {
+        for (const match of tournament.matches) {
+            if (!this.getActiveClaimWinForMatch(match)) {
+                continue;
+            }
+
+            this.cancelClaimWin(match.id, match.sessionId ?? undefined);
+        }
+    }
+
+    private cancelPendingExtensionsForTournament(tournament: TournamentRecord, now: number): boolean {
+        let changed = false;
+
+        for (const extension of tournament.extensionRequests) {
+            changed = this.denyPendingExtension(
+                tournament,
+                extension,
+                now,
+                `extension-cancelled`,
+                `Extension request from ${extension.requestedByDisplayName} was cancelled because the tournament was cancelled.`,
+                `Your extension request in ${tournament.name} was cancelled because the tournament was cancelled.`,
+            ) || changed;
+        }
+
+        return changed;
+    }
+
+    private clearTournamentSessions(tournament: TournamentRecord): void {
+        for (const match of tournament.matches) {
+            if (!match.sessionId || match.state === `completed`) {
+                continue;
+            }
+
+            this.clearSessionTournamentInfo(match.sessionId);
+        }
+    }
+
     private async resolveClaimWin(tournamentId: string, matchId: string) {
         await this.withTournamentLock(tournamentId, async () => {
             const claim = this.activeClaimWins.get(matchId);
@@ -2935,6 +3118,14 @@ export class TournamentService {
             this.activeClaimWins.delete(matchId);
 
             const tournament = await this.requireTournament(tournamentId);
+            if (tournament.status !== `live`) {
+                this.emitSessionClaimWin({
+                    sessionId: claim.sessionId,
+                    state: null,
+                } satisfies SessionClaimWinEvent);
+                return;
+            }
+
             const match = tournament.matches.find((m) => m.id === matchId);
             if (!match || match.state !== `in-progress` || !match.sessionId) {
                 this.emitSessionClaimWin({
@@ -3017,13 +3208,11 @@ export class TournamentService {
                 throw new SessionError(`You are not a participant in this match.`);
             }
 
-            if (match.state !== `in-progress` && match.state !== `ready`) {
+            if (match.state !== `in-progress` || !match.sessionId || !match.startedAt) {
                 throw new SessionError(`This match is not eligible for an extension.`);
             }
 
-            const pendingExtension = tournament.extensionRequests.find((r) =>
-                isExtensionForMatchGame(r, matchId, match.currentGameNumber) && r.status === `pending`);
-            if (pendingExtension) {
+            if (hasPendingExtensionForMatchGame(tournament, matchId, match.currentGameNumber)) {
                 throw new SessionError(`An extension request is already pending for this match.`);
             }
 
@@ -3058,6 +3247,7 @@ export class TournamentService {
                 `extension-requested`,
                 `${user.username} requested a time extension for match ${match.order} in round ${match.round}.`,
             ));
+            this.syncSessionTournamentInfo(tournament, match);
 
             // Notify all organizers (creator + per-tournament organizers)
             const organizerIds = new Set([tournament.createdByProfileId, ...tournament.organizers]);
@@ -3079,7 +3269,7 @@ export class TournamentService {
     }
 
     async resolveExtension(tournamentId: string, extensionId: string, approve: boolean, user: AccountUserProfile): Promise<TournamentDetail> {
-        const tournament = await this.withTournamentLock(tournamentId, async () => {
+        const { tournament, shouldBroadcastUpdate, errorMessage } = await this.withTournamentLock(tournamentId, async () => {
             const tournament = await this.requireTournament(tournamentId);
             this.assertCanManageTournament(user, tournament);
 
@@ -3088,56 +3278,97 @@ export class TournamentService {
                 throw new SessionError(`Extension request not found.`);
             }
 
-            if (extension.status !== `pending`) {
-                throw new SessionError(`This extension request has already been resolved.`);
+            const now = Date.now();
+            let shouldBroadcastUpdate = false;
+            const expiredPendingExtensions = this.expireStalePendingExtensions(tournament, now, extension.matchId);
+            if (expiredPendingExtensions) {
+                tournament.updatedAt = now;
+                shouldBroadcastUpdate = true;
             }
 
-            extension.status = approve ? `approved` : `denied`;
-            extension.resolvedByProfileId = user.id;
-            extension.resolvedAt = Date.now();
+            const refreshedExtension = tournament.extensionRequests.find((entry) => entry.id === extensionId);
+            if (!refreshedExtension) {
+                throw new SessionError(`Extension request not found.`);
+            }
+
+            if (tournament.status !== `live`) {
+                if (shouldBroadcastUpdate) {
+                    await this.tournamentRepository.saveTournament(tournament);
+                }
+
+                return {
+                    tournament,
+                    shouldBroadcastUpdate,
+                    errorMessage: `Extension requests can only be resolved during live tournaments.`,
+                };
+            }
+
+            if (refreshedExtension.status !== `pending`) {
+                if (shouldBroadcastUpdate) {
+                    await this.tournamentRepository.saveTournament(tournament);
+                }
+
+                return {
+                    tournament,
+                    shouldBroadcastUpdate,
+                    errorMessage: refreshedExtension.resolvedByProfileId === null
+                        ? `This extension request has expired.`
+                        : `This extension request has already been resolved.`,
+                };
+            }
+
+            const match = tournament.matches.find((entry) => entry.id === refreshedExtension.matchId) ?? null;
+            if (
+                !match
+                || match.state !== `in-progress`
+                || !match.sessionId
+                || !match.startedAt
+                || getExtensionGameNumber(refreshedExtension) !== match.currentGameNumber
+            ) {
+                this.denyPendingExtension(
+                    tournament,
+                    refreshedExtension,
+                    now,
+                    `extension-invalidated`,
+                    `Extension request from ${refreshedExtension.requestedByDisplayName} expired because the match state changed before it was resolved.`,
+                    `Your extension request in ${tournament.name} expired because the match state changed before it was resolved.`,
+                );
+                tournament.updatedAt = now;
+                await this.tournamentRepository.saveTournament(tournament);
+                return {
+                    tournament,
+                    shouldBroadcastUpdate: true,
+                    errorMessage: `This extension request is no longer eligible to be resolved.`,
+                };
+            }
+
+            refreshedExtension.status = approve ? `approved` : `denied`;
+            refreshedExtension.resolvedByProfileId = user.id;
+            refreshedExtension.resolvedAt = now;
 
             const timeoutMs = tournament.matchJoinTimeoutMinutes * 60_000;
-            const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
             const extensionMinutes = getMatchExtensionMinutes(tournament);
 
             if (approve) {
                 // Add time on top of the current deadline, don't restart
-                const match = tournament.matches.find((m) => m.id === extension.matchId);
-                if (match && match.startedAt && getExtensionGameNumber(extension) === match.currentGameNumber) {
-                    const now = Date.now();
-                    const oldDeadline = match.startedAt + timeoutMs;
-                    // New startedAt so that new deadline = max(now, oldDeadline) + extensionMs
-                    match.startedAt = Math.max(now, oldDeadline) + extensionMs - timeoutMs;
-
-                    // Sync the session's tournament info so the waiting player sees the updated timer
-                    if (match.sessionId) {
-                        this.sessionManager.updateSessionTournamentInfo(match.sessionId, {
-                            matchStartedAt: match.startedAt,
-                        });
-
-                        // Push a session-updated event so the frontend receives the new matchStartedAt
-                        const sessionInfo = this.sessionManager.getSessionInfo(match.sessionId);
-                        if (sessionInfo) {
-                            this.emitSessionUpdated({
-                                sessionId: match.sessionId as SessionInfo[`id`],
-                                session: { tournament: sessionInfo.tournament },
-                            });
-                        }
-                    }
-                }
+                const extensionMs = getMatchExtensionMinutes(tournament) * 60_000;
+                const oldDeadline = match.startedAt + timeoutMs;
+                // New startedAt so that new deadline = max(now, oldDeadline) + extensionMs
+                match.startedAt = Math.max(now, oldDeadline) + extensionMs - timeoutMs;
             }
+            this.syncSessionTournamentInfo(tournament, match);
 
-            tournament.updatedAt = Date.now();
+            tournament.updatedAt = now;
             tournament.activity.unshift(createTournamentActivity(
                 user,
                 `extension-resolved`,
                 approve
-                    ? `Approved time extension for ${extension.requestedByDisplayName} (+${extensionMinutes} min).`
-                    : `Denied time extension for ${extension.requestedByDisplayName}.`,
+                    ? `Approved time extension for ${refreshedExtension.requestedByDisplayName} (+${extensionMinutes} min).`
+                    : `Denied time extension for ${refreshedExtension.requestedByDisplayName}.`,
             ));
 
             // Notify the requesting player
-            this.emitTournamentNotification(extension.requestedByProfileId, {
+            this.emitTournamentNotification(refreshedExtension.requestedByProfileId, {
                 tournamentId: tournament.id,
                 kind: `extension-resolved`,
                 message: approve
@@ -3146,10 +3377,19 @@ export class TournamentService {
             } satisfies TournamentNotificationEvent);
 
             await this.tournamentRepository.saveTournament(tournament);
-            return tournament;
+            return {
+                tournament,
+                shouldBroadcastUpdate: true,
+                errorMessage: null,
+            };
         });
 
-        this.broadcastTournamentUpdate(tournament);
+        if (shouldBroadcastUpdate) {
+            this.broadcastTournamentUpdate(tournament);
+        }
+        if (errorMessage) {
+            throw new SessionError(errorMessage);
+        }
         return this.toDetail(tournament, user);
     }
 }

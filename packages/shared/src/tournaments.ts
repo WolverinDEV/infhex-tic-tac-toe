@@ -568,6 +568,7 @@ export const zSessionTournamentInfo = z.object({
         .nonnegative(),
     matchExtensionMs: z.number().int()
         .nonnegative(),
+    pendingExtension: z.boolean(),
     matchStartedAt: zTimestamp,
     leftDisplayName: z.string().nullable(),
     rightDisplayName: z.string().nullable(),

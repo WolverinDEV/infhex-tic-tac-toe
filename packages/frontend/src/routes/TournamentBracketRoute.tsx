@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 
 import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata';
 import { useQueryTournament } from '../query/tournamentClient';
+import { getBracketConnectorEdges } from '../utils/tournamentBracketConnectors';
 
 /* ── Match node ─────────────────────────────────────── */
 
@@ -152,34 +153,30 @@ function BracketConnectors({
     columnGap: number
 }) {
     const paths: React.ReactNode[] = [];
+    const sortedRounds = rounds.map((round) => ({
+        round: round.round,
+        matches: [...round.matches].sort((left, right) => left.order - right.order),
+    }));
+    const connectorEdges = getBracketConnectorEdges(sortedRounds);
 
-    for (let i = 0; i < rounds.length - 1; i++) {
-        const curr = rounds[i]!;
-        const next = rounds[i + 1]!;
-        const x1 = i * (matchWidth + columnGap) + matchWidth;
-        const x2 = (i + 1) * (matchWidth + columnGap);
+    for (const edge of connectorEdges) {
+        const sourceRound = sortedRounds[edge.sourceRoundIndex]!;
+        const targetRound = sortedRounds[edge.targetRoundIndex]!;
+        const x1 = edge.sourceRoundIndex * (matchWidth + columnGap) + matchWidth;
+        const x2 = edge.targetRoundIndex * (matchWidth + columnGap);
         const midX = (x1 + x2) / 2;
+        const sourceY = getMatchY(edge.sourceMatchIndex, sourceRound.matches.length, totalHeight, matchHeight) + matchHeight / 2;
+        const targetY = getMatchY(edge.targetMatchIndex, targetRound.matches.length, totalHeight, matchHeight) + matchHeight / 2;
 
-        for (let j = 0; j < next.matches.length; j++) {
-            const targetY = getMatchY(j, next.matches.length, totalHeight, matchHeight) + matchHeight / 2;
-
-            // Each next match is fed by 2 matches from current round (standard bracket)
-            const sourceIndices = [j * 2, j * 2 + 1];
-            for (const si of sourceIndices) {
-                if (si >= curr.matches.length) continue;
-                const sourceY = getMatchY(si, curr.matches.length, totalHeight, matchHeight) + matchHeight / 2;
-
-                paths.push(
-                    <path
-                        key={`${i}-${si}-${j}`}
-                        d={`M ${x1} ${sourceY} H ${midX} V ${targetY} H ${x2}`}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.06)"
-                        strokeWidth={1.5}
-                    />,
-                );
-            }
-        }
+        paths.push(
+            <path
+                key={`${edge.sourceRoundIndex}-${edge.sourceMatchIndex}-${edge.targetRoundIndex}-${edge.targetMatchIndex}`}
+                d={`M ${x1} ${sourceY} H ${midX} V ${targetY} H ${x2}`}
+                fill="none"
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth={1.5}
+            />,
+        );
     }
 
     return (

@@ -197,6 +197,13 @@ class FakeTournamentRepository {
             .map((tournament) => structuredClone(tournament));
     }
 
+    async countActiveTournamentsForUser(userId: string): Promise<number> {
+        return [...this.tournaments.values()].filter((tournament) =>
+            tournament.createdByProfileId === userId
+            && tournament.status !== `completed`
+            && tournament.status !== `cancelled`).length;
+    }
+
     async countTournamentsCreatedByUser(userId: string): Promise<number> {
         return [...this.tournaments.values()].filter((tournament) => tournament.createdByProfileId === userId).length;
     }
@@ -309,6 +316,13 @@ class FakeSessionManager {
             Object.assign(session.tournament, update);
         }
     }
+
+    clearSessionTournamentInfo(sessionId: string) {
+        const session = this.sessions.get(sessionId);
+        if (session) {
+            session.tournament = null;
+        }
+    }
 }
 
 class FakeGameHistoryRepository {
@@ -318,6 +332,27 @@ class FakeGameHistoryRepository {
 
     async getFinishedGameBySessionId(): Promise<null> {
         return null;
+    }
+}
+
+class FakeAuthRepository {
+    readonly users = new Map<string, AccountUserProfile>();
+
+    constructor(initialUsers: AccountUserProfile[] = []) {
+        initialUsers.forEach((user) => {
+            this.users.set(user.id, user);
+        });
+    }
+
+    async getUserProfileById(profileId: string): Promise<AccountUserProfile | null> {
+        return this.users.get(profileId) ?? null;
+    }
+
+    async getUserProfilesByIds(profileIds: string[]): Promise<Map<string, AccountUserProfile>> {
+        return new Map(profileIds.flatMap((profileId) => {
+            const user = this.users.get(profileId);
+            return user ? [[profileId, user] as const] : [];
+        }));
     }
 }
 
@@ -358,15 +393,17 @@ function createService(initialTournament: TournamentRecord) {
     const repository = new FakeTournamentRepository(initialTournament);
     const sessionManager = new FakeSessionManager();
     const eventSink = new FakeTournamentEventSink();
+    const authRepository = new FakeAuthRepository();
     const service = new TournamentService(
         repository as never,
-        {} as never,
+        authRepository as never,
         sessionManager as never,
         new FakeGameHistoryRepository() as never,
     );
     service.setEventHandlers(eventSink);
 
     return {
+        authRepository,
         repository,
         sessionManager,
         eventSink,
@@ -378,19 +415,22 @@ function createServiceWithOverrides(options: {
     repository: FakeTournamentRepository;
     sessionManager?: FakeSessionManager;
     eventSink?: FakeTournamentEventSink;
+    authRepository?: FakeAuthRepository;
 }) {
     const repository = options.repository;
     const sessionManager = options.sessionManager ?? new FakeSessionManager();
     const eventSink = options.eventSink ?? new FakeTournamentEventSink();
+    const authRepository = options.authRepository ?? new FakeAuthRepository();
     const service = new TournamentService(
         repository as never,
-        {} as never,
+        authRepository as never,
         sessionManager as never,
         new FakeGameHistoryRepository() as never,
     );
     service.setEventHandlers(eventSink);
 
     return {
+        authRepository,
         repository,
         sessionManager,
         eventSink,
@@ -459,6 +499,64 @@ test(`awardWalkover rejects winners that are not assigned to the match`, async (
     const stored = repository.getSync(tournament.id);
     assert.equal(stored.matches[0]?.winnerProfileId, null);
     assert.equal(stored.matches[0]?.state, `ready`);
+});
+
+test(`awardWalkover clears the old session tournament context`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, status: `checked-in`, checkedInAt: 1, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, status: `checked-in`, checkedInAt: 2, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-award-walkover`,
+                startedAt: Date.now() - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service, sessionManager } = createService(tournament);
+    sessionManager.sessions.set(`session-award-walkover`, {
+        id: `session-award-walkover`,
+        players: [
+            { id: `session-award-walkover-player-1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `session-award-walkover-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: {
+            tournamentId: tournament.id,
+            tournamentName: tournament.name,
+            matchId: `match-winners-1-1`,
+            bracket: `winners`,
+            round: 1,
+            order: 1,
+            bestOf: 1,
+            currentGameNumber: 1,
+            leftWins: 0,
+            rightWins: 0,
+            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchExtensionMs: (tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes) * 60_000,
+            pendingExtension: false,
+            matchStartedAt: Date.now() - 60_000,
+            leftDisplayName: `Player 1`,
+            rightDisplayName: `Player 2`,
+        },
+    });
+
+    await service.awardWalkover(tournament.id, `match-winners-1-1`, `player-1`, organizer);
+
+    assert.equal(sessionManager.sessions.get(`session-award-walkover`)?.tournament, null);
 });
 
 test(`reopenMatch rejects pending matches that do not have an active session to reopen`, async () => {
@@ -653,6 +751,51 @@ test(`swiss tournaments can start with two checked-in players`, async () => {
     assert.equal(detail.matches[0]?.bracket, `swiss`);
 });
 
+test(`createTournament preserves auto swiss round count until the tournament starts`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const { service } = createService(createTournament());
+
+    const detail = await service.createTournament(organizer, {
+        name: `Swiss Auto`,
+        description: `Auto rounds`,
+        format: `swiss`,
+        visibility: `private`,
+        scheduledStartAt: Date.now() + 60 * 60 * 1000,
+        checkInWindowMinutes: 30,
+        maxPlayers: 16,
+        timeControl: { mode: `unlimited` },
+        seriesSettings: {
+            earlyRoundsBestOf: 1,
+            finalsBestOf: 3,
+            grandFinalBestOf: 5,
+            grandFinalResetEnabled: true,
+        },
+    });
+
+    assert.equal(detail.swissRoundCount, null);
+});
+
+test(`auto swiss round count recalculates from checked-in entrants at start`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        status: `check-in-open`,
+        format: `swiss`,
+        maxPlayers: 16,
+        swissRoundCount: null,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, checkedInAt: 13, status: `checked-in`, checkInState: `checked-in` }),
+            createParticipant({ profileId: `player-4`, displayName: `Player 4`, registeredAt: 4, checkedInAt: 14, status: `checked-in`, checkInState: `checked-in` }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    const detail = await service.startTournament(tournament.id, organizer);
+
+    assert.equal(detail.swissRoundCount, 2);
+});
+
 test(`waitlist timeout starts the tournament cleanly after replacement check-ins`, async () => {
     const tournament = createTournament({
         status: `waitlist-open`,
@@ -705,6 +848,29 @@ test(`waitlist check-in rejects attempts after the waitlist window closes`, asyn
     assert.equal(stored.status, `cancelled`);
     assert.equal(waitlistedParticipant?.status, `dropped`);
     assert.equal(waitlistedParticipant?.checkedInAt, null);
+});
+
+test(`updateTournament rejects reducing maxPlayers below the current field size`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        format: `double-elimination`,
+        maxPlayers: 8,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, status: `registered`, checkInState: `not-open` }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, status: `registered`, checkInState: `not-open` }),
+            createParticipant({ profileId: `player-3`, displayName: `Player 3`, registeredAt: 3, status: `registered`, checkInState: `not-open` }),
+            createParticipant({ profileId: `player-4`, displayName: `Player 4`, registeredAt: 4, status: `registered`, checkInState: `not-open` }),
+            createParticipant({ profileId: `player-5`, displayName: `Player 5`, registeredAt: 5, status: `registered`, checkInState: `not-open` }),
+        ],
+    });
+    const { service, repository } = createService(tournament);
+
+    await assert.rejects(
+        () => service.updateTournament(tournament.id, organizer, { maxPlayers: 4 }),
+        /Max players cannot be reduced below the current field size of 5/,
+    );
+
+    assert.equal(repository.getSync(tournament.id).maxPlayers, 8);
 });
 
 test(`swiss pairings keep players within their score groups when a same-record pairing is available`, async () => {
@@ -863,6 +1029,273 @@ test(`private tournaments appear in listings for organizers`, async () => {
 
     assert.deepEqual(listing.tournaments.map((tournament) => tournament.id), [activeTournament.id]);
     assert.ok(listing.past.some((tournament) => tournament.id === completedTournament.id));
+});
+
+test(`stale pending extensions expire so they do not freeze timed-out matches`, async () => {
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        matchJoinTimeoutMinutes: 5,
+        matchExtensionMinutes: 5,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-extension-timeout`,
+                startedAt: now - 15 * 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+        extensionRequests: [
+            {
+                id: `extension-pending`,
+                matchId: `match-winners-1-1`,
+                gameNumber: 1,
+                requestedByProfileId: `player-2`,
+                requestedByDisplayName: `Player 2`,
+                requestedAt: now - 6 * 60_000,
+                status: `pending`,
+                resolvedByProfileId: null,
+                resolvedAt: null,
+            },
+        ],
+    });
+    const { service, repository, sessionManager } = createService(tournament);
+    sessionManager.sessions.set(`session-extension-timeout`, {
+        id: `session-extension-timeout`,
+        players: [
+            { id: `p1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `p2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+
+    await service.reconcileAllTournaments();
+
+    const stored = repository.getSync(tournament.id);
+    const extension = stored.extensionRequests.find((request) => request.id === `extension-pending`);
+
+    assert.equal(extension?.status, `denied`);
+    assert.notEqual(extension?.resolvedAt, null);
+    assert.ok(stored.activity.some((entry) => entry.type === `extension-expired`));
+    assert.ok(stored.activity.some((entry) => entry.type === `timeout-warning`));
+});
+
+test(`cancelTournament clears active claim wins and prevents later claim resolution`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const player = createAccountUser({ id: `player-1`, username: `Player 1` });
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        matchJoinTimeoutMinutes: 5,
+        participants: [
+            createParticipant({ profileId: player.id, displayName: player.username, registeredAt: 1, checkedInAt: 11, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 12, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-cancel-claim`,
+                startedAt: now - 10 * 60_000,
+                slots: [
+                    createSlot({ profileId: player.id, displayName: player.username, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service, repository, sessionManager, eventSink } = createService(tournament);
+    sessionManager.sessions.set(`session-cancel-claim`, {
+        id: `session-cancel-claim`,
+        players: [
+            { id: `p1`, profileId: player.id, connection: { status: `connected` } },
+            { id: `p2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: null,
+    });
+
+    await service.claimWin(tournament.id, `match-winners-1-1`, player);
+    await service.cancelTournament(tournament.id, organizer);
+    await (service as unknown as {
+        resolveClaimWin: (tournamentId: string, matchId: string) => Promise<void>;
+    }).resolveClaimWin(tournament.id, `match-winners-1-1`);
+
+    const stored = repository.getSync(tournament.id);
+    const match = stored.matches.find((entry) => entry.id === `match-winners-1-1`);
+
+    assert.equal(service.getActiveClaimWin(`match-winners-1-1`), null);
+    assert.equal(stored.status, `cancelled`);
+    assert.equal(match?.state, `in-progress`);
+    assert.equal(match?.winnerProfileId, null);
+    assert.deepEqual(eventSink.sessionClaimWins.at(-1), {
+        sessionId: `session-cancel-claim`,
+        state: null,
+    });
+});
+
+test(`cancelled tournaments reject organizer match actions`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const tournament = createTournament({
+        status: `cancelled`,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 1, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 2, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-cancelled-match`,
+                startedAt: Date.now() - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    await assert.rejects(
+        () => service.awardWalkover(tournament.id, `match-winners-1-1`, `player-1`, organizer),
+        /Matches can only be managed while the tournament is live/,
+    );
+    await assert.rejects(
+        () => service.reopenMatch(tournament.id, `match-winners-1-1`, organizer),
+        /Matches can only be managed while the tournament is live/,
+    );
+});
+
+test(`cancelTournament clears session tournament context and pending extensions`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 1, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 2, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-cancelled-context`,
+                startedAt: now - 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+        extensionRequests: [
+            {
+                id: `extension-cancelled`,
+                matchId: `match-winners-1-1`,
+                gameNumber: 1,
+                requestedByProfileId: `player-1`,
+                requestedByDisplayName: `Player 1`,
+                requestedAt: now - 30_000,
+                status: `pending`,
+                resolvedByProfileId: null,
+                resolvedAt: null,
+            },
+        ],
+    });
+    const { service, repository, sessionManager } = createService(tournament);
+    sessionManager.sessions.set(`session-cancelled-context`, {
+        id: `session-cancelled-context`,
+        players: [
+            { id: `session-cancelled-context-player-1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `session-cancelled-context-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: {
+            tournamentId: tournament.id,
+            tournamentName: tournament.name,
+            matchId: `match-winners-1-1`,
+            bracket: `winners`,
+            round: 1,
+            order: 1,
+            bestOf: 1,
+            currentGameNumber: 1,
+            leftWins: 0,
+            rightWins: 0,
+            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchExtensionMs: (tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes) * 60_000,
+            pendingExtension: true,
+            matchStartedAt: now - 60_000,
+            leftDisplayName: `Player 1`,
+            rightDisplayName: `Player 2`,
+        },
+    });
+
+    await service.cancelTournament(tournament.id, organizer);
+
+    const stored = repository.getSync(tournament.id);
+    const extension = stored.extensionRequests.find((entry) => entry.id === `extension-cancelled`);
+    assert.equal(stored.status, `cancelled`);
+    assert.equal(extension?.status, `denied`);
+    assert.equal(sessionManager.sessions.get(`session-cancelled-context`)?.tournament, null);
+});
+
+test(`cancelled tournaments appear in the past tournament listing`, async () => {
+    const viewer = createAccountUser({ id: `viewer-1`, username: `Viewer` });
+    const cancelledTournament = createTournament({
+        id: `tournament-cancelled`,
+        visibility: `private`,
+        isPublished: false,
+        status: `cancelled`,
+        cancelledAt: 200,
+        organizers: [viewer.id],
+    });
+    const { service } = createService(cancelledTournament);
+
+    const listing = await service.listTournaments(viewer);
+
+    assert.equal(listing.tournaments.some((tournament) => tournament.id === cancelledTournament.id), false);
+    assert.ok(listing.past.some((tournament) => tournament.id === cancelledTournament.id));
+});
+
+test(`ownership transfer updates the creator display name`, async () => {
+    const creator = createAccountUser({ id: `organizer-1`, username: `Creator` });
+    const nextOwner = createAccountUser({ id: `organizer-2`, username: `Next Owner` });
+    const tournament = createTournament({
+        organizers: [nextOwner.id],
+        createdByProfileId: creator.id,
+        createdByDisplayName: creator.username,
+    });
+    const { service, repository, authRepository } = createService(tournament);
+    authRepository.users.set(nextOwner.id, nextOwner);
+
+    await service.unsubscribeFromTournament(tournament.id, creator, nextOwner.id);
+
+    const stored = repository.getSync(tournament.id);
+    assert.equal(stored.createdByProfileId, nextOwner.id);
+    assert.equal(stored.createdByDisplayName, nextOwner.username);
 });
 
 test(`getTournamentDetail refreshes double-elimination participant statuses when a live tournament completes during eager reconciliation`, async () => {
@@ -1307,6 +1740,7 @@ test(`best-of follow-up games reset startedAt and the session tournament timer`,
 
 test(`requestExtension is scoped to the current best-of game`, async () => {
     const user = createAccountUser({ id: `player-1`, username: `Player 1` });
+    const now = Date.now();
     const tournament = createTournament({
         status: `live`,
         format: `single-elimination`,
@@ -1320,12 +1754,14 @@ test(`requestExtension is scoped to the current best-of game`, async () => {
                 bracket: `winners`,
                 round: 1,
                 order: 1,
-                state: `ready`,
+                state: `in-progress`,
                 bestOf: 3,
                 currentGameNumber: 2,
                 leftWins: 1,
                 rightWins: 0,
                 gameIds: [`game-1`],
+                sessionId: `session-extension-scope`,
+                startedAt: now - 60_000,
                 slots: [
                     createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
                     createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
@@ -1346,7 +1782,33 @@ test(`requestExtension is scoped to the current best-of game`, async () => {
             },
         ],
     });
-    const { service } = createService(tournament);
+    const { service, sessionManager } = createService(tournament);
+    sessionManager.sessions.set(`session-extension-scope`, {
+        id: `session-extension-scope`,
+        players: [
+            { id: `session-extension-scope-player-1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `session-extension-scope-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: {
+            tournamentId: tournament.id,
+            tournamentName: tournament.name,
+            matchId: `match-winners-1-1`,
+            bracket: `winners`,
+            round: 1,
+            order: 1,
+            bestOf: 3,
+            currentGameNumber: 2,
+            leftWins: 1,
+            rightWins: 0,
+            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchExtensionMs: (tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes) * 60_000,
+            pendingExtension: false,
+            matchStartedAt: now - 60_000,
+            leftDisplayName: `Player 1`,
+            rightDisplayName: `Player 2`,
+        },
+    });
 
     const detail = await service.requestExtension(tournament.id, `match-winners-1-1`, user);
     const currentGameExtensions = detail.extensionRequests.filter((request) =>
@@ -1354,6 +1816,37 @@ test(`requestExtension is scoped to the current best-of game`, async () => {
 
     assert.equal(currentGameExtensions.length, 1);
     assert.equal(currentGameExtensions[0]?.status, `pending`);
+});
+
+test(`requestExtension rejects ready matches before the join timer starts`, async () => {
+    const user = createAccountUser({ id: `player-1`, username: `Player 1` });
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 1, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 2, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `ready`,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+    });
+    const { service } = createService(tournament);
+
+    await assert.rejects(
+        () => service.requestExtension(tournament.id, `match-winners-1-1`, user),
+        /This match is not eligible for an extension/,
+    );
 });
 
 test(`claimWin ignores approved extensions from earlier best-of games`, async () => {
@@ -1423,6 +1916,85 @@ test(`claimWin ignores approved extensions from earlier best-of games`, async ()
     }).cancelClaimWin(`match-winners-1-1`, `session-2`);
 });
 
+test(`resolveExtension rejects expired requests and clears the session pending state`, async () => {
+    const organizer = createAccountUser({ id: `organizer-1`, username: `Organizer` });
+    const now = Date.now();
+    const tournament = createTournament({
+        status: `live`,
+        format: `single-elimination`,
+        matchExtensionMinutes: 5,
+        participants: [
+            createParticipant({ profileId: `player-1`, displayName: `Player 1`, registeredAt: 1, checkedInAt: 1, status: `checked-in`, checkInState: `checked-in`, seed: 1 }),
+            createParticipant({ profileId: `player-2`, displayName: `Player 2`, registeredAt: 2, checkedInAt: 2, status: `checked-in`, checkInState: `checked-in`, seed: 2 }),
+        ],
+        matches: [
+            createMatch({
+                id: `match-winners-1-1`,
+                bracket: `winners`,
+                round: 1,
+                order: 1,
+                state: `in-progress`,
+                sessionId: `session-expired-extension`,
+                startedAt: now - 10 * 60_000,
+                slots: [
+                    createSlot({ profileId: `player-1`, displayName: `Player 1`, seed: 1 }),
+                    createSlot({ profileId: `player-2`, displayName: `Player 2`, seed: 2 }),
+                ],
+            }),
+        ],
+        extensionRequests: [
+            {
+                id: `extension-expired-resolution`,
+                matchId: `match-winners-1-1`,
+                gameNumber: 1,
+                requestedByProfileId: `player-1`,
+                requestedByDisplayName: `Player 1`,
+                requestedAt: now - 6 * 60_000,
+                status: `pending`,
+                resolvedByProfileId: null,
+                resolvedAt: null,
+            },
+        ],
+    });
+    const { service, repository, sessionManager } = createService(tournament);
+    sessionManager.sessions.set(`session-expired-extension`, {
+        id: `session-expired-extension`,
+        players: [
+            { id: `session-expired-extension-player-1`, profileId: `player-1`, connection: { status: `connected` } },
+            { id: `session-expired-extension-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
+        ],
+        state: { status: `lobby` },
+        tournament: {
+            tournamentId: tournament.id,
+            tournamentName: tournament.name,
+            matchId: `match-winners-1-1`,
+            bracket: `winners`,
+            round: 1,
+            order: 1,
+            bestOf: 1,
+            currentGameNumber: 1,
+            leftWins: 0,
+            rightWins: 0,
+            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchExtensionMs: (tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes) * 60_000,
+            pendingExtension: true,
+            matchStartedAt: now - 10 * 60_000,
+            leftDisplayName: `Player 1`,
+            rightDisplayName: `Player 2`,
+        },
+    });
+
+    await assert.rejects(
+        () => service.resolveExtension(tournament.id, `extension-expired-resolution`, true, organizer),
+        /This extension request has expired/,
+    );
+
+    const stored = repository.getSync(tournament.id);
+    const extension = stored.extensionRequests.find((entry) => entry.id === `extension-expired-resolution`);
+    assert.equal(extension?.status, `denied`);
+    assert.equal((sessionManager.sessions.get(`session-expired-extension`)?.tournament as { pendingExtension?: boolean } | null)?.pendingExtension, false);
+});
+
 test(`resolveClaimWin clears the session claim state after awarding the walkover`, async () => {
     const user = createAccountUser({ id: `player-1`, username: `Player 1` });
     const now = Date.now();
@@ -1458,7 +2030,24 @@ test(`resolveClaimWin clears the session claim state after awarding the walkover
             { id: `session-claim-player-2`, profileId: `player-2`, connection: { status: `disconnected` } },
         ],
         state: { status: `lobby` },
-        tournament: null,
+        tournament: {
+            tournamentId: tournament.id,
+            tournamentName: tournament.name,
+            matchId: `match-winners-1-1`,
+            bracket: `winners`,
+            round: 1,
+            order: 1,
+            bestOf: 1,
+            currentGameNumber: 1,
+            leftWins: 0,
+            rightWins: 0,
+            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchExtensionMs: (tournament.matchExtensionMinutes ?? tournament.matchJoinTimeoutMinutes) * 60_000,
+            pendingExtension: false,
+            matchStartedAt: now - 10 * 60_000,
+            leftDisplayName: user.username,
+            rightDisplayName: `Player 2`,
+        },
     });
 
     await service.claimWin(tournament.id, `match-winners-1-1`, user);
@@ -1476,6 +2065,7 @@ test(`resolveClaimWin clears the session claim state after awarding the walkover
         sessionId: `session-claim`,
         state: null,
     });
+    assert.equal(sessionManager.sessions.get(`session-claim`)?.tournament, null);
 });
 
 test(`getTournamentDetail does not overwrite a newer live tournament update`, async () => {

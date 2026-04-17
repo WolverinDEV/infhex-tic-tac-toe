@@ -146,8 +146,14 @@ export class TournamentRepository {
         pageSize: number,
     ): Promise<{ tournaments: TournamentRecord[]; total: number }> {
         const collection = await this.getCollection();
+        const pastStatuses = [
+            `completed`,
+            `cancelled`,
+        ] as const;
         const filter = {
-            status: `completed` as const,
+            status: {
+                $in: pastStatuses,
+            },
             $or: [
                 { isPublished: true },
                 ...(profileId
@@ -163,7 +169,11 @@ export class TournamentRepository {
 
         const [documents, total] = await Promise.all([
             collection.find(filter)
-                .sort({ completedAt: -1 })
+                .sort({
+                    completedAt: -1,
+                    cancelledAt: -1,
+                    updatedAt: -1,
+                })
                 .skip((page - 1) * pageSize)
                 .limit(pageSize)
                 .toArray(),
