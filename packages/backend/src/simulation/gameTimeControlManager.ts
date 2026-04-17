@@ -30,7 +30,7 @@ export class GameTimeControlManager {
     }
 
     ensureTurnHasTimeRemaining(session: ServerGameSession, timestamp: number): void {
-        const expiresAt = session.gameState.currentTurnExpiresAt;
+        const expiresAt = session.currentTurnExpiresAt;
         if (expiresAt !== null && timestamp > expiresAt) {
             throw new GameTimeControlError(`Your time has expired`);
         }
@@ -71,7 +71,7 @@ export class GameTimeControlManager {
 
         const fallbackTimeMs = this.getPlayerRemainingTime(session, playerId, timeControl.mainTimeMs);
         session.gameState.playerTimeRemainingMs[playerId] = this.getRemainingTimeFromDeadline(
-            session.gameState.currentTurnExpiresAt,
+            session.currentTurnExpiresAt,
             timestamp,
             fallbackTimeMs,
         );
@@ -80,11 +80,16 @@ export class GameTimeControlManager {
     syncTurnTimeout(session: ServerGameSession, onTurnExpired: TurnExpiredHandler): void {
         this.clearSession(session.id);
 
-        if (session.state !== `in-game` || !session.gameState.currentTurnPlayerId || !session.gameState.currentTurnExpiresAt) {
+        if (
+            session.state !== `in-game`
+            || session.gameState.winner !== null
+            || !session.gameState.currentTurnPlayerId
+            || session.currentTurnExpiresAt === null
+        ) {
             return;
         }
 
-        const delay = Math.max(0, session.gameState.currentTurnExpiresAt - Date.now());
+        const delay = Math.max(0, session.currentTurnExpiresAt - Date.now());
         const timeout = setTimeout(() => {
             onTurnExpired(session.id);
         }, delay);
@@ -108,6 +113,19 @@ export class GameTimeControlManager {
         }
     }
 
+    getCurrentTurnExpiresInMs(session: ServerGameSession, timestamp = Date.now()): number | null {
+        if (
+            session.state !== `in-game`
+            || session.gameState.winner !== null
+            || !session.gameState.currentTurnPlayerId
+            || session.currentTurnExpiresAt === null
+        ) {
+            return null;
+        }
+
+        return Math.max(0, session.currentTurnExpiresAt - timestamp);
+    }
+
     private initializePlayerClocks(session: ServerGameSession): void {
         const timeControl = this.getTimeControl(session);
         if (timeControl.mode !== `match`) {
@@ -121,26 +139,32 @@ export class GameTimeControlManager {
     private syncActiveTurnClock(session: ServerGameSession, timestamp: number): void {
         const currentPlayerId = session.gameState.currentTurnPlayerId;
         if (!currentPlayerId) {
-            session.gameState.currentTurnExpiresAt = null;
+            session.currentTurnExpiresAt = null;
+            session.gameState.currentTurnExpiresInMs = null;
             return;
         }
 
         const timeControl = this.getTimeControl(session);
         switch (timeControl.mode) {
             case `unlimited`:
-                session.gameState.currentTurnExpiresAt = null;
+                session.currentTurnExpiresAt = null;
+                session.gameState.currentTurnExpiresInMs = null;
                 break;
 
-            case `match`:
-                session.gameState.currentTurnExpiresAt = timestamp + this.getPlayerRemainingTime(
+            case `match`: {
+                const remainingTimeMs = this.getPlayerRemainingTime(
                     session,
                     currentPlayerId,
                     timeControl.mainTimeMs,
                 );
+                session.currentTurnExpiresAt = timestamp + remainingTimeMs;
+                session.gameState.currentTurnExpiresInMs = remainingTimeMs;
                 break;
+            }
 
             case `turn`:
-                session.gameState.currentTurnExpiresAt = timestamp + timeControl.turnTimeMs;
+                session.currentTurnExpiresAt = timestamp + timeControl.turnTimeMs;
+                session.gameState.currentTurnExpiresInMs = timeControl.turnTimeMs;
                 break;
         }
     }

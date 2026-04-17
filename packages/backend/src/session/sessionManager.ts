@@ -134,7 +134,7 @@ export class SessionManager {
 
         return {
             session: this.toSessionInfo(session),
-            gameState: this.simulation.getPublicGameState(session.gameState),
+            gameState: this.getClientGameState(session),
         };
     }
 
@@ -480,7 +480,7 @@ export class SessionManager {
 
         let moveResult;
         const timestamp = Date.now();
-        const turnExpiresAt = session.gameState.currentTurnExpiresAt;
+        const turnExpiresAt = session.currentTurnExpiresAt;
         try {
             this.timeControl.ensureTurnHasTimeRemaining(session, timestamp);
             moveResult = this.simulation.applyMove(session.gameState, {
@@ -922,7 +922,8 @@ export class SessionManager {
         session.finishedAt = finishedAt;
 
         this.timeControl.freezeActiveTurnState(session, finishedAt);
-        session.gameState = this.simulation.getPublicGameState(session.gameState);
+        session.currentTurnExpiresAt = null;
+        session.gameState = this.getClientGameState(session);
         session.finishReason = reason;
         session.winningPlayerId = winningPlayerId;
         session.rematchAcceptedPlayerIds = [];
@@ -1067,7 +1068,7 @@ export class SessionManager {
 
         return {
             session: this.toSessionInfo(session),
-            gameState: this.simulation.getPublicGameState(session.gameState),
+            gameState: this.getClientGameState(session),
 
             participantId,
             participantRole: participation.role,
@@ -1157,12 +1158,12 @@ export class SessionManager {
     private emitGameState(session: ServerGameSession): void {
         this.eventHandlers.gameStateUpdated?.({
             sessionId: session.id,
-            gameState: this.simulation.getPublicGameState(session.gameState),
+            gameState: this.getClientGameState(session),
         });
     }
 
     private emitCellPlacement(session: ServerGameSession, cell: BoardCell) {
-        const state = this.simulation.getPublicGameState(session.gameState) as Partial<GameState>;
+        const state = this.getClientGameState(session) as Partial<GameState>;
         delete state.cells;
         delete state.playerTiles;
 
@@ -1171,6 +1172,12 @@ export class SessionManager {
             state,
             cell: cell,
         });
+    }
+
+    private getClientGameState(session: ServerGameSession): GameState {
+        const gameState = this.simulation.getPublicGameState(session.gameState);
+        gameState.currentTurnExpiresInMs = this.timeControl.getCurrentTurnExpiresInMs(session);
+        return gameState;
     }
 
     getSession(sessionId: string): ServerGameSession | null {
@@ -1310,7 +1317,7 @@ export class SessionManager {
 
                 return {
                     session: this.toSessionInfo(session),
-                    gameState: this.simulation.getPublicGameState(session.gameState),
+                    gameState: this.getClientGameState(session),
 
                     participantId: participant.id,
                     participantRole: role,
@@ -1358,7 +1365,7 @@ export class SessionManager {
 
                     return {
                         session: this.toSessionInfo(session),
-                        gameState: this.simulation.getPublicGameState(session.gameState),
+                        gameState: this.getClientGameState(session),
 
                         participantId: player.id,
                         participantRole: `player`,

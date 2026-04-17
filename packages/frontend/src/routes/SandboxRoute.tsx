@@ -144,7 +144,7 @@ function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
         throw new Error(`Sandbox position is inconsistent.`);
     }
 
-    nextGameState.currentTurnExpiresAt = null;
+    nextGameState.currentTurnExpiresInMs = null;
     nextGameState.playerTimeRemainingMs = {};
 
     return {

@@ -115,10 +115,22 @@ function MultiviewTimerStrip({
     gameState: GameState | null
     players: SessionPlayer[]
 }>) {
-    const shouldTick = status === `live` && gameState?.currentTurnExpiresAt !== null;
+    const currentTurnExpiresInMs = gameState?.currentTurnExpiresInMs ?? null;
+    const shouldTick = status === `live` && currentTurnExpiresInMs !== null;
     const [nowMs, setNowMs] = useState(() => Date.now());
+    const [countdownAnchor, setCountdownAnchor] = useState(() => ({
+        receivedAt: Date.now(),
+        remainingMs: currentTurnExpiresInMs,
+    }));
 
     useEffect(() => {
+        const receivedAt = Date.now();
+        setNowMs(receivedAt);
+        setCountdownAnchor({
+            receivedAt,
+            remainingMs: currentTurnExpiresInMs,
+        });
+
         if (!shouldTick) {
             return;
         }
@@ -130,7 +142,13 @@ function MultiviewTimerStrip({
         updateCountdown();
         const intervalId = window.setInterval(updateCountdown, 250);
         return () => window.clearInterval(intervalId);
-    }, [shouldTick, gameState?.currentTurnExpiresAt]);
+    }, [
+        shouldTick,
+        currentTurnExpiresInMs,
+        gameState?.currentTurnPlayerId,
+        gameState?.placementsRemaining,
+        gameState?.turnCount,
+    ]);
 
     if (!gameOptions || !gameState) {
         return null;
@@ -138,14 +156,17 @@ function MultiviewTimerStrip({
 
     const timeControl = gameOptions.timeControl;
     const currentTurnPlayer = players.find((player) => player.id === gameState.currentTurnPlayerId) ?? null;
+    const activeTurnClockMs = status === `live` && countdownAnchor.remainingMs !== null
+        ? Math.max(0, countdownAnchor.remainingMs - (nowMs - countdownAnchor.receivedAt))
+        : null;
 
     if (timeControl.mode === `match`) {
         return (
             <div className="flex flex-wrap items-center gap-2">
                 {players.slice(0, 2).map((player) => {
                     const isActivePlayer = player.id === gameState.currentTurnPlayerId;
-                    const displayedClockMs = isActivePlayer && status === `live` && gameState.currentTurnExpiresAt !== null
-                        ? Math.max(0, gameState.currentTurnExpiresAt - nowMs)
+                    const displayedClockMs = isActivePlayer && activeTurnClockMs !== null
+                        ? activeTurnClockMs
                         : gameState.playerTimeRemainingMs[player.id] ?? timeControl.mainTimeMs;
 
                     return (
@@ -167,8 +188,8 @@ function MultiviewTimerStrip({
     }
 
     if (timeControl.mode === `turn`) {
-        const turnClockMs = status === `live` && gameState.currentTurnExpiresAt !== null
-            ? Math.max(0, gameState.currentTurnExpiresAt - nowMs)
+        const turnClockMs = activeTurnClockMs !== null
+            ? activeTurnClockMs
             : timeControl.turnTimeMs;
 
         return (

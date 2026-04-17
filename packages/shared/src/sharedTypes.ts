@@ -212,7 +212,9 @@ export const zGameState = z.object({
         .nonnegative(),
     turnCount: z.number().int()
         .nonnegative(),
-    currentTurnExpiresAt: zTimestamp.nullable(),
+    currentTurnExpiresInMs: z.number().int()
+        .nonnegative()
+        .nullable(),
     playerTimeRemainingMs: z.record(z.string(), z.number().int()
         .nonnegative()),
 });
@@ -269,7 +271,7 @@ export function createEmptyGameState(): GameState {
         currentTurnPlayerId: null,
         placementsRemaining: 0,
         turnCount: 0,
-        currentTurnExpiresAt: null,
+        currentTurnExpiresInMs: null,
         playerTimeRemainingMs: {},
     };
 }
@@ -302,7 +304,7 @@ export function initializeGameState(gameState: GameState, playerIds: readonly st
     gameState.winner = null;
     gameState.playerTiles = buildPlayerTileConfigMap(playerIds);
     gameState.turnCount = 0;
-    gameState.currentTurnExpiresAt = null;
+    gameState.currentTurnExpiresInMs = null;
     gameState.playerTimeRemainingMs = {};
 
     const resolvedStartingPlayerId = startingPlayerId && playerIds.includes(startingPlayerId)
@@ -389,7 +391,7 @@ function setCurrentTurn(gameState: GameState, playerId: string | null, placement
     gameState.currentTurnPlayerId = playerId;
     gameState.placementsRemaining = playerId ? placementsRemaining : 0;
     if (!playerId) {
-        gameState.currentTurnExpiresAt = null;
+        gameState.currentTurnExpiresInMs = null;
     }
 }
 

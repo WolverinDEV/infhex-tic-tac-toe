@@ -24,7 +24,7 @@ function TurnTimerHud({
     const playerIds = players.map(player => player.id);
     const playerNames = Object.fromEntries(players.map(player => [player.id, player.displayName]));
     const currentTurnPlayerId = gameState.currentTurnPlayerId;
-    const currentTurnExpiresAt = gameState.currentTurnExpiresAt;
+    const currentTurnExpiresInMs = gameState.currentTurnExpiresInMs;
     const placementsRemaining = gameState.placementsRemaining;
     const playerTimeRemainingMs = gameState.playerTimeRemainingMs;
 
@@ -119,19 +119,22 @@ function TurnTimerHud({
     );
 
     useEffect(() => {
-        if (!currentTurnExpiresAt) {
+        if (currentTurnExpiresInMs === null) {
             setActiveClockCountdownMs(null);
             return;
         }
 
+        const countdownReceivedAt = Date.now();
         const updateCountdown = () => {
-            setActiveClockCountdownMs(Math.max(0, currentTurnExpiresAt - Date.now()));
+            setActiveClockCountdownMs(Math.max(0, currentTurnExpiresInMs - (Date.now() - countdownReceivedAt)));
         };
 
         updateCountdown();
         const interval = window.setInterval(updateCountdown, 250);
         return () => window.clearInterval(interval);
-    }, [currentTurnExpiresAt]);
+    }, [
+        currentTurnExpiresInMs, currentTurnPlayerId, placementsRemaining, gameState.turnCount,
+    ]);
 
     useEffect(() => {
         if (isSpectator || !canPlaceCell || activeClockCountdownMs === null || activeClockCountdownMs > 10_000) {
