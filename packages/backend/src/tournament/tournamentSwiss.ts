@@ -95,6 +95,30 @@ function buildPlayedPairings(matches: TournamentMatch[]): Set<string> {
     return playedPairings;
 }
 
+function buildPlayedPairingsByRound(matches: TournamentMatch[]): Map<number, Set<string>> {
+    const byRound = new Map<number, Set<string>>();
+    for (const match of matches) {
+        if (match.bracket !== `swiss` || match.state !== `completed`) {
+            continue;
+        }
+
+        const [leftProfileId, rightProfileId] = match.slots.map((slot) => slot.profileId);
+        if (!leftProfileId || !rightProfileId) {
+            continue;
+        }
+
+        const key = getPairingKey(leftProfileId, rightProfileId);
+        const existing = byRound.get(match.round);
+        if (existing) {
+            existing.add(key);
+        } else {
+            byRound.set(match.round, new Set([key]));
+        }
+    }
+
+    return byRound;
+}
+
 function pairParticipants(
     participants: SeededSwissParticipant[],
     playedPairings: Set<string>,
@@ -277,7 +301,26 @@ export function buildSwissRoundMatches(options: {
 
     const pairings = pairParticipants(participantsForPairing, playedPairings);
     if (!pairings) {
-        const relaxedPairings = pairParticipants(participantsForPairing, new Set());
+        const pairingsByRound = buildPlayedPairingsByRound(options.existingMatches);
+        const rounds = [...pairingsByRound.keys()].sort((a, b) => a - b);
+
+        let relaxedPairings: ReturnType<typeof pairParticipants> = null;
+        for (let relaxCount = 1; relaxCount <= rounds.length; relaxCount += 1) {
+            const relaxedRounds = new Set(rounds.slice(0, relaxCount));
+            const constrainedPairings = new Set<string>();
+            for (const [round, roundPairings] of pairingsByRound) {
+                if (!relaxedRounds.has(round)) {
+                    for (const key of roundPairings) {
+                        constrainedPairings.add(key);
+                    }
+                }
+            }
+            relaxedPairings = pairParticipants(participantsForPairing, constrainedPairings);
+            if (relaxedPairings) {
+                break;
+            }
+        }
+
         if (!relaxedPairings) {
             return [];
         }
