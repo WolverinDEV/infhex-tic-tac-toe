@@ -34,6 +34,8 @@ import {
     withdrawFromTournament,
 } from '../query/tournamentClient';
 import { formatDateTime, useIntlFormatProvider } from '../utils/dateTime';
+import { getTournamentMatchSessionAccess } from '../utils/tournamentMatchSessionAccess';
+import { getRoundDelayCountdownState } from '../utils/tournamentRoundDelay';
 
 /* ── Modal overlay ──────────────────────────────────── */
 
@@ -147,25 +149,10 @@ function RoundDelayCountdown({ tournament }: { tournament: TournamentDetail }) {
     }, [tournament.roundDelayMinutes]);
 
     if (tournament.roundDelayMinutes <= 0 || tournament.status !== `live`) return null;
+    const countdown = getRoundDelayCountdownState(tournament);
+    if (!countdown) return null;
 
-    // Find the next round that's pending but whose previous round is complete
-    const pendingMatches = tournament.matches.filter((m) => m.state === `pending`);
-    if (pendingMatches.length === 0) return null;
-
-    const nextRound = Math.min(...pendingMatches.map((m) => m.round));
-    const bracket = pendingMatches.find((m) => m.round === nextRound)?.bracket;
-    if (!bracket) return null;
-
-    const prevRoundMatches = tournament.matches.filter((m) => m.bracket === bracket && m.round === nextRound - 1);
-    if (prevRoundMatches.length === 0) return null;
-
-    const allPrevCompleted = prevRoundMatches.every((m) => m.state === `completed`);
-    if (!allPrevCompleted) return null;
-
-    const latestResolved = Math.max(...prevRoundMatches.map((m) => m.resolvedAt ?? 0));
-    const readyAt = latestResolved + tournament.roundDelayMinutes * 60_000;
-    const remaining = Math.max(0, readyAt - Date.now());
-    if (remaining <= 0) return null;
+    const remaining = countdown.remainingMs;
 
     const mins = Math.floor(remaining / 60_000);
     const secs = Math.floor((remaining % 60_000) / 1000);
@@ -867,8 +854,8 @@ function useCountdown(deadlineMs: number | null) {
 
 /* ── Match card ─────────────────────────────────────── */
 
-function MatchCard({ match, canManage, viewerProfileId, timeoutAt, extensionMinutes, pendingExtension, claimWinExpiresAt, onOpen, onWalkover, onReopen, onRequestExtension, onResolveExtension }: {
-    match: TournamentMatch; canManage: boolean; viewerProfileId: string | null
+function MatchCard({ match, canManage, viewerProfileId, tournamentStatus, timeoutAt, extensionMinutes, pendingExtension, claimWinExpiresAt, onOpen, onWalkover, onReopen, onRequestExtension, onResolveExtension }: {
+    match: TournamentMatch; canManage: boolean; viewerProfileId: string | null; tournamentStatus: TournamentDetail[`status`]
     timeoutAt: number | null; extensionMinutes: number; pendingExtension: TournamentExtensionRequest | null; claimWinExpiresAt: number | null
     onOpen: (sid: string) => void; onWalkover: (mid: string, pid: string) => void; onReopen: (mid: string) => void
     onRequestExtension: (mid: string) => void; onResolveExtension: (eid: string, approve: boolean) => void
@@ -877,9 +864,7 @@ function MatchCard({ match, canManage, viewerProfileId, timeoutAt, extensionMinu
     const claimCountdown = useCountdown(claimWinExpiresAt);
     const timedOut = countdown?.expired ?? false;
     const stateColor = match.state === `completed` ? `emerald` as const : match.state === `in-progress` ? `sky` as const : match.state === `ready` ? `amber` as const : `default` as const;
-    const isParticipant = Boolean(viewerProfileId && match.slots.some((s) => s.profileId === viewerProfileId));
-    const canJoin = isParticipant && match.sessionId && (match.state === `ready` || match.state === `in-progress`);
-    const canSpectate = !isParticipant && match.sessionId && match.state === `in-progress` && match.startedAt !== null;
+    const { isParticipant, canJoin, canSpectate } = getTournamentMatchSessionAccess(tournamentStatus, match, viewerProfileId);
     const isInProgress = match.state === `in-progress`;
 
     const slot = (s: TournamentMatch[`slots`][number], wins: number, isW: boolean) => {
@@ -1449,6 +1434,7 @@ function TournamentRoute() {
                                                         <MatchCard
                                                             key={m.id} match={m} canManage={t.viewer.canManage}
                                                             viewerProfileId={acct?.id ?? null}
+                                                            tournamentStatus={t.status}
                                                             timeoutAt={t.matchJoinTimeoutMinutes > 0 && m.waitingForPlayers && m.startedAt !== null ? m.startedAt + t.matchJoinTimeoutMinutes * 60_000 : null}
                                                             extensionMinutes={t.matchExtensionMinutes}
                                                             pendingExtension={t.extensionRequests.find((r) => r.matchId === m.id && (r.gameNumber ?? 1) === m.currentGameNumber && r.status === `pending`) ?? null}

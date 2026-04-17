@@ -69,6 +69,7 @@ function TournamentTimerSection({
 
     const isTimedOut = hasTimeout && joinRemaining !== null && joinRemaining <= 0;
     const hasActiveClaim = claimWinState !== null;
+    const hasPendingExtension = tournament.pendingExtension;
 
     if (!hasTimeout) {
         return null;
@@ -111,6 +112,21 @@ function TournamentTimerSection({
                 </div>
                 <p className="mt-1 text-xs text-rose-200/70">
                     {opponentName ?? `Opponent`} has {claimSeconds} second{claimSeconds !== 1 ? `s` : ``} to join before the match is forfeited.
+                </p>
+            </div>
+        );
+    }
+
+    if (hasPendingExtension) {
+        return (
+            <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-4 text-center">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/80">
+                    Extension Pending
+                </div>
+                <p className="mt-2 text-sm text-amber-100/80">
+                    {isTimedOut
+                        ? `The join timer expired, and an extension request is waiting for organizer review.`
+                        : `An extension request is waiting for organizer review.`}
                 </p>
             </div>
         );

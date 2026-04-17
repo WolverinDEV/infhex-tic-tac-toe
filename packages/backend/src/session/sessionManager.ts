@@ -1191,6 +1191,13 @@ export class SessionManager {
         }
     }
 
+    clearSessionTournamentInfo(sessionId: string): void {
+        const session = this.sessions.get(sessionId);
+        if (session) {
+            session.tournament = null;
+        }
+    }
+
     requireSession(sessionId: string): ServerGameSession {
         const session = this.sessions.get(sessionId);
         if (!session) {
