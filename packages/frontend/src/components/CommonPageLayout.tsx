@@ -192,16 +192,12 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
                         />
 
                         <span className="min-w-0 text-left leading-tight">
-                            <span className="block text-[11px] font-semibold text-sky-100 sm:hidden">
-                                Infinity Hexagonal
+                            <span className="font-semibold text-sky-100">
+                                HEXO
                             </span>
 
-                            <span className="block text-[11px] font-semibold text-sky-100 sm:hidden">
-                                Tic-Tac-Toe
-                            </span>
-
-                            <span className="hidden text-sm font-semibold text-sky-100 sm:block">
-                                Infinity Hexagonal Tic-Tac-Toe
+                            <span className="block text-xs font-semibold text-sky-100">
+                                Infinite Hexagonal Tic-Tac-Toe
                             </span>
                         </span>
                     </NavLink>

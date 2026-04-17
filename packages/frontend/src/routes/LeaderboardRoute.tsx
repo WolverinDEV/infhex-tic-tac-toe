@@ -11,7 +11,7 @@ function LeaderboardRoute() {
         <>
             <PageMetadata
                 title={`Leaderboard • ${DEFAULT_PAGE_TITLE}`}
-                description="See the highest rated Infinity Hexagonal Tic-Tac-Toe players and current standings."
+                description="See the highest rated HeXO players and current standings."
             />
 
             <LeaderboardScreen

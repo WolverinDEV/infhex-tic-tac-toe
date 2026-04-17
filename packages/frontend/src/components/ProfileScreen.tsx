@@ -604,8 +604,8 @@ function ProfileScreen({
             category={isPublicView ? `Profile` : `Account`}
             title={isPublicView ? (account?.username ?? `Player Profile`) : `Your Account`}
             description={isPublicView
-                ? `Public profile details and competitive standing for this Infinity Hexagonal Tic-Tac-Toe player.`
-                : `Account details and competitive standing for your Infinity Hexagonal Tic-Tac-Toe profile.`}
+                ? `Public profile details and competitive standing for this HeXO player.`
+                : `Account details and competitive standing for your HeXO profile.`}
         >
             <div className="flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
                 {isLoading ? (

@@ -159,7 +159,7 @@ function AdminControlsRoute() {
             <>
                 <PageMetadata
                     title={`Admin Controls • ${DEFAULT_PAGE_TITLE}`}
-                    description="Administrative controls for Infinity Hexagonal Tic-Tac-Toe."
+                    description="Administrative controls for HeXO."
                     robots="noindex, nofollow"
                 />
 
@@ -200,7 +200,7 @@ function AdminControlsRoute() {
         <>
             <PageMetadata
                 title={`Admin Controls • ${DEFAULT_PAGE_TITLE}`}
-                description="Administrative controls for Infinity Hexagonal Tic-Tac-Toe."
+                description="Administrative controls for HeXO."
                 robots="noindex, nofollow"
             />
 

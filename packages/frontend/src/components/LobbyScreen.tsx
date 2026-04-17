@@ -78,12 +78,14 @@ function LobbyScreen({
                         </div>
 
                         <h1 className="mt-5 text-3xl font-black uppercase tracking-[0.08em] text-white sm:mt-6 sm:text-5xl lg:text-6xl">
-                            Infinity
-                            <br />
-                            Hexagonal
-                            <br />
-                            Tic-Tac-Toe
+                            HeXO
                         </h1>
+
+                        <h2 className="mt-1 text-xl font-black uppercase tracking-[0.08em] text-white sm:text-2xl lg:mt-3 lg:text-3xl">
+                            The infinite hexagonal
+                            <br />
+                            tic-tac-toe game
+                        </h2>
 
                         <p className="mt-5 max-w-xl text-sm leading-6 text-slate-200 sm:mt-6 sm:text-base sm:leading-7 lg:text-lg">
                             Place your hexes on an infinite board, outmaneuver your opponent, and be the first to align six in a row.

@@ -27,7 +27,7 @@ function App({ router, queryClient, dehydratedState }: Readonly<AppProps>) {
             <link rel="icon" type="image/svg+xml" href="/favicon.png" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <meta name="theme-color" content="#111827" />
-            <meta property="og:site_name" content="Infinity Hexagonal Tic-Tac-Toe" />
+            <meta property="og:site_name" content="HeXO: The infinite hexagonal tic-tac-toe game" />
 
             <QueryClientProvider client={queryClient}>
                 {renderMode === `normal` && <ReactQueryDevtools />}

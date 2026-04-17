@@ -12,7 +12,7 @@ function AccountPreferencesRoute() {
         <>
             <PageMetadata
                 title={`Account Preferences • ${DEFAULT_PAGE_TITLE}`}
-                description="Manage your Infinity Hexagonal Tic-Tac-Toe account preferences."
+                description="Manage your HeXO account preferences."
                 robots="noindex, nofollow"
             />
 

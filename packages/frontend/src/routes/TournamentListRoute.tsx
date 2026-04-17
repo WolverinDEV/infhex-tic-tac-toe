@@ -358,7 +358,7 @@ function TournamentListRoute() {
         <>
             <PageMetadata
                 title={`Tournaments • ${DEFAULT_PAGE_TITLE}`}
-                description="Browse and create Infinity Hexagonal Tic-Tac-Toe tournaments."
+                description="Browse and create HeXO tournaments."
             />
 
             <PageCorpus

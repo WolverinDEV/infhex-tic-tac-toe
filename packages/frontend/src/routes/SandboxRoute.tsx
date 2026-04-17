@@ -700,7 +700,7 @@ function SandboxRoute() {
                         }
                         : {
                             title: `Sandbox Mode • ${DEFAULT_PAGE_TITLE}`,
-                            description: `Play Infinity Hexagonal Tic-Tac-Toe locally with no clock, control both sides, import shared positions, and explore custom boards.`,
+                            description: `Play HeXO locally with no clock, control both sides, import shared positions, and explore custom boards.`,
                         })}
             />
 

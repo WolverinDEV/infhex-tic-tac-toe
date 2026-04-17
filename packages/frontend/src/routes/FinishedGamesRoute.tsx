@@ -48,12 +48,12 @@ function FinishedGamesRoute() {
                 {...(isOwnArchive
                     ? {
                         title: `My Match History • ${DEFAULT_PAGE_TITLE}`,
-                        description: `Review your own finished Infinity Hexagonal Tic-Tac-Toe matches while signed in.`,
+                        description: `Review your own finished HeXO matches while signed in.`,
                         robots: `noindex, nofollow` as const,
                     }
                     : {
                         title: `Finished Games Archive • ${DEFAULT_PAGE_TITLE}`,
-                        description: `Browse finished Infinity Hexagonal Tic-Tac-Toe matches and review their move history.`,
+                        description: `Browse finished HeXO matches and review their move history.`,
                     })}
             />
 

@@ -35,7 +35,7 @@ function ProfileRoute() {
                     ? profileQuery.data?.user
                         ? {
                             title: `${profileQuery.data.user.username} • Player Profile • ${DEFAULT_PAGE_TITLE}`,
-                            description: `View ${profileQuery.data.user.username}'s public Infinity Hexagonal Tic-Tac-Toe profile and competitive standing.`,
+                            description: `View ${profileQuery.data.user.username}'s public HeXO profile and competitive standing.`,
                             ogType: `article` as const,
                         }
                         : !profileQuery.isLoading
@@ -47,12 +47,12 @@ function ProfileRoute() {
                             }
                             : {
                                 title: `Player Profile • ${DEFAULT_PAGE_TITLE}`,
-                                description: `View a public Infinity Hexagonal Tic-Tac-Toe player profile.`,
+                                description: `View a public HeXO player profile.`,
                                 ogType: `article` as const,
                             }
                     : {
                         title: `My Profile • ${DEFAULT_PAGE_TITLE}`,
-                        description: `Sign in to open your own Infinity Hexagonal Tic-Tac-Toe profile.`,
+                        description: `Sign in to open your own HeXO profile.`,
                         robots: `noindex, nofollow` as const,
                     })}
             />

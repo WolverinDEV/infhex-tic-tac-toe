@@ -19,7 +19,7 @@ function AdminRoute() {
             <>
                 <PageMetadata
                     title={`Admin Dashboard • ${DEFAULT_PAGE_TITLE}`}
-                    description="Administrative statistics for Infinity Hexagonal Tic-Tac-Toe."
+                    description="Administrative statistics for HeXO."
                     robots="noindex, nofollow"
                 />
 
@@ -42,7 +42,7 @@ function AdminRoute() {
         <>
             <PageMetadata
                 title={`Admin Dashboard • ${DEFAULT_PAGE_TITLE}`}
-                description="Administrative statistics for Infinity Hexagonal Tic-Tac-Toe."
+                description="Administrative statistics for HeXO."
                 robots="noindex, nofollow"
             />
 

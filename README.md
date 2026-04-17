@@ -1,4 +1,4 @@
-# Infinity Hexagonal Tic-Tac-Toe
+# HeXO: The infinite hexagonal tic-tac-toe game
 
 Small monorepo for a real-time 2-player abstract strategy game inspired by the following YouTube video from webgoatguy:
 https://www.youtube.com/watch?v=Ob6QINTMIOA
@@ -8,7 +8,7 @@ https://hexo.did.science/
 
 ## Game
 
-Infinity Hexagonal Tic-Tac-Toe is played on an infinite hexagonal grid with an asymmetric opening:
+HeXO: The infinite hexagonal tic-tac-toe game is played on an infinite hexagonal grid with an asymmetric opening:
 
 - Player 1 starts the game with a single move on any empty hex.
 - Player 2 replies with two consecutive moves.

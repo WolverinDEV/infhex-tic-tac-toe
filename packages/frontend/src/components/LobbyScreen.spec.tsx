@@ -174,7 +174,7 @@ test('renders loaded lobby data with session metadata', async ({ mount }) => {
     },
   })
 
-  await expect(component.getByRole('heading', { name: /Infinity/i })).toBeVisible()
+  await expect(component.getByRole('heading', { name: /Infinite/i })).toBeVisible()
   await expect(component.getByRole('heading', { name: 'Public Matches' })).toBeVisible()
   await expect(component.getByText(openLobby.id)).toBeVisible()
   await expect(component.getByText(/^Waiting for players$/).first()).toBeVisible()

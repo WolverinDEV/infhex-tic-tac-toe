@@ -14,7 +14,7 @@ function ChangelogRoute() {
         <>
             <PageMetadata
                 title={`Changelog • ${DEFAULT_PAGE_TITLE}`}
-                description="Read the latest Infinity Hexagonal Tic-Tac-Toe updates and release notes."
+                description="Read the latest HeXO updates and release notes."
             />
 
             <ChangelogScreen

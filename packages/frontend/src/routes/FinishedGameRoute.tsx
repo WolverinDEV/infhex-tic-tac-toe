@@ -37,8 +37,8 @@ function FinishedGameRoute() {
                         : {
                             title: `${isOwnReplay ? `My Replay` : `Replay`} • ${DEFAULT_PAGE_TITLE}`,
                             description: isOwnReplay
-                                ? `Review your finished Infinity Hexagonal Tic-Tac-Toe matches.`
-                                : `Review a finished Infinity Hexagonal Tic-Tac-Toe match.`,
+                                ? `Review your finished HeXO matches.`
+                                : `Review a finished HeXO match.`,
                             ogType: `article` as const,
                             robots: isOwnReplay ? `noindex, nofollow` as const : `index, follow` as const,
                         })}

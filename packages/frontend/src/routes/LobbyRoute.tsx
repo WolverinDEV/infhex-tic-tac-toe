@@ -54,7 +54,7 @@ function LobbyRoute() {
         <>
             <PageMetadata
                 title={DEFAULT_PAGE_TITLE}
-                description="Play Infinity Hexagonal Tic-Tac-Toe online, host a lobby, join live matches, and review finished games move by move."
+                description="Play HeXO online, host a lobby, join live matches, and review finished games move by move."
             />
 
             <LobbyScreen

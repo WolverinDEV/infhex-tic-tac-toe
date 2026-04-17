@@ -198,7 +198,7 @@ function RouteMetadata() {
     if (sessionInfoLoading) {
         metadata = {
             title: `Live Session • ${DEFAULT_PAGE_TITLE}`,
-            description: `Join or spectate a live Infinity Hexagonal Tic-Tac-Toe session.`,
+            description: `Join or spectate a live HeXO session.`,
             robots: `noindex, nofollow` as const,
         }
     } else if (!sessionInfo) {
@@ -419,7 +419,7 @@ function SessionRoute() {
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: `Join my Infinity Hexagonal Tic-Tac-Toe lobby`,
+                    title: `Join my HeXO lobby`,
                     text: `Join my lobby directly with this link.`,
                     url: inviteUrl.toString(),
                 });

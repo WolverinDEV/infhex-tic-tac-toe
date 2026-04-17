@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router';
 
-export const DEFAULT_PAGE_TITLE = `Infinity Hexagonal Tic-Tac-Toe`;
-export const DEFAULT_PAGE_DESCRIPTION = `Play Infinity Hexagonal Tic-Tac-Toe online, host a lobby, join live matches, and review finished games move by move.`;
+export const DEFAULT_PAGE_TITLE = `HeXO: The infinite hexagonal tic-tac-toe game`;
+export const DEFAULT_PAGE_DESCRIPTION = `Play HeXO: The infinite hexagonal tic-tac-toe game online, host a lobby, join live matches, and review finished games move by move.`;
 
 export function getBaseUrl() {
     const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
