@@ -572,6 +572,8 @@ export const zSessionTournamentInfo = z.object({
     matchStartedAt: zTimestamp,
     leftDisplayName: z.string().nullable(),
     rightDisplayName: z.string().nullable(),
+    leftProfileId: zIdentifier.nullable(),
+    rightProfileId: zIdentifier.nullable(),
 });
 export type SessionTournamentInfo = z.infer<typeof zSessionTournamentInfo>;
 

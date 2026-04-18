@@ -467,7 +467,9 @@ function SessionRoute() {
                 </div>
             );
         } else {
-            const localPlayerName = session.players.find(player => player.id === session.localParticipantId)?.displayName ?? account?.user?.username ?? `unknown`;
+            const localPlayer = session.players.find(player => player.id === session.localParticipantId);
+            const localPlayerName = localPlayer?.displayName ?? account?.user?.username ?? `unknown`;
+            const localProfileId = localPlayer?.profileId ?? account?.user?.id ?? null;
 
             targetScreen = (
                 <WaitingScreen
@@ -476,6 +478,7 @@ function SessionRoute() {
 
                     playerCount={session.players.length}
                     localPlayerName={localPlayerName}
+                    localProfileId={localProfileId}
                     tournament={session.tournament}
                     onInviteFriend={() => void inviteFriend()}
                     onPlayOffline={session.gameOptions.visibility === `public` ? leaveSessionAndOpenOfflineBotGame : undefined}

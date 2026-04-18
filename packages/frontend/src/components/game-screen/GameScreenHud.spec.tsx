@@ -94,6 +94,8 @@ test('hides draw actions for tournament matches', async ({ mount }) => {
             matchStartedAt: 1_700_000_000_000,
             leftDisplayName: 'Alpha',
             rightDisplayName: 'Bravo',
+            leftProfileId: 'profile-alpha',
+            rightProfileId: 'profile-bravo',
           },
         })}
       />
