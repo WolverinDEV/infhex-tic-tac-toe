@@ -24,27 +24,35 @@ function MatchNode({ match, onSpectate }: { match: TournamentMatch; onSpectate: 
         }
     };
 
-    const slot = (s: TournamentMatch[`slots`][number], wins: number, isWinner: boolean, side: `top` | `bottom`) => (
-        <div className={`flex items-center gap-2 px-2.5 py-1.5 ${
-            side === `top` ? `rounded-t` : `rounded-b`
-        } ${isWinner ? `bg-emerald-400/8` : s.isBye ? `bg-white/[0.015]` : `bg-white/[0.025]`}`}>
-            <span className="w-4 shrink-0 text-center text-[9px] font-bold tabular-nums text-slate-600">
-                {s.seed ?? ``}
-            </span>
-            <span className={`min-w-0 flex-1 truncate text-[11px] ${
-                s.isBye ? `italic text-slate-600`
-                    : isWinner ? `font-bold text-emerald-200`
-                        : s.profileId ? `font-medium text-slate-200` : `text-slate-600`
-            }`}>
-                {s.displayName ?? (s.isBye ? `BYE` : `TBD`)}
-            </span>
-            {!s.isBye && s.profileId && (
-                <span className={`shrink-0 text-[11px] font-bold tabular-nums ${isWinner ? `text-emerald-300` : `text-slate-500`}`}>
-                    {wins}
+    const slot = (s: TournamentMatch[`slots`][number], wins: number, isWinner: boolean, side: `top` | `bottom`) => {
+        const isTbd = !s.profileId && !s.isBye;
+        const source = isTbd && s.source && s.source.type !== `seed` ? s.source : null;
+        const sourceLabel = source
+            ? `${source.type === `winner` ? `W` : `L`} of M${source.matchId.split(`-`).at(-1)}`
+            : null;
+
+        return (
+            <div className={`flex items-center gap-2 px-2.5 py-1.5 ${
+                side === `top` ? `rounded-t` : `rounded-b`
+            } ${isWinner ? `bg-emerald-400/8` : s.isBye ? `bg-white/[0.015]` : `bg-white/[0.025]`}`}>
+                <span className="w-4 shrink-0 text-center text-[9px] font-bold tabular-nums text-slate-600">
+                    {s.seed ?? ``}
                 </span>
-            )}
-        </div>
-    );
+                <span className={`min-w-0 flex-1 truncate text-[11px] ${
+                    s.isBye ? `italic text-slate-600`
+                        : isWinner ? `font-bold text-emerald-200`
+                            : s.profileId ? `font-medium text-slate-200` : `text-slate-600`
+                }`}>
+                    {s.displayName ?? (s.isBye ? `BYE` : sourceLabel ?? `TBD`)}
+                </span>
+                {!s.isBye && s.profileId && (
+                    <span className={`shrink-0 text-[11px] font-bold tabular-nums ${isWinner ? `text-emerald-300` : `text-slate-500`}`}>
+                        {wins}
+                    </span>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div
