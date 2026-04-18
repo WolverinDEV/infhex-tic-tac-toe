@@ -1254,9 +1254,13 @@ export class TournamentService {
                 throw new SessionError(`Only active matches can be reopened automatically in v1.`);
             }
 
+            const oldSessionId = match.sessionId;
             match.sessionId = null;
             match.state = `ready`;
             match.startedAt = null;
+            if (oldSessionId) {
+                this.clearSessionTournamentInfo(oldSessionId);
+            }
             tournament.updatedAt = Date.now();
             tournament.activity.unshift(createTournamentActivity(user, `match-reopened`, `Reopened round ${match.round}, match ${match.order}.`));
             await this.reconcileTournamentRecord(tournament);
