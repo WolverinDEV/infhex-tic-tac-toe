@@ -370,19 +370,25 @@ function describeTournamentMatch(match: TournamentMatch): string {
     }
 }
 
-function getTournamentStandings(tournament: TournamentRecord): TournamentStanding[] {
-    if (tournament.format === `swiss`) {
-        return calculateSwissStandings(
-            tournament.participants.filter((participant) => participant.status !== `removed`),
-            tournament.matches,
-        );
-    }
-
-    return calculateEliminationStandings(tournament);
+function isPreStartLeaver(p: TournamentParticipant, tournament: TournamentRecord): boolean {
+    if (p.removedAt === null) return false;
+    if (tournament.startedAt === null) return true;
+    return p.removedAt < tournament.startedAt;
 }
 
-function calculateEliminationStandings(tournament: TournamentRecord): TournamentStanding[] {
-    const activeParticipants = tournament.participants.filter((p) => p.status !== `removed`);
+function getTournamentStandings(tournament: TournamentRecord): TournamentStanding[] {
+    const standingsParticipants = tournament.participants.filter(
+        (p) => p.status !== `removed` && !isPreStartLeaver(p, tournament),
+    );
+
+    if (tournament.format === `swiss`) {
+        return calculateSwissStandings(standingsParticipants, tournament.matches);
+    }
+
+    return calculateEliminationStandings(tournament, standingsParticipants);
+}
+
+function calculateEliminationStandings(tournament: TournamentRecord, activeParticipants = tournament.participants.filter((p) => p.status !== `removed`)): TournamentStanding[] {
 
     // Count wins/losses per player
     const winsByProfile = new Map<string, number>();

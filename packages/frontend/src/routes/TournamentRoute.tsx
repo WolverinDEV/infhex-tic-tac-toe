@@ -214,9 +214,9 @@ function sortParticipants(
     return sorted;
 }
 
-function ParticipantList({ participants, standings, canManage, isLive, viewerProfileId, tournamentId, tournamentStatus, onRemove, onSwapSelect, swapTarget }: {
+function ParticipantList({ participants, standings, canManage, isLive, viewerProfileId, tournamentId, tournamentStatus, tournamentStartedAt, onRemove, onSwapSelect, swapTarget }: {
     participants: TournamentParticipant[]; standings: TournamentStanding[]; canManage: boolean; isLive: boolean; viewerProfileId: string | null
-    tournamentId: string; tournamentStatus: string
+    tournamentId: string; tournamentStatus: string; tournamentStartedAt: number | null
     onRemove: (id: string) => void; onSwapSelect: (id: string | null) => void; swapTarget: string | null
 }) {
     const standMap = new Map(standings.map((s) => [s.profileId, s]));
@@ -230,11 +230,14 @@ function ParticipantList({ participants, standings, canManage, isLive, viewerPro
     const isPreStart = tournamentStatus === `registration-open` || tournamentStatus === `check-in-open`;
     const canSeed = canManage && isPreStart;
 
+    const isPreStartDrop = (p: TournamentParticipant) =>
+        p.status === `dropped` && p.removedAt !== null && (tournamentStartedAt === null || p.removedAt < tournamentStartedAt);
+
     const sorted = sortParticipants(participants, seedMode ? `status` : sortMode, standMap);
     const active = sorted.filter((p) => p.status !== `removed` && p.status !== `dropped` && p.status !== `waitlisted`);
     const waitlisted = sorted.filter((p) => p.status === `waitlisted`);
-    const removed = sorted.filter((p) => p.status === `removed`);
-    const dqd = sorted.filter((p) => p.status === `dropped`);
+    const removed = sorted.filter((p) => p.status === `removed` || isPreStartDrop(p));
+    const dqd = sorted.filter((p) => p.status === `dropped` && !isPreStartDrop(p));
     const visible = [...active, ...dqd, ...waitlisted];
 
     // Initialize seed order from active participants when entering seed mode
@@ -1507,7 +1510,7 @@ function TournamentRoute() {
                                         participants={t.participants} standings={t.standings}
                                         canManage={t.viewer.canManage} isLive={t.status === `live`}
                                         viewerProfileId={acct?.id ?? null}
-                                        tournamentId={t.id} tournamentStatus={t.status}
+                                        tournamentId={t.id} tournamentStatus={t.status} tournamentStartedAt={t.startedAt}
                                         onRemove={(pid) => void run(() => removeTournamentParticipant(t.id, pid), t.status === `live` ? `Disqualified.` : `Removed.`)}
                                         onSwapSelect={setSwapTarget} swapTarget={swapTarget}
                                     />
