@@ -110,3 +110,17 @@ export async function createQuickSealBotTournament() {
 
     return response.tournament;
 }
+
+export async function createQuickSealBot16Tournament(format: `swiss` | `single-elimination` | `double-elimination`) {
+    const response = await fetchJson<DevQuickBotTournamentResponse>(`/api/dev/tournaments/quick-seal-bot-16/${encodeURIComponent(format)}`, {
+        method: `POST`,
+    });
+
+    queryClient.setQueryData(queryKeys.tournament(response.tournament.id), response.tournament);
+    await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.tournaments }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.ownTournaments }),
+    ]);
+
+    return response.tournament;
+}

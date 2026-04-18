@@ -7,7 +7,7 @@ import PageCorpus from '../components/PageCorpus';
 import PageMetadata, { DEFAULT_PAGE_TITLE } from '../components/PageMetadata';
 import TournamentEditorCard, { createDefaultTournamentRequest } from '../components/TournamentEditorCard';
 import { useQueryAccount } from '../query/accountClient';
-import { createQuickSealBotTournament, seedTournamentWithDevUsers } from '../query/devAuthClient';
+import { createQuickSealBot16Tournament, createQuickSealBotTournament, seedTournamentWithDevUsers } from '../query/devAuthClient';
 import {
     createTournament,
     startTournament,
@@ -280,6 +280,7 @@ function TournamentListRoute() {
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [quickCreating, setQuickCreating] = useState(false);
     const [quickSealBotCreating, setQuickSealBotCreating] = useState(false);
+    const [quickSealBot16Creating, setQuickSealBot16Creating] = useState<`swiss` | `single-elimination` | `double-elimination` | null>(null);
 
     const acct = acctQ.data?.user ?? null;
     const data = tQ.data;
@@ -351,6 +352,22 @@ function TournamentListRoute() {
             toast.error(err instanceof Error ? err.message : `Quick Seal Bot tournament failed.`, { toastId: `quick-seal-bot-err` });
         } finally {
             setQuickSealBotCreating(false);
+        }
+    };
+
+    const handleQuickSealBot16Create = async (format: `swiss` | `single-elimination` | `double-elimination`) => {
+        if (!import.meta.env.DEV) return;
+
+        try {
+            setQuickSealBot16Creating(format);
+            const tournament = await createQuickSealBot16Tournament(format);
+            const label = format === `swiss` ? `Swiss` : format === `single-elimination` ? `Single Elim` : `Double Elim`;
+            toast.success(`16-player ${label} Seal Bot tournament created.`, { toastId: `quick-seal-bot-16` });
+            void nav(`/tournaments/${tournament.id}`);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : `Quick Seal Bot tournament failed.`, { toastId: `quick-seal-bot-16-err` });
+        } finally {
+            setQuickSealBot16Creating(null);
         }
     };
 
@@ -431,13 +448,40 @@ function TournamentListRoute() {
 
                         {import.meta.env.DEV && acct && (
                             <div className="grid gap-2">
+                                <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600">16-Player Seal Bot Tests</div>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleQuickSealBot16Create(`swiss`)}
+                                    disabled={quickSealBot16Creating !== null}
+                                    className="w-full rounded-lg border border-dashed border-violet-400/30 bg-violet-400/6 px-3 py-2 text-[11px] font-semibold text-violet-300 transition hover:bg-violet-400/12 disabled:opacity-40"
+                                >
+                                    {quickSealBot16Creating === `swiss` ? `Creating...` : `Swiss 16P — Seal Bots`}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleQuickSealBot16Create(`single-elimination`)}
+                                    disabled={quickSealBot16Creating !== null}
+                                    className="w-full rounded-lg border border-dashed border-teal-400/30 bg-teal-400/6 px-3 py-2 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-400/12 disabled:opacity-40"
+                                >
+                                    {quickSealBot16Creating === `single-elimination` ? `Creating...` : `Single Elim 16P — Seal Bots`}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleQuickSealBot16Create(`double-elimination`)}
+                                    disabled={quickSealBot16Creating !== null}
+                                    className="w-full rounded-lg border border-dashed border-sky-400/30 bg-sky-400/6 px-3 py-2 text-[11px] font-semibold text-sky-300 transition hover:bg-sky-400/12 disabled:opacity-40"
+                                >
+                                    {quickSealBot16Creating === `double-elimination` ? `Creating...` : `Double Elim 16P — Seal Bots`}
+                                </button>
+
+                                <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600 mt-1">Other</div>
                                 <button
                                     type="button"
                                     onClick={() => void handleQuickSealBotCreate()}
                                     disabled={quickSealBotCreating}
                                     className="w-full rounded-lg border border-dashed border-sky-300/30 bg-sky-300/6 px-3 py-2 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-300/12 disabled:opacity-40"
                                 >
-                                    {quickSealBotCreating ? `Creating...` : `Quick Create 8-Player Seal Bot Tournament`}
+                                    {quickSealBotCreating ? `Creating...` : `Double Elim 8P — Seal Bots`}
                                 </button>
 
                                 <button
