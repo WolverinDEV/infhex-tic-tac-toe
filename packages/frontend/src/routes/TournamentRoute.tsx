@@ -887,10 +887,8 @@ function MatchCard({ match, canManage, viewerProfileId, tournamentStatus, timeou
                     {s.displayName ?? `TBD`}
                     {canNavigate && <span className="text-[9px] text-slate-600">
                         {sourceMatch.type === `winner` ? `W` : `L`}
-                        {` `}
-                        of
-                        {` `}
-                        {sourceMatch.matchId.replace(`match-`, ``)}
+                        {` of M`}
+                        {sourceMatch.matchId.split(`-`).at(-1)}
                                     </span>}
                 </span>
 
