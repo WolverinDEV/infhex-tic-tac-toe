@@ -569,7 +569,7 @@ export const zSessionTournamentInfo = z.object({
     matchExtensionMs: z.number().int()
         .nonnegative(),
     pendingExtension: z.boolean(),
-    matchStartedAt: zTimestamp,
+    matchJoinTimeoutInMs: z.number().int().nullable(),
     leftDisplayName: z.string().nullable(),
     rightDisplayName: z.string().nullable(),
     leftProfileId: zIdentifier.nullable(),
@@ -617,7 +617,7 @@ export const zMatchClaimWinState = z.object({
         .positive(),
     claimantProfileId: zIdentifier,
     startedAt: zTimestamp,
-    expiresAt: zTimestamp,
+    expiresInMs: z.number().int().nonnegative(),
 });
 export type MatchClaimWinState = z.infer<typeof zMatchClaimWinState>;
 

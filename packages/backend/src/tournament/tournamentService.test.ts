@@ -1732,7 +1732,8 @@ test(`best-of follow-up games reset startedAt and the session tournament timer`,
 
     assert.ok(gameTwoMatch.sessionId);
     assert.notEqual(gameTwoMatch.startedAt, 1);
-    assert.equal(gameTwoSession?.tournament?.matchStartedAt, gameTwoMatch.startedAt);
+    const remainingMs = gameTwoSession?.tournament?.matchJoinTimeoutInMs;
+    assert.ok(typeof remainingMs === `number` && remainingMs > 0);
     assert.equal(gameTwoSession?.tournament?.currentGameNumber, 2);
     assert.equal(gameTwoSession?.tournament?.leftWins, 1);
     assert.equal(gameTwoSession?.tournament?.rightWins, 0);
@@ -1909,7 +1910,7 @@ test(`claimWin ignores approved extensions from earlier best-of games`, async ()
     const claim = await service.claimWin(tournament.id, `match-winners-1-1`, user);
     assert.equal(claim.matchId, `match-winners-1-1`);
     assert.equal(claim.gameNumber, 2);
-    assert.ok(claim.expiresAt > claim.startedAt);
+    assert.ok(claim.expiresInMs > 0);
 
     (service as unknown as {
         cancelClaimWin: (matchId: string, sessionId: string) => void;
