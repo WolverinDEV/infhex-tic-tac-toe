@@ -11,6 +11,7 @@ type WaitingScreenProps = {
     sessionId: string
     playerCount: number
     localPlayerName: string,
+    localProfileId: string | null,
     gameOptions: LobbyOptions
     tournament: SessionTournamentInfo | null
     onInviteFriend: () => void
@@ -192,6 +193,7 @@ function WaitingScreen({
     sessionId,
     playerCount,
     localPlayerName,
+    localProfileId,
     gameOptions,
     tournament,
     onInviteFriend,
@@ -201,7 +203,7 @@ function WaitingScreen({
     const isTournament = tournament !== null;
     const claimWinState = useLiveGameStore((s) => s.claimWinState);
     const opponentName = isTournament
-        ? (tournament.leftDisplayName === localPlayerName ? tournament.rightDisplayName : tournament.leftDisplayName)
+        ? (localProfileId === tournament.leftProfileId ? tournament.rightDisplayName : tournament.leftDisplayName)
         : null;
     const showOfflinePlayButton = !isTournament && gameOptions.visibility === `public` && playerCount < 2 && Boolean(onPlayOffline);
 

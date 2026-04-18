@@ -39,6 +39,8 @@ function createTournament(overrides: Partial<SessionTournamentInfo> = {}): Sessi
     matchStartedAt: Date.now() - 6 * 60 * 1000,
     leftDisplayName: 'Alpha',
     rightDisplayName: 'Bravo',
+    leftProfileId: 'profile-alpha',
+    rightProfileId: 'profile-bravo',
     ...overrides,
   }
 }
@@ -49,6 +51,7 @@ test('shows a pending extension state instead of tournament timeout actions', as
       sessionId="session-1"
       playerCount={1}
       localPlayerName="Alpha"
+      localProfileId="profile-alpha"
       gameOptions={gameOptions}
       tournament={createTournament({ pendingExtension: true })}
       onInviteFriend={() => { }}

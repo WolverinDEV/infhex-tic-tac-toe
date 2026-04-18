@@ -2499,6 +2499,8 @@ export class TournamentService {
             matchStartedAt,
             leftDisplayName: match.slots[0].displayName,
             rightDisplayName: match.slots[1].displayName,
+            leftProfileId: match.slots[0].profileId,
+            rightProfileId: match.slots[1].profileId,
         };
     }
 

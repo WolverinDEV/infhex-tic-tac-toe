@@ -498,6 +498,8 @@ test(`watch-session can follow multiple rooms and unwatch stops further updates`
                     matchStartedAt: 1_700_000_000_000,
                     leftDisplayName: `Alpha`,
                     rightDisplayName: `Bravo`,
+                    leftProfileId: `profile-alpha`,
+                    rightProfileId: `profile-bravo`,
                 },
             });
             harness.sessionManager.emitGameState(liveSessionB.id, {
