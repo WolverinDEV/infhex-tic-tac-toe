@@ -1,5 +1,5 @@
 import type { LobbyOptions, MatchClaimWinState, SessionTournamentInfo } from '@ih3t/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
 import { useLiveGameStore } from '../liveGameStore';
@@ -61,9 +61,16 @@ function TournamentTimerSection({
     opponentName: string | null
 }) {
     const hasTimeout = tournament.matchJoinTimeoutMs > 0;
-    const joinDeadline = hasTimeout ? tournament.matchStartedAt + tournament.matchJoinTimeoutMs : null;
+    const joinDeadline = useMemo(
+        () => tournament.matchJoinTimeoutInMs !== null ? Date.now() + tournament.matchJoinTimeoutInMs : null,
+        [tournament.matchJoinTimeoutInMs],
+    );
+    const claimDeadline = useMemo(
+        () => claimWinState !== null ? Date.now() + claimWinState.expiresInMs : null,
+        [claimWinState],
+    );
     const joinRemaining = useCountdown(joinDeadline);
-    const claimRemaining = useCountdown(claimWinState?.expiresAt ?? null);
+    const claimRemaining = useCountdown(claimDeadline);
     const [isClaimPending, setIsClaimPending] = useState(false);
     const [isExtensionPending, setIsExtensionPending] = useState(false);
     const extensionMinutes = Math.round(tournament.matchExtensionMs / 60_000);

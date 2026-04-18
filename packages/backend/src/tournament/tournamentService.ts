@@ -2482,6 +2482,10 @@ export class TournamentService {
     }
 
     private toSessionTournamentInfo(tournament: TournamentRecord, match: TournamentMatch, matchStartedAt = match.startedAt ?? Date.now()): SessionTournamentInfo {
+        const timeoutMs = tournament.matchJoinTimeoutMinutes * 60_000;
+        const matchJoinTimeoutInMs = timeoutMs > 0
+            ? Math.max(0, matchStartedAt + timeoutMs - Date.now())
+            : null;
         return {
             tournamentId: tournament.id,
             tournamentName: tournament.name,
@@ -2493,10 +2497,10 @@ export class TournamentService {
             currentGameNumber: match.currentGameNumber,
             leftWins: match.leftWins,
             rightWins: match.rightWins,
-            matchJoinTimeoutMs: tournament.matchJoinTimeoutMinutes * 60_000,
+            matchJoinTimeoutMs: timeoutMs,
             matchExtensionMs: getMatchExtensionMinutes(tournament) * 60_000,
             pendingExtension: hasPendingExtensionForMatchGame(tournament, match.id, match.currentGameNumber),
-            matchStartedAt,
+            matchJoinTimeoutInMs,
             leftDisplayName: match.slots[0].displayName,
             rightDisplayName: match.slots[1].displayName,
             leftProfileId: match.slots[0].profileId,
@@ -2946,7 +2950,7 @@ export class TournamentService {
             gameNumber: claim.gameNumber,
             claimantProfileId: claim.claimantProfileId,
             startedAt: claim.startedAt,
-            expiresAt: claim.expiresAt,
+            expiresInMs: Math.max(0, claim.expiresAt - Date.now()),
         };
     }
 
@@ -3029,7 +3033,7 @@ export class TournamentService {
                 gameNumber: match.currentGameNumber,
                 claimantProfileId: user.id,
                 startedAt: now,
-                expiresAt,
+                expiresInMs: kClaimWinCountdownMs,
             };
 
             const timer = setTimeout(() => {

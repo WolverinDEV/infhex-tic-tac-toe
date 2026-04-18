@@ -36,7 +36,7 @@ function createTournament(overrides: Partial<SessionTournamentInfo> = {}): Sessi
     matchJoinTimeoutMs: 5 * 60 * 1000,
     matchExtensionMs: 5 * 60 * 1000,
     pendingExtension: false,
-    matchStartedAt: Date.now() - 6 * 60 * 1000,
+    matchJoinTimeoutInMs: 0,
     leftDisplayName: 'Alpha',
     rightDisplayName: 'Bravo',
     leftProfileId: 'profile-alpha',
