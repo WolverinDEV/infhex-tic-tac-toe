@@ -426,6 +426,32 @@ export class ApiRouter {
                     throw error;
                 }
             });
+
+            router.post(`/dev/tournaments/quick-seal-bot-16/:format`, async (req, res) => {
+                const user = await this.authService.getUserFromRequest(req);
+                if (!user) {
+                    res.status(401).json({ error: `Sign in before using development tournament helpers.` });
+                    return;
+                }
+
+                const format = req.params.format;
+                if (format !== `swiss` && format !== `single-elimination` && format !== `double-elimination`) {
+                    res.status(400).json({ error: `Invalid format. Use swiss, single-elimination, or double-elimination.` });
+                    return;
+                }
+
+                try {
+                    const tournament = await this.devSupportService.createQuickSealBotTournamentWithOptions(user, format, 16);
+                    res.json({ tournament });
+                } catch (error: unknown) {
+                    if (error instanceof SessionError) {
+                        res.status(409).json({ error: error.message });
+                        return;
+                    }
+
+                    throw error;
+                }
+            });
         }
 
         router.post(`/tournaments`, express.json(), async (req, res) => {

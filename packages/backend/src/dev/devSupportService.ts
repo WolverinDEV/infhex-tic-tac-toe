@@ -7,6 +7,7 @@ import type {
     GameState,
     HexCoordinate,
     TournamentDetail,
+    TournamentFormat,
     TournamentMatch,
     TournamentParticipant,
 } from '@ih3t/shared';
@@ -128,15 +129,24 @@ export class DevSupportService {
     }
 
     async createQuickSealBotTournament(actor: AccountUserProfile): Promise<TournamentDetail> {
+        return this.createQuickSealBotTournamentWithOptions(actor, `double-elimination`, kQuickSealBotTournamentEntrants);
+    }
+
+    async createQuickSealBotTournamentWithOptions(
+        actor: AccountUserProfile,
+        format: TournamentFormat,
+        playerCount: number,
+    ): Promise<TournamentDetail> {
         this.assertEnabled();
 
+        const formatLabel = format === `swiss` ? `Swiss` : format === `single-elimination` ? `SE` : `DE`;
         const request: CreateTournamentRequest = {
-            name: `Seal Bot Test ${new Date().toLocaleTimeString()}`,
-            format: `double-elimination`,
+            name: `${formatLabel} ${playerCount}P Seal Bot ${new Date().toLocaleTimeString()}`,
+            format,
             visibility: `private`,
             scheduledStartAt: Date.now() + 60_000,
             checkInWindowMinutes: 5,
-            maxPlayers: kQuickSealBotTournamentEntrants,
+            maxPlayers: playerCount,
             timeControl: { mode: `turn`, turnTimeMs: 20_000 },
             seriesSettings: {
                 earlyRoundsBestOf: 1,
@@ -149,7 +159,7 @@ export class DevSupportService {
 
         const createdTournament = await this.tournamentService.createTournament(actor, request);
         await this.seedTournament(createdTournament.id, actor, {
-            count: kQuickSealBotTournamentEntrants,
+            count: playerCount,
             state: `checked-in`,
         });
         await this.tournamentService.startTournament(createdTournament.id, actor);
