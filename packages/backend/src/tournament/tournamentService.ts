@@ -2792,16 +2792,25 @@ export class TournamentService {
             }
 
             // Already sent a warning for this match since the current timeout window started?
+            // Use the latest approved extension's resolvedAt as the window floor so that
+            // a pre-extension warning doesn't suppress a re-notification after extension expires.
+            const latestApprovedExtension = tournament.extensionRequests
+                .filter((r) => isExtensionForMatchGame(r, match.id, match.currentGameNumber) && r.status === `approved` && r.resolvedAt !== null)
+                .sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0))[0] ?? null;
+            const warnWindowStart = latestApprovedExtension?.resolvedAt
+                ? Math.max(match.startedAt!, latestApprovedExtension.resolvedAt)
+                : match.startedAt!;
+
             const timeoutWarningMessage = `${describeTournamentMatch(match)} timed out — waiting for player(s) to join.`;
             const alreadyWarned = tournament.activity.some((activity) =>
                 activity.type === `timeout-warning`
                 && activity.message === timeoutWarningMessage
-                && activity.timestamp >= match.startedAt!);
+                && activity.timestamp >= warnWindowStart);
             if (alreadyWarned) {
                 continue;
             }
 
-            // Check if there's a pending or approved extension for this match
+            // Check if there's still an active (non-expired) extension for this match
             const hasActiveExtension = tournament.extensionRequests.some((r) =>
                 isExtensionForMatchGame(r, match.id, match.currentGameNumber)
                 && (r.status === `approved` && now - r.resolvedAt! < extensionMs));
