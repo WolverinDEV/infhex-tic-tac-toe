@@ -124,8 +124,6 @@ function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
     const nextGameState = createSandboxGameState(orderedCells[0]?.player);
     const gameHistory: GameState[] = [];
 
-    console.log(orderedCells)
-
     for (const cell of orderedCells) {
         gameHistory.push(cloneGameState(nextGameState));
         applyGameMove(nextGameState, {
@@ -140,7 +138,6 @@ function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
         nextGameState.currentTurnPlayerId !== expectedCurrentTurnPlayerId
         || nextGameState.placementsRemaining !== gamePosition.placementsRemaining
     ) {
-        console.log(`${nextGameState.currentTurnPlayerId} - ${expectedCurrentTurnPlayerId} - ${orderedCells[0]?.player}`)
         throw new Error(`Sandbox position is inconsistent.`);
     }
 

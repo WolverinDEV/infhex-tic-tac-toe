@@ -66,10 +66,13 @@ export function createAppRoutes() {
                     <Route path="/admin/stats" element={<AdminRoute />} />
                 </Route>
 
-                <Route element={<CommonPageLayout limitWidth={false} />}>
+                <Route element={<CommonPageLayout limitWidth={false} hideMobile={true} />}>
                     <Route path="/sandbox" element={<SandboxRoute />} />
                     <Route path="/sandbox/:positionId" element={<SandboxRoute />} />
                     <Route path="/session/:sessionId" element={<SessionRoute />} />
+                </Route>
+
+                <Route element={<CommonPageLayout limitWidth={false} />}>
                     <Route path="/tournaments/:tournamentId/bracket" element={<TournamentBracketRoute />} />
                     <Route path="/tournaments/:tournamentId/multiview" element={<TournamentMultiviewRoute />} />
                 </Route>

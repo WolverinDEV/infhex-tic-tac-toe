@@ -152,7 +152,9 @@ export class FrontendSsrRenderer {
         if (path === `/tournaments`) {
             const pastPage = parsePositiveInteger(requestUrl.searchParams.get(`pastPage`)) ?? 1;
             queryClient.setQueryData(
-                [...queryKeys.tournaments, `list`, pastPage],
+                [
+                    ...queryKeys.tournaments, `list`, pastPage,
+                ],
                 await this.dependencies.apiQueryService.getTournaments(req),
             );
         }

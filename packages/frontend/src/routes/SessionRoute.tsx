@@ -15,8 +15,8 @@ import {
     joinSession,
     leaveSession,
     placeCell,
-    requestSessionDraw,
     requestRematch,
+    requestSessionDraw,
     sendSessionChatMessage,
     surrenderGame,
 } from '../liveGameClient';
@@ -55,8 +55,7 @@ function SessionConnectingScreen({ sessionId, isConnected, onBack }: Readonly<{
     onBack: () => void
 }>) {
     return (
-
-        <div className="mx-auto flex max-w-3xl items-center justify-center h-full">
+        <div className="mx-auto flex max-w-3xl items-center justify-center h-full px-4">
             <div className="w-full rounded-4xl border border-white/10 bg-slate-950/55 p-8 text-center shadow-[0_20px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:p-10">
                 <div className="text-xs uppercase tracking-[0.32em] text-sky-200/80">
                     Live Session
@@ -103,7 +102,7 @@ function SessionUnavailableScreen({
     onBack: () => void
 }>) {
     return (
-        <div className="mx-auto flex max-w-3xl items-center justify-center h-full">
+        <div className="mx-auto flex max-w-3xl items-center justify-center h-full px-4">
             <div className="w-full rounded-4xl border border-white/10 bg-slate-950/55 p-8 text-center shadow-[0_20px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:p-10">
                 <div className="text-xs uppercase tracking-[0.32em] text-amber-200/80">
                     Live Session
@@ -200,38 +199,38 @@ function RouteMetadata() {
             title: `Live Session • ${DEFAULT_PAGE_TITLE}`,
             description: `Join or spectate a live HeXO session.`,
             robots: `noindex, nofollow` as const,
-        }
+        };
     } else if (!sessionInfo) {
         metadata = {
             title: `Invite Expired • ${DEFAULT_PAGE_TITLE}`,
             description: `This live session is no longer active. Open the lobby to host or join another match.`,
             robots: `noindex, nofollow` as const,
-        }
+        };
     } else if (localParticipantId) {
         /* Active SPA game */
         switch (sessionInfo.state.status) {
-            case 'lobby':
-                metadata = { title: `Lobby ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` }
-                break
+            case `lobby`:
+                metadata = { title: `Lobby ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` };
+                break;
 
-            case 'in-game':
+            case `in-game`:
                 if (sessionInfo.players.some(player => player.id === localParticipantId)) {
-                    metadata = { title: `Live Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` }
+                    metadata = { title: `Live Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` };
                 } else {
-                    metadata = { title: `Spectating Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` }
+                    metadata = { title: `Spectating Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` };
                 }
-                break
+                break;
 
-            case 'finished':
-                metadata = { title: `Finished Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` }
-                break
+            case `finished`:
+                metadata = { title: `Finished Game ${sessionInfo.id} • ${DEFAULT_PAGE_TITLE}` };
+                break;
         }
     } else {
         metadata = describeSessionInvite(sessionInfo);
     }
     return (
         <PageMetadata {...metadata} />
-    )
+    );
 }
 
 const kEmptyGameState = createEmptyGameState();
@@ -451,17 +450,26 @@ function SessionRoute() {
                     <div className="inline-flex rounded-full border border-sky-300/30 bg-sky-300/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.28em] text-sky-200">
                         Spectating
                     </div>
+
                     <h2 className="mt-5 text-2xl font-black uppercase tracking-[0.06em] sm:text-4xl">
                         Waiting for match to start
                     </h2>
+
                     <p className="mt-3 text-sm text-slate-400">
                         The players haven&apos;t started yet. You&apos;ll be able to spectate once the game begins.
                     </p>
+
                     <div className="mt-3 text-[11px] tabular-nums text-slate-500">
-                        Players ready: {session.players.length}/2
+                        Players ready:
+                        {` `}
+                        {session.players.length}
+                        /2
                     </div>
-                    <button onClick={leaveSessionAndNavigate}
-                        className="mt-6 text-sm text-slate-500 transition hover:text-white">
+
+                    <button
+                        onClick={leaveSessionAndNavigate}
+                        className="mt-6 text-sm text-slate-500 transition hover:text-white"
+                    >
                         Leave
                     </button>
                 </div>

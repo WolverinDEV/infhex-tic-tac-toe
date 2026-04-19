@@ -11,7 +11,6 @@ import {
     type CreateSandboxPositionResponse,
     type CreateSessionResponse,
     DEFAULT_LOBBY_OPTIONS,
-    zLobbyFirstPlayer,
     type LobbyOptions,
     type ServerSettings,
     type UserSearchResponse,
@@ -21,7 +20,9 @@ import {
     zAdminUpdateUserPermissionsRequest,
     zCreateSandboxPositionRequest,
     zCreateTournamentRequest,
+    zLobbyFirstPlayer,
     zLobbyVisibility,
+    zReorderSeedsRequest,
     zRequestMatchExtensionRequest,
     zResolveExtensionRequest,
     zSandboxPositionId,
@@ -31,7 +32,6 @@ import {
     zTournamentParticipantSwapRequest,
     zUpdateAccountPreferencesRequest,
     zUpdateAccountProfileRequest,
-    zReorderSeedsRequest,
     zUpdateTournamentRequest,
 } from '@ih3t/shared';
 import express from 'express';
@@ -376,7 +376,10 @@ export class ApiRouter {
                 const user = await this.authService.getUserFromRequest(req);
                 if (!user) { res.status(401).json({ error: `Sign in.` }); return; }
                 try {
-                    const count = z.coerce.number().int().min(1).max(500).parse((req.body as { count?: unknown })?.count ?? 1);
+                    const count = z.coerce.number().int()
+                        .min(1)
+                        .max(500)
+                        .parse((req.body as { count?: unknown })?.count ?? 1);
                     res.json(await this.devSupportService.resolveN(req.params.tournamentId, user, count));
                 } catch (error: unknown) {
                     if (error instanceof SessionError) { res.status(409).json({ error: error.message }); return; }

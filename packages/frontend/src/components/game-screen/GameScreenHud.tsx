@@ -157,6 +157,7 @@ function GameScreenHud({
                     >
                         Decline Draw
                     </button>
+
                     <button
                         onClick={onAcceptDraw}
                         className="min-w-36 flex-1 rounded-full bg-emerald-500 px-4 py-2 font-medium shadow-lg hover:bg-emerald-400 md:flex-none"
@@ -190,7 +191,9 @@ function GameScreenHud({
                                     <InfoIcon />
                                 </span>
 
-                                <span>{drawHint}</span>
+                                <span>
+                                    {drawHint}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -306,6 +309,7 @@ function GameScreenHud({
                             {` `}
                             turns completed
                         </div>
+
                         <div className="text-slate-300">
                             {occupiedCellCount}
                             {` `}
@@ -428,7 +432,6 @@ function GameScreenHud({
                     )}
 
                     {drawActionArea}
-
                     {drawActionArea && (<div />)}
 
                     <button

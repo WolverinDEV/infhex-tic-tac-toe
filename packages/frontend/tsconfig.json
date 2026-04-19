@@ -4,9 +4,8 @@
         "lib": ["ES2022", "DOM", "DOM.Iterable"],
         "composite": true,
         "outDir": "./dist",
-        "baseUrl": ".",
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["./src/*"]
         }
     },
     "exclude": [

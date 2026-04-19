@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 
 import { useQueryAccount } from '../query/accountClient';
 import { signInWithDiscord, signOutAccount } from '../query/authClient';
+import { cn } from '../utils/cn';
 import AccountPicture from './AccountPicture';
 import AppErrorBoundary from './AppErrorBoundary';
 import DevAuthPanel from './DevAuthPanel';
@@ -116,7 +117,7 @@ function DiscordLink({
 }
 
 
-function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
+function CommonPageLayout({ limitWidth, hideMobile }: { limitWidth: boolean, hideMobile?: boolean }) {
     const location = useLocation();
     const accountQuery = useQueryAccount({ enabled: true });
     const account = accountQuery.data?.user ?? null;
@@ -177,7 +178,13 @@ function CommonPageLayout({ limitWidth }: { limitWidth: boolean }) {
 
     return (
         <div className="absolute inset-0 overflow-auto flex min-h-dvh flex-col bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.14),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_24%),linear-gradient(135deg,#020617,#0f172a_45%,#111827)] text-white">
-            <header ref={headerRef} className="sticky top-0 z-40 border-b border-sky-300/10 bg-slate-950/85 backdrop-blur-xl">
+            <header
+                ref={headerRef}
+                className={cn(
+                    `sm:flex sticky top-0 z-40 border-b border-sky-300/10 bg-slate-950/85 backdrop-blur-xl`,
+                    hideMobile && `hidden`,
+                )}
+            >
                 <div className="mx-auto flex flex-row w-full max-w-368 gap-4 px-2 py-2 lg:py-4 lg:px-6 items-center justify-between">
                     <NavLink
                         to="/"

@@ -4,11 +4,10 @@
         "composite": true,
         "outDir": "./dist",
         "rootDir": "./src",
-        "baseUrl": ".",
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["./src/*"]
         }
     },
     "exclude": ["node_modules", "dist"],
