@@ -195,10 +195,6 @@ export default function PublicMatchesList({
 
             <div className="relative flex gap-4 flex-row justify-between">
                 <div className="min-w-0">
-                    <p className="text-sm uppercase tracking-[0.3em] text-sky-200/80">
-                        Live Sessions
-                    </p>
-
                     <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
                         Available Matches
                     </h2>
@@ -271,9 +267,9 @@ export default function PublicMatchesList({
                                                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${canJoin
                                                     ? `bg-emerald-400/15 text-emerald-200`
                                                     : `bg-sky-400/15 text-sky-200`
-                                                }`}
+                                                    }`}
                                                 >
-                                                    {canJoin ? `Lobby` : `Game`} 
+                                                    {canJoin ? `Lobby` : `Game`}
                                                     {` `}
                                                     {session.id}
                                                 </span>
@@ -281,7 +277,7 @@ export default function PublicMatchesList({
                                                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${session.rated
                                                     ? `bg-amber-300/15 text-amber-100`
                                                     : `bg-white/8 text-slate-200`
-                                                }`}
+                                                    }`}
                                                 >
                                                     <ModeBadgeIcon rated={session.rated} />
                                                     {session.rated ? `Rated` : `Unrated`}
@@ -311,7 +307,7 @@ export default function PublicMatchesList({
                                                         : canJoin
                                                             ? `cursor-pointer bg-sky-400 text-slate-950 shadow-[0_10px_30px_rgba(56,189,248,0.28)] hover:-translate-y-0.5 hover:bg-sky-300`
                                                             : `cursor-pointer border border-white/15 bg-white/8 text-white hover:-translate-y-0.5 hover:bg-white/14`
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {joinButtonLabel}
                                                 </button>
