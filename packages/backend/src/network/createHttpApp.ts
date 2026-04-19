@@ -142,12 +142,13 @@ export class HttpApplication {
 
         const origin = `${req.protocol}://${req.get(`host`)}`;
         const url = new URL(req.originalUrl || req.url, origin);
+        const now = Date.now();
         const atValue = Number.parseInt(url.searchParams.get(`at`) ?? ``, 10);
-        if (Number.isFinite(atValue) && atValue > 0) {
+        if (Number.isFinite(atValue) && atValue > 0 && Math.abs(now - atValue) <= 2 * 60 * 1000) {
             return null;
         }
 
-        url.searchParams.set(`at`, String(Date.now()));
+        url.searchParams.set(`at`, String(now));
         return `${url.pathname}?${url.searchParams.toString()}`;
     }
 }

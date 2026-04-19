@@ -133,6 +133,11 @@ export class ApiQueryService {
             throw new ApiRequestError(401, `Public match history is limited to the last 500 games`);
         }
 
+        const now = Date.now();
+        if (Math.abs(now - options.baseTimestamp) > 2 * 60 * 1000) {
+            throw new Error(`Finished games baseTimestamp is stale.`);
+        }
+
         return await this.gameHistoryRepository.listFinishedGames({
             page: options.page,
             pageSize: options.pageSize,
