@@ -127,7 +127,8 @@ function GameScreenHud({
     onResetView,
 }: Readonly<GameScreenHudProps>) {
     const isSpectator = !players.some(player => player.playerId === localPlayerId);
-    const [isHudOpen, setIsHudOpen] = useState(true);
+    /* Do not show the HUD by default on mobile devices */
+    const [isHudOpen, setIsHudOpen] = useState(window.innerWidth >= 900);
     const opponent = players.find(player => player.playerId !== localPlayerId) ?? null;
     const requestedByLocalPlayer = Boolean(localPlayerId) && drawRequestByPlayerId === localPlayerId;
     const requestedByOpponent = Boolean(opponent) && drawRequestByPlayerId === opponent?.playerId;
