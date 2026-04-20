@@ -701,8 +701,8 @@ function SandboxRoute() {
                         })}
             />
 
-            <div className="relative h-full w-full overflow-hidden bg-slate-950 text-white">
-                {!isImportModalOpen && (
+            <div className="relative h-full w-full overflow-hidden text-white">
+                {!isWelcomeModalVisible && !isImportModalOpen && (
                     <GameBoardCanvas
                         canvasRef={canvasRef}
                         className={canvasClassName}
