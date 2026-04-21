@@ -1,4 +1,4 @@
-import type { BoardState, GameState } from '@ih3t/shared';
+import { BoardState, GameState, PLAYER_TILE_COLORS } from '@ih3t/shared';
 import type { CanvasHTMLAttributes, RefObject } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -36,13 +36,20 @@ type DragState = {
     moved: boolean
 };
 
+type HighlightColor = `neutral` | `yellow` | `blue`;
+
+type Highlight = {
+    kind: `cell` | `line`
+    cells: HexCell[]
+    color: HighlightColor
+};
+
 type HighlightPointerState = {
     startX: number
     startY: number
     startCell: HexCell
     pointerButtonsMask: 1 | 2
-    drawing: boolean
-    cells: HexCell[]
+    highlight: Highlight
 };
 
 type PinchState = {
@@ -271,7 +278,7 @@ function useGameBoard({
     const viewRef = useRef<ViewState>({ offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE });
     const animationFrameRef = useRef<number | null>(null);
     const hoveredCellRef = useRef<ReturnType<typeof pixelToAxial> | null>(null);
-    const lineHighlightsRef = useRef<HexCell[][]>([]);
+    const highlightsRef = useRef<Highlight[]>([]);
 
     const latestDataRef = useRef<{
         boardState: BoardState
@@ -460,19 +467,14 @@ function useGameBoard({
             }
         }
 
-        const activeLine = highlightPointerStateRef.current?.drawing
-            ? highlightPointerStateRef.current.cells
+        const activeHighlight = highlightPointerStateRef.current?.highlight.kind === `line` ? highlightPointerStateRef.current.highlight
             : null;
-        const linesToDraw = activeLine
-            ? [...lineHighlightsRef.current, activeLine]
-            : lineHighlightsRef.current;
+        const highlightsToDraw = activeHighlight
+            ? [...highlightsRef.current, activeHighlight]
+            : highlightsRef.current;
 
-        for (const lineHighlightCells of linesToDraw) {
-            if (lineHighlightCells.length === 0) {
-                continue;
-            }
-
-            const linePoints = lineHighlightCells.map((cell) => {
+        for (const highlight of highlightsToDraw) {
+            const points = highlight.cells.map((cell) => {
                 const point = axialToUnitPoint(cell.x, cell.y);
                 return {
                     screenX: centerX + point.x * scale,
@@ -484,38 +486,49 @@ function useGameBoard({
             context.lineCap = `round`;
             context.lineJoin = `round`;
 
-            if (linePoints.length === 1) {
-                const [point] = linePoints;
+            const highlightColor: RgbColor
+                = highlight.color === `neutral` ? {r: 244, g: 114, b: 182}
+                    : highlight.color === `yellow` ? parseHexColor(PLAYER_TILE_COLORS[0])!
+                        : parseHexColor(PLAYER_TILE_COLORS[1])!;
 
-                traceHexPath(context, point.screenX, point.screenY, Math.max(4, hexRadius - 2));
-                context.strokeStyle = `rgba(244, 114, 182, 0.96)`;
-                context.lineWidth = Math.max(2, scale * 0.085);
-                context.shadowBlur = Math.max(14, scale * 0.28);
-                context.shadowColor = `rgba(244, 114, 182, 0.35)`;
-                context.stroke();
+            switch (highlight.kind) {
+                case `cell`: {
+                    const [point] = points;
 
-                traceHexPath(context, point.screenX, point.screenY, Math.max(3, hexRadius - 6));
-                context.fillStyle = `rgba(244, 114, 182, 0.14)`;
-                context.fill();
-            } else {
-                const markerWidth = Math.max(6, scale * 0.24);
+                    traceHexPath(context, point.screenX, point.screenY, Math.max(4, hexRadius - 2));
+                    context.strokeStyle = withAlpha(highlightColor, 0.96);
+                    context.lineWidth = Math.max(2, scale * 0.085);
+                    context.shadowBlur = Math.max(14, scale * 0.28);
+                    context.shadowColor = withAlpha(highlightColor, 0.35);
+                    context.stroke();
 
-                context.beginPath();
-                context.moveTo(linePoints[0].screenX, linePoints[0].screenY);
-                for (const point of linePoints.slice(1)) {
-                    context.lineTo(point.screenX, point.screenY);
+                    traceHexPath(context, point.screenX, point.screenY, Math.max(3, hexRadius - 6));
+                    context.fillStyle = withAlpha(highlightColor, 0.14);
+                    context.fill();
+                    break;
                 }
+                case `line`: {
+                    const markerWidth = Math.max(6, scale * 0.24);
 
-                context.strokeStyle = `rgba(15, 23, 42, 0.34)`;
-                context.lineWidth = markerWidth + Math.max(2.5, scale * 0.08);
-                context.shadowBlur = Math.max(18, scale * 0.34);
-                context.shadowColor = `rgba(15, 23, 42, 0.2)`;
-                context.stroke();
+                    context.beginPath();
+                    context.moveTo(points[0].screenX, points[0].screenY);
+                    for (const point of points.slice(1)) {
+                        context.lineTo(point.screenX, point.screenY);
+                    }
 
-                context.shadowBlur = 0;
-                context.strokeStyle = `rgba(244, 114, 182, 0.92)`;
-                context.lineWidth = markerWidth;
-                context.stroke();
+                    const shadowColor: RgbColor = {r: 15, g: 23, b: 42};
+                    context.strokeStyle = withAlpha(shadowColor, 0.34);
+                    context.lineWidth = markerWidth + Math.max(2.5, scale * 0.08);
+                    context.shadowBlur = Math.max(18, scale * 0.34);
+                    context.shadowColor = withAlpha(shadowColor, 0.2);
+                    context.stroke();
+
+                    context.shadowBlur = 0;
+                    context.strokeStyle = withAlpha(highlightColor, 0.92);
+                    context.lineWidth = markerWidth;
+                    context.stroke();
+                    break;
+                }
             }
 
             context.restore();
@@ -587,6 +600,7 @@ function useGameBoard({
         clientX: number,
         clientY: number,
         pointerButtonsMask: 1 | 2,
+        color : HighlightColor,
     ) => {
         const targetCell = screenToCell(clientX, clientY);
         if (!targetCell || !renderableCells.get(getCellKey(targetCell.x, targetCell.y))) {
@@ -598,8 +612,9 @@ function useGameBoard({
             startY: clientY,
             startCell: targetCell,
             pointerButtonsMask,
-            drawing: false,
-            cells: [targetCell],
+            highlight: {
+                kind: `cell`, cells: [targetCell], color,
+            },
         };
         hoveredCellRef.current = null;
         dragStateRef.current = null;
@@ -614,38 +629,19 @@ function useGameBoard({
             return;
         }
 
-        const deltaX = clientX - highlightPointerState.startX;
-        const deltaY = clientY - highlightPointerState.startY;
-        const movedEnough = Math.abs(deltaX) > DRAG_THRESHOLD_PX
-            || Math.abs(deltaY) > DRAG_THRESHOLD_PX
-            || !sameCell(highlightPointerState.startCell, targetCell);
-
-        if (!highlightPointerState.drawing) {
-            if (!movedEnough) {
-                return;
-            }
-
-            highlightPointerState.drawing = true;
-            highlightPointerState.cells = [highlightPointerState.startCell];
-        }
-
         const nextLine = buildStraightHexLine(highlightPointerState.startCell, targetCell)
             .filter(cell => renderableCells.has(getCellKey(cell.x, cell.y)));
 
-        const lastCell = nextLine[nextLine.length - 1];
-        if (!lastCell || sameCell(lastCell, highlightPointerState.cells[highlightPointerState.cells.length - 1] ?? null)) {
-            return;
-        }
-
-        highlightPointerState.cells = nextLine;
+        highlightPointerState.highlight.cells = nextLine;
+        highlightPointerState.highlight.kind = nextLine.length > 1 ? `line` : `cell`;
         scheduleDraw();
     };
 
-    const getLineIndexAtCell = (targetCell: HexCell) => {
-        for (let lineIndex = lineHighlightsRef.current.length - 1; lineIndex >= 0; lineIndex -= 1) {
-            const matchesCell = lineHighlightsRef.current[lineIndex]?.some((cell) => sameCell(cell, targetCell));
+    const getHighlightIndexAtCell = (targetCell: HexCell) => {
+        for (let highlightIndex = highlightsRef.current.length - 1; highlightIndex >= 0; highlightIndex -= 1) {
+            const matchesCell = highlightsRef.current[highlightIndex].cells?.some((cell) => sameCell(cell, targetCell));
             if (matchesCell) {
-                return lineIndex;
+                return highlightIndex;
             }
         }
 
@@ -653,33 +649,30 @@ function useGameBoard({
     };
 
     const finishHighlightPointerInteraction = (clientX: number, clientY: number) => {
-        const lineDragState = highlightPointerStateRef.current;
+        const highlightPointerState = highlightPointerStateRef.current;
         highlightPointerStateRef.current = null;
 
-        if (!lineDragState) {
+        if (!highlightPointerState) {
             return;
         }
 
-        const targetCell = screenToCell(clientX, clientY) ?? lineDragState.startCell;
+        const targetCell = screenToCell(clientX, clientY) ?? highlightPointerState.startCell;
 
-        if (!lineDragState.drawing) {
+        if (highlightPointerState.highlight.kind === `cell`) {
             /* we clicked a single cell */
-            const lineIndex = getLineIndexAtCell(targetCell);
-            if (lineIndex >= 0) {
-                /* remove the line */
-                lineHighlightsRef.current.splice(lineIndex, 1);
+            const highlightIndex = getHighlightIndexAtCell(targetCell);
+            if (highlightIndex >= 0) {
+                /* remove the cell */
+                highlightsRef.current.splice(highlightIndex, 1);
             } else {
-                /* higlight the cell */
-                lineHighlightsRef.current = [...lineHighlightsRef.current, [targetCell]];
+                /* highlight the cell */
+                highlightsRef.current.push(highlightPointerState.highlight);
             }
         } else {
             /* finalize the line itself */
-            lineDragState.cells = buildStraightHexLine(lineDragState.startCell, targetCell)
+            highlightPointerState.highlight.cells = buildStraightHexLine(highlightPointerState.startCell, targetCell)
                 .filter(cell => renderableCells.has(getCellKey(cell.x, cell.y)));
-
-            if (lineDragState.cells.length >= 2) {
-                lineHighlightsRef.current = [...lineHighlightsRef.current, lineDragState.cells];
-            }
+            highlightsRef.current.push(highlightPointerState.highlight);
         }
 
         scheduleDraw();
@@ -694,7 +687,7 @@ function useGameBoard({
 
     const resetView = () => {
         viewRef.current = { offsetX: 0, offsetY: 0, scale: DEFAULT_SCALE };
-        lineHighlightsRef.current = [];
+        highlightsRef.current = [];
         highlightPointerStateRef.current = null;
         scheduleDraw();
     };
@@ -732,8 +725,8 @@ function useGameBoard({
             ? `cursor-grab active:cursor-grabbing`
             : interactionEnabled && !canPlaceCell && !isSpectator
                 ? `cursor-not-allowed`
-            : `cursor-default`
-            }`,
+                : `cursor-default`
+        }`,
         canvasHandlers: {
             onContextMenu: (event) => {
                 event.preventDefault();
@@ -746,10 +739,12 @@ function useGameBoard({
                 const isHighlightPointerDown = event.button === 2 || (event.button === 0 && event.shiftKey);
                 if (isHighlightPointerDown) {
                     event.preventDefault();
+                    const color = (event.shiftKey && event.button === 2) ? `yellow` : event.altKey ? `blue` : `neutral`;
                     startHighlightPointerInteraction(
                         event.clientX,
                         event.clientY,
                         event.button === 2 ? 2 : 1,
+                        color,
                     );
                     return;
                 }
@@ -810,13 +805,13 @@ function useGameBoard({
                     return;
                 }
 
-                const hadActiveLine = highlightPointerStateRef.current !== null;
+                const hadActiveHighlight = highlightPointerStateRef.current !== null;
                 dragStateRef.current = null;
                 highlightPointerStateRef.current = null;
                 if (hoveredCellRef.current !== null) {
                     hoveredCellRef.current = null;
                     scheduleDraw();
-                } else if (hadActiveLine) {
+                } else if (hadActiveHighlight) {
                     scheduleDraw();
                 }
             },
