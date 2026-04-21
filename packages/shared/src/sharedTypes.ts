@@ -219,6 +219,10 @@ export const zGameState = z.object({
         .nonnegative()),
 });
 export type GameState = z.infer<typeof zGameState>;
+export type Game = {
+    history: GameState[];
+    currentStateIndex: number;
+};
 
 export const zBoardState = zGameState;
 export type BoardState = GameState;

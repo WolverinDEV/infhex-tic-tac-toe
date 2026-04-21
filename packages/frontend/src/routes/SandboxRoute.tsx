@@ -2,6 +2,7 @@ import {
     applyGameMove,
     cloneGameState,
     createStartedGameState,
+    type Game,
     GameRuleError,
     type GameState,
     type HexCoordinate,
@@ -121,16 +122,17 @@ function buildSandboxGamePosition(gameState: GameState): SandboxGamePosition | n
 
 function restoreSandboxPosition(gamePosition: SandboxGamePosition) {
     const orderedCells = [...gamePosition.cells].sort((leftCell, rightCell) => leftCell.moveId - rightCell.moveId);
+
     const nextGameState = createSandboxGameState(orderedCells[0]?.player);
-    const gameHistory: GameState[] = [];
+    const gameHistory: GameState[] = [cloneGameState(nextGameState)];
 
     for (const cell of orderedCells) {
-        gameHistory.push(cloneGameState(nextGameState));
         applyGameMove(nextGameState, {
             playerId: getSandboxPlayerId(cell.player),
             x: cell.x,
             y: cell.y,
         });
+        gameHistory.push(cloneGameState(nextGameState));
     }
 
     const expectedCurrentTurnPlayerId = getSandboxPlayerId(gamePosition.currentTurnPlayer);
@@ -171,8 +173,16 @@ function SandboxRoute() {
     const { data: accountPreferences } = useQueryAccountPreferences({ enabled: account?.user !== null });
 
     const { positionId: routePositionId } = useParams<{ positionId?: string }>();
-    const [gameState, setGameState] = useState(() => createSandboxGameState());
-    const [gameHistory, setGameHistory] = useState<GameState[]>([]);
+
+    const emptyGameHistory = [createSandboxGameState()];
+    const [game, setGame] = useState<Game>({ history: emptyGameHistory, currentStateIndex: 0 });
+    const currentGameState = game.history[game.currentStateIndex];
+
+    const setGameHistory = (gameHistory: GameState[]) => setGame({
+        history: gameHistory, currentStateIndex: gameHistory.length - 1,
+    });
+    const resetGame = () => setGame({ history: emptyGameHistory, currentStateIndex: 0 });
+
     const [loadedSnapshot, setLoadedSnapshot] = useState<SandboxSnapshot | null>(null);
     const [isWelcomeModalVisible, setIsWelcomeModalVisible] = useState(() => !routePositionId);
     const [isWinnerBannerVisible, setIsWinnerBannerVisible] = useState(false);
@@ -190,9 +200,7 @@ function SandboxRoute() {
     const [isBotPanelOpen, setIsBotPanelOpen] = useState(false);
     const [isBotFactoryModalOpen, setIsBotFactoryModalOpen] = useState(false);
     const cleanBoardStateRef = useRef(createSandboxGameState());
-    const previousCellCountRef = useRef(gameState.cells.length);
-    const latestGameStateRef = useRef(gameState);
-    const latestGameHistoryRef = useRef(gameHistory);
+    const previousCellCountRef = useRef(currentGameState.cells.length);
     const lastLoadedPositionIdRef = useRef<string | null>(null);
     const lastInvalidRoutePositionIdRef = useRef<string | null>(null);
     const lastAppliedLocationKeyRef = useRef<string | null>(null);
@@ -203,23 +211,19 @@ function SandboxRoute() {
 
     const initialBoardState = loadedSnapshot?.gameState ?? cleanBoardStateRef.current;
     const initialBoardStateKey = getSandboxPositionKey(initialBoardState);
-    const currentBoardStateKey = getSandboxPositionKey(gameState);
+    const currentBoardStateKey = getSandboxPositionKey(currentGameState);
     const currentPositionName = loadedSnapshot?.positionName ?? null;
     const isAuthenticated = Boolean(account !== null);
-    const currentTurnPlayerSlot = gameState.currentTurnPlayerId
-        ? getSandboxPlayerSlot(gameState.currentTurnPlayerId)
+    const currentTurnPlayerSlot = currentGameState.currentTurnPlayerId ? getSandboxPlayerSlot(currentGameState.currentTurnPlayerId)
         : null;
     const isCurrentTurnBotControlled = currentTurnPlayerSlot
         ? botPlayerModes[currentTurnPlayerSlot] === `bot`
         : false;
-    const localPlayerId = gameState.winner === null
-        && !isCurrentTurnBotControlled
-        ? (gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id)
+    const localPlayerId = currentGameState.winner === null && !isCurrentTurnBotControlled ? (currentGameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id)
         : null;
-    const canTakeBack = gameHistory.length > 0;
-    const canSharePosition
-        = isAuthenticated
-        && gameState.winner === null
+    const canUndo = game.currentStateIndex > 0;
+    const canRedo = game.currentStateIndex !== game.history.length - 1;
+    const canSharePosition = isAuthenticated && currentGameState.winner === null
         && currentBoardStateKey !== null
         && currentBoardStateKey !== initialBoardStateKey;
     const routeSandboxPositionQuery = useQuerySandboxPosition(normalizedRoutePositionId, {
@@ -249,7 +253,7 @@ function SandboxRoute() {
         && !isRoutePositionLoading;
 
     const sandboxBotController = useSandboxBotController({
-        gameState,
+        gameState: currentGameState,
         botTurnEnabled: isBotPlaybackEnabled,
         botFactory: selectedBotEngine,
         playerModes: botPlayerModes,
@@ -271,11 +275,11 @@ function SandboxRoute() {
         renderableCellCount,
         resetView,
     } = useGameBoard({
-        gameState: gameState,
-        highlightedCells: gameState.winner?.cells ?? `turn`,
+        gameState: currentGameState,
+        highlightedCells: currentGameState.winner?.cells ?? `turn`,
         localPlayerId,
         interactionEnabled: isSandboxInteractionEnabled,
-        onPlaceCell: gameState.winner === null ? handlePlaceCell : undefined,
+        onPlaceCell: currentGameState.winner === null ? handlePlaceCell : undefined,
         showTilePieceMarkers: accountPreferences?.preferences.tilePieceMarkers ?? false,
     });
 
@@ -284,8 +288,7 @@ function SandboxRoute() {
             return;
         }
 
-        const currentGameState = latestGameStateRef.current;
-        const currentGameHistory = latestGameHistoryRef.current;
+        const currentGameHistory = game.history.slice(0, game.currentStateIndex + 1);
         const nextGameState = cloneGameState(currentGameState);
         const nextGameHistory = [...currentGameHistory];
 
@@ -295,14 +298,14 @@ function SandboxRoute() {
                 break;
             }
 
-            const previousGameState = cloneGameState(nextGameState);
-
             try {
                 applyGameMove(nextGameState, {
                     playerId: actingPlayerId,
                     x: move.x,
                     y: move.y,
                 });
+                nextGameHistory.push(cloneGameState(nextGameState));
+
             } catch (error) {
                 const errorMessage = error instanceof GameRuleError
                     ? error.message
@@ -312,18 +315,13 @@ function SandboxRoute() {
                 });
                 break;
             }
-
-            nextGameHistory.push(previousGameState);
         }
 
         if (nextGameHistory.length === currentGameHistory.length) {
             return;
         }
 
-        latestGameStateRef.current = nextGameState;
-        latestGameHistoryRef.current = nextGameHistory;
         setGameHistory(nextGameHistory);
-        setGameState(nextGameState);
         setIsWinnerBannerVisible(Boolean(nextGameState.winner));
     }
 
@@ -336,14 +334,11 @@ function SandboxRoute() {
         const nextLoadedSnapshot = createSandboxSnapshot(nextGameState, nextGameHistory, positionName);
 
         previousCellCountRef.current = nextGameState.cells.length;
-        latestGameStateRef.current = nextGameState;
-        latestGameHistoryRef.current = nextGameHistory;
         lastLoadedPositionIdRef.current = positionId;
         lastInvalidRoutePositionIdRef.current = null;
 
         setLoadedSnapshot(nextLoadedSnapshot);
         setGameHistory(nextGameHistory);
-        setGameState(nextGameState);
         setIsBotPanelOpen(false);
         setIsBotFactoryModalOpen(false);
         setIsWinnerBannerVisible(false);
@@ -359,8 +354,8 @@ function SandboxRoute() {
     }
 
     function handlePlaceCell(x: number, y: number) {
-        const actingPlayerId = gameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id;
-        const nextGameState = cloneGameState(gameState);
+        const actingPlayerId = currentGameState.currentTurnPlayerId ?? SANDBOX_PLAYERS[0].id;
+        const nextGameState = cloneGameState(currentGameState);
 
         try {
             applyGameMove(nextGameState, {
@@ -369,11 +364,8 @@ function SandboxRoute() {
                 y,
             });
 
-            const nextGameHistory = [...gameHistory, cloneGameState(gameState)];
-            latestGameStateRef.current = nextGameState;
-            latestGameHistoryRef.current = nextGameHistory;
+            const nextGameHistory = [...game.history.slice(0, game.currentStateIndex + 1), nextGameState];
             setGameHistory(nextGameHistory);
-            setGameState(nextGameState);
             setIsWinnerBannerVisible(Boolean(nextGameState.winner));
         } catch (error) {
             const errorMessage = error instanceof GameRuleError
@@ -387,17 +379,12 @@ function SandboxRoute() {
 
     useEffect(() => {
         const previousCellCount = previousCellCountRef.current;
-        if (gameState.cells.length > previousCellCount) {
+        if (currentGameState.cells.length > previousCellCount) {
             playTilePlacedSound();
         }
 
-        previousCellCountRef.current = gameState.cells.length;
-    }, [gameState.cells.length]);
-
-    useEffect(() => {
-        latestGameStateRef.current = gameState;
-        latestGameHistoryRef.current = gameHistory;
-    }, [gameHistory, gameState]);
+        previousCellCountRef.current = currentGameState.cells.length;
+    }, [currentGameState]);
 
     useEffect(() => {
         persistSandboxBotTimeoutMs(botTimeoutMs);
@@ -485,10 +472,7 @@ function SandboxRoute() {
 
         const nextGameState = createSandboxGameState();
         previousCellCountRef.current = nextGameState.cells.length;
-        latestGameStateRef.current = nextGameState;
-        latestGameHistoryRef.current = [];
-        setGameHistory([]);
-        setGameState(nextGameState);
+        resetGame();
         resetView();
     }, [
         location.key, resetView, routeBotGame, routeInitialPosition, routePositionId,
@@ -538,13 +522,10 @@ function SandboxRoute() {
             : createSandboxGameState();
         const nextGameHistory = loadedSnapshot
             ? loadedSnapshot.gameHistory.map((entry) => cloneGameState(entry))
-            : [];
+            : emptyGameHistory;
 
         previousCellCountRef.current = nextGameState.cells.length;
-        latestGameStateRef.current = nextGameState;
-        latestGameHistoryRef.current = nextGameHistory;
         setGameHistory(nextGameHistory);
-        setGameState(nextGameState);
         setIsBotPanelOpen(false);
         setIsBotFactoryModalOpen(false);
         setIsWinnerBannerVisible(false);
@@ -553,27 +534,31 @@ function SandboxRoute() {
         setIsShareModalOpen(false);
     };
 
-    const takeBackMove = () => {
-        const previousGameState = gameHistory[gameHistory.length - 1];
+    const undoMove = () => {
+        const previousGameState = game.history[game.currentStateIndex - 1];
         if (!previousGameState) {
             return;
         }
 
         previousCellCountRef.current = previousGameState.cells.length;
-        const nextGameHistory = gameHistory.slice(0, -1);
-        const nextGameState = cloneGameState(previousGameState);
-        latestGameStateRef.current = nextGameState;
-        latestGameHistoryRef.current = nextGameHistory;
-        setGameHistory(nextGameHistory);
-        setGameState(nextGameState);
+        setGame({...game, currentStateIndex: game.currentStateIndex - 1});
         setIsWinnerBannerVisible(false);
-        setShareUrl(null);
-        setShareModalError(null);
-        setIsShareModalOpen(false);
+        closeShareModal();
+    };
+
+    const redoMove = () => {
+        const nextGameState = game.history[game.currentStateIndex + 1];
+        if (!nextGameState) {
+            return;
+        }
+
+        previousCellCountRef.current = nextGameState.cells.length;
+        setGame({...game, currentStateIndex: game.currentStateIndex + 1});
+        closeShareModal();
     };
 
     const sharePosition = async (name: string) => {
-        const gamePosition = buildSandboxGamePosition(gameState);
+        const gamePosition = buildSandboxGamePosition(currentGameState);
         if (!gamePosition) {
             toast.error(`Only active sandbox positions can be shared.`);
             return;
@@ -584,7 +569,7 @@ function SandboxRoute() {
         try {
             const response = await createSandboxPosition(name, gamePosition);
 
-            const nextSharedSnapshot = createSandboxSnapshot(gameState, gameHistory, response.name);
+            const nextSharedSnapshot = createSandboxSnapshot(currentGameState, game.history, response.name);
             const nextShareUrl = new URL(`/sandbox/${response.id}`, window.location.origin).toString();
 
             lastLoadedPositionIdRef.current = response.id;
@@ -719,8 +704,8 @@ function SandboxRoute() {
                                     displayName: botPlayerIds.includes(player.id) ? `Bot as ${player.displayName}` : player.displayName,
                                 }))}
                                 botPlayerIds={botPlayerIds}
-                                gameState={gameState}
-                                winnerId={gameState.winner?.playerId ?? null}
+                                gameState={currentGameState}
+                                winnerId={currentGameState.winner?.playerId ?? null}
                                 isBotThinking={isBotBusy}
                             />
                         )}
@@ -728,8 +713,8 @@ function SandboxRoute() {
                         {!isWelcomeModalVisible && !isImportModalOpen && (
                             <SandboxWinnerBanner
                                 players={SANDBOX_PLAYERS}
-                                gameState={gameState}
-                                winnerId={isWinnerBannerVisible ? gameState.winner?.playerId ?? null : null}
+                                gameState={currentGameState}
+                                winnerId={isWinnerBannerVisible ? currentGameState.winner?.playerId ?? null : null}
                                 onResetBoard={resetSandbox}
                                 onExploreBoard={() => setIsWinnerBannerVisible(false)}
                             />
@@ -805,12 +790,14 @@ function SandboxRoute() {
                                 <SandboxHud
                                     positionName={currentPositionName}
                                     isAuthenticated={isAuthenticated}
-                                    occupiedCellCount={gameState.cells.length}
+                                    occupiedCellCount={currentGameState.cells.length}
                                     renderableCellCount={renderableCellCount}
                                     onResetBoard={resetSandbox}
-                                    onTakeBack={takeBackMove}
+                                    onUndo={undoMove}
+                                    onRedo={redoMove}
                                     onResetView={resetView}
-                                    canTakeBack={canTakeBack}
+                                    canUndo={canUndo}
+                                    canRedo={canRedo}
                                     onSharePosition={() => {
                                         setShareModalError(null);
                                         setShareUrl(null);
