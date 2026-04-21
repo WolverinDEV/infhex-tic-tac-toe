@@ -13,7 +13,7 @@ import {
     getTouchDistance,
     GRID_LINE_COLOR,
     HexCell,
-    pixelToAxial,
+    pixelToAxial, RenderableCell,
     sameCell,
     TilePieceMarker,
     traceHexPath,
@@ -502,9 +502,19 @@ function useGameBoard({
                     context.shadowColor = withAlpha(highlightColor, 0.35);
                     context.stroke();
 
-                    traceHexPath(context, point.screenX, point.screenY, Math.max(3, hexRadius - 6));
-                    context.fillStyle = withAlpha(highlightColor, 0.14);
-                    context.fill();
+                    const cell = latestData.renderableCells.get(getCellKey(highlight.cells[0].x, highlight.cells[0].y));
+                    if (cell?.status === `occupied`) {
+                        context.beginPath();
+                        context.arc(point.screenX, point.screenY, Math.max(2, scale * 0.12), 0, Math.PI * 2);
+                        context.fillStyle = `rgba(255, 255, 255, 0.92)`;
+                        context.fill();
+                        context.closePath();
+                    } else {
+                        traceHexPath(context, point.screenX, point.screenY, Math.max(3, hexRadius - 6));
+                        context.fillStyle = withAlpha(highlightColor, 0.14);
+                        context.fill();
+                    }
+
                     break;
                 }
                 case `line`: {
