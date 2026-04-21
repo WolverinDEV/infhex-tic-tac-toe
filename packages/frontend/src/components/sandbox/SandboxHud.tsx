@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import GameHudShell from '../game-screen/GameHudShell';
 
@@ -8,9 +8,11 @@ type SandboxHudProps = {
     occupiedCellCount: number
     renderableCellCount: number
     onResetBoard: () => void
-    onTakeBack: () => void
+    onUndo: () => void
+    onRedo: () => void
     onResetView: () => void
-    canTakeBack: boolean
+    canUndo: boolean
+    canRedo: boolean
     onSharePosition: () => void
     canSharePosition: boolean
     isSharingPosition: boolean
@@ -21,10 +23,8 @@ function SandboxHud({
     isAuthenticated,
     occupiedCellCount,
     renderableCellCount,
-    onResetBoard,
-    onTakeBack,
-    onResetView,
-    canTakeBack,
+    onResetBoard, onUndo, onRedo,
+    onResetView, canUndo, canRedo,
     onSharePosition,
     canSharePosition,
     isSharingPosition,
@@ -36,6 +36,21 @@ function SandboxHud({
     const description = positionName
         ? `Play from this saved position locally with no clock. Assign either side to a bot or control both players yourself.`
         : `Local sandbox with no clock. Control both players yourself or let a bot take either side.`;
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === `ArrowLeft` && canUndo) {
+                onUndo();
+            } else if (event.key === `ArrowRight` && canRedo) {
+                onRedo();
+            }
+        };
+
+        window.addEventListener(`keydown`, handleKeyDown);
+        return () => window.removeEventListener(`keydown`, handleKeyDown);
+    }, [
+        canUndo, canRedo, onUndo, onRedo,
+    ]);
 
     return (
         <GameHudShell
@@ -156,16 +171,26 @@ function SandboxHud({
                 >
                     {isSharingPosition ? `Sharing...` : `Share Link`}
                 </button>
+            </div>
+
+            <div className="pointer-events-auto mt-4 grid grid-cols-2 gap-2">
+                <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canUndo ? enabledButtonClassName : disabledButtonClassName}`}
+                >
+                    Undo
+                </button>
 
                 <button
-                    onClick={onTakeBack}
-                    disabled={!canTakeBack}
-                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canTakeBack
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    className={`min-w-[9rem] flex-1 rounded-full px-4 py-2 font-medium shadow-lg transition md:flex-none ${canRedo
                         ? enabledButtonClassName
                         : disabledButtonClassName
                     }`}
                 >
-                    Take Back
+                    Redo
                 </button>
             </div>
 
