@@ -241,8 +241,16 @@ function GameScreenHud({
 
                 <div className="mt-2 text-sm text-slate-300">
                     Connect 6 hexagons in a row.
+
                     <br />
-                    {localPlayerId ? `Tap to place, drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.` : `Drag to pan, pinch to zoom, right-drag to draw and right-click a line to erase.`}
+
+                    {localPlayerId
+                        ? `Tap to place, drag to pan, pinch to zoom.`
+                        : `Drag to pan, pinch to zoom.`}
+
+                    <span className="pointer-fine:inline hidden ml-1">
+                        Press F1 for all shortcuts.
+                    </span>
                 </div>
 
                 {shutdown && (

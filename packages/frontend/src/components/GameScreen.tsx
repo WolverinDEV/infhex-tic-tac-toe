@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { playTilePlacedSound } from '../soundEffects';
 import { getPlayerTileColor } from '../utils/gameBoard';
+import BoardHelpOverlay from './game-screen/BoardHelpOverlay';
 import GameBoardView from './game-screen/GameBoardView';
 import GameChatBox from './game-screen/GameChatBox';
 import GameScreenHud, { HudPlayerInfo } from './game-screen/GameScreenHud';
@@ -139,6 +140,8 @@ function GameScreen({
                             {overlay}
                         </div>
                     )}
+
+                    <BoardHelpOverlay />
 
                     {shutdown && (
                         <div className="absolute bottom-3 left-3 rounded-full border border-amber-300/40 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-lg">
