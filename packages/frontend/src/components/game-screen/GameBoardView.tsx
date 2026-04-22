@@ -12,6 +12,7 @@ type GameBoardViewProps = {
     localPlayerId: string | null
     interactionEnabled: boolean
     viewInteractionEnabled?: boolean
+    focusRecentMovesOnNumberKeys?: boolean
     onPlaceCell?: (x: number, y: number) => void
     showTilePieceMarkers?: boolean
     children?: (context: {
@@ -27,6 +28,7 @@ function GameBoardView({
     localPlayerId,
     interactionEnabled,
     viewInteractionEnabled,
+    focusRecentMovesOnNumberKeys = false,
     onPlaceCell,
     showTilePieceMarkers = false,
     children,
@@ -43,6 +45,7 @@ function GameBoardView({
         localPlayerId,
         interactionEnabled,
         viewInteractionEnabled,
+        focusRecentMovesOnNumberKeys,
         onPlaceCell,
         showTilePieceMarkers,
     });

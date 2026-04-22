@@ -1,6 +1,6 @@
 import { BoardState, GameState, PLAYER_TILE_COLORS } from '@ih3t/shared';
 import type { CanvasHTMLAttributes, RefObject } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     axialToUnitPoint,
@@ -13,7 +13,7 @@ import {
     getTouchDistance,
     GRID_LINE_COLOR,
     HexCell,
-    pixelToAxial, RenderableCell,
+    pixelToAxial,
     sameCell,
     TilePieceMarker,
     traceHexPath,
@@ -65,6 +65,7 @@ type UseGameBoardOptions = {
     localPlayerId: string | null
     interactionEnabled: boolean
     viewInteractionEnabled?: boolean
+    focusRecentMovesOnNumberKeys?: boolean
     onPlaceCell?: (x: number, y: number) => void
     showTilePieceMarkers?: boolean
 };
@@ -87,6 +88,7 @@ type UseGameBoardResult = {
     >
     renderableCellCount: number
     resetView: () => void
+    centerOnCell: (cell: HexCell) => void
 };
 
 function traceTilePieceXPath(
@@ -110,6 +112,17 @@ function traceTilePieceOPath(
 ) {
     context.beginPath();
     context.arc(centerX, centerY, markerRadius, 0, Math.PI * 2);
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    return target.isContentEditable
+        || target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || target instanceof HTMLSelectElement;
 }
 
 type RgbColor = {
@@ -259,6 +272,7 @@ function useGameBoard({
     localPlayerId,
     interactionEnabled,
     viewInteractionEnabled = interactionEnabled,
+    focusRecentMovesOnNumberKeys = false,
     onPlaceCell,
     highlightedCells,
     showTilePieceMarkers = false,
@@ -279,6 +293,7 @@ function useGameBoard({
     const animationFrameRef = useRef<number | null>(null);
     const hoveredCellRef = useRef<ReturnType<typeof pixelToAxial> | null>(null);
     const highlightsRef = useRef<Highlight[]>([]);
+    const [inspectedRecentMoveDistance, setInspectedRecentMoveDistance] = useState<number | null>(null);
 
     const latestDataRef = useRef<{
         boardState: BoardState
@@ -294,10 +309,28 @@ function useGameBoard({
         [gameState.cells, gameState.playerTiles],
     );
 
+    const inspectedRecentMoveCell = useMemo(() => {
+        if (!focusRecentMovesOnNumberKeys || inspectedRecentMoveDistance === null) {
+            return null;
+        }
+
+        const inspectedMove = gameState.cells.at(-inspectedRecentMoveDistance);
+        return inspectedMove
+            ? {
+                x: inspectedMove.x,
+                y: inspectedMove.y,
+            }
+            : null;
+    }, [focusRecentMovesOnNumberKeys, gameState.cells, inspectedRecentMoveDistance]);
+
     const highlightedCellKeys = useMemo(() => {
         const highlightedCellKeys = new Set<string>();
 
-        if (highlightedCells === `last`) {
+        if (inspectedRecentMoveCell) {
+            highlightedCellKeys.add(
+                getCellKey(inspectedRecentMoveCell.x, inspectedRecentMoveCell.y),
+            );
+        } else if (highlightedCells === `last`) {
             const cell = gameState.cells[gameState.cells.length - 1];
             if (cell) {
                 highlightedCellKeys.add(
@@ -325,7 +358,7 @@ function useGameBoard({
         }
 
         return highlightedCellKeys;
-    }, [highlightedCells, !Array.isArray(highlightedCells) && gameState.cells]);
+    }, [gameState.cells, highlightedCells, inspectedRecentMoveCell]);
 
     latestDataRef.current = {
         boardState: gameState,
@@ -587,6 +620,17 @@ function useGameBoard({
         };
     };
 
+    const centerOnCell = (cell: HexCell) => {
+        const point = axialToUnitPoint(cell.x, cell.y);
+
+        viewRef.current = {
+            ...viewRef.current,
+            offsetX: -point.x * viewRef.current.scale,
+            offsetY: -point.y * viewRef.current.scale,
+        };
+        scheduleDraw();
+    };
+
     const tryPlaceCellAtClientPoint = (clientX: number, clientY: number) => {
         const latestData = latestDataRef.current;
         const targetCell = screenToCell(clientX, clientY);
@@ -707,6 +751,48 @@ function useGameBoard({
     }, [
         gameState, renderableCells, highlightedCellKeys, interactionEnabled, canManipulateView, canPlaceCell, isOwnTurn,
     ]);
+
+    useEffect(() => {
+        setInspectedRecentMoveDistance(null);
+    }, [gameState.cells.length]);
+
+    useEffect(() => {
+        if (!focusRecentMovesOnNumberKeys) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (
+                event.defaultPrevented
+                || event.altKey
+                || event.ctrlKey
+                || event.metaKey
+                || isEditableEventTarget(event.target)
+            ) {
+                return;
+            }
+
+            if (!/^[1-9]$/.test(event.key)) {
+                return;
+            }
+
+            const recentMoveDistance = Number.parseInt(event.key, 10);
+            const targetMove = gameState.cells.at(-recentMoveDistance);
+            if (!targetMove) {
+                return;
+            }
+
+            event.preventDefault();
+            setInspectedRecentMoveDistance(recentMoveDistance);
+            centerOnCell({
+                x: targetMove.x,
+                y: targetMove.y,
+            });
+        };
+
+        document.addEventListener(`keydown`, handleKeyDown);
+        return () => document.removeEventListener(`keydown`, handleKeyDown);
+    }, [focusRecentMovesOnNumberKeys, gameState.cells]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1028,6 +1114,7 @@ function useGameBoard({
         },
         renderableCellCount: renderableCells.size,
         resetView,
+        centerOnCell,
     };
 }
 

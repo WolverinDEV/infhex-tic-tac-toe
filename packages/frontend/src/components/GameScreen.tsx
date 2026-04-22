@@ -115,6 +115,7 @@ function GameScreen({
             highlightedCells={gameState.winner?.cells ?? `turn`}
             localPlayerId={isSpectator ? null : currentPlayerId}
             interactionEnabled={interactionEnabled}
+            focusRecentMovesOnNumberKeys={interactionEnabled}
             showTilePieceMarkers={showTilePieceMarkers}
             onPlaceCell={canPlaceCell ? onPlaceCell : undefined}
         >
