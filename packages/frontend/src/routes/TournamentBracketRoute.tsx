@@ -15,7 +15,7 @@ const STATE_COLORS: Record<string, { dot: string; border: string }> = {
     completed: { dot: `bg-emerald-400`, border: `border-emerald-400/15` },
 };
 
-function MatchNode({ match, onSpectate }: { match: TournamentMatch; onSpectate: (sid: string) => void }) {
+function MatchNode({ match, allMatches, onSpectate }: { match: TournamentMatch; allMatches: TournamentMatch[]; onSpectate: (sid: string) => void }) {
     const { dot, border } = STATE_COLORS[match.state] ?? STATE_COLORS.pending!;
     const isLive = match.state === `in-progress` && match.sessionId;
     const handleSpectate = () => {
@@ -27,8 +27,12 @@ function MatchNode({ match, onSpectate }: { match: TournamentMatch; onSpectate: 
     const slot = (s: TournamentMatch[`slots`][number], wins: number, isWinner: boolean, side: `top` | `bottom`) => {
         const isTbd = !s.profileId && !s.isBye;
         const source = isTbd && s.source && s.source.type !== `seed` ? s.source : null;
-        const sourceLabel = source
-            ? `${source.type === `winner` ? `W` : `L`} of M${source.matchId.split(`-`).at(-1)}`
+        const sourceRecord = source ? allMatches.find((entry) => entry.id === source.matchId) ?? null : null;
+        const bracketSuffix = sourceRecord?.bracket === `losers` ? ` (LB)`
+            : sourceRecord?.bracket === `grand-final` ? ` (GF)`
+                : sourceRecord?.bracket === `grand-final-reset` ? ` (GF Reset)` : ``;
+        const sourceLabel = source && sourceRecord
+            ? `${source.type === `winner` ? `W` : `L`} of R${sourceRecord.round}M${sourceRecord.order}${bracketSuffix}`
             : null;
 
         return (
@@ -102,17 +106,19 @@ function getMatchY(index: number, count: number, totalHeight: number, matchHeigh
 
 function ScaledMatchNode({
     match,
+    allMatches,
     onSpectate,
     scale,
 }: {
     match: TournamentMatch
+    allMatches: TournamentMatch[]
     onSpectate: (sid: string) => void
     scale: number
 }) {
     return (
         <div className="relative shrink-0" style={{ width: MATCH_W * scale, height: MATCH_H * scale }}>
             <div className="origin-top-left" style={{ width: MATCH_W, transform: `scale(${scale})` }}>
-                <MatchNode match={match} onSpectate={onSpectate} />
+                <MatchNode match={match} allMatches={allMatches} onSpectate={onSpectate} />
             </div>
         </div>
     );
@@ -200,9 +206,10 @@ function BracketConnectors({
 
 /* ── Bracket section with connectors ───────────────── */
 
-function BracketSection({ label, rounds, onSpectate, scale }: {
+function BracketSection({ label, rounds, allMatches, onSpectate, scale }: {
     label: string
     rounds: { round: number; matches: TournamentMatch[] }[]
+    allMatches: TournamentMatch[]
     onSpectate: (sid: string) => void
     scale: number
 }) {
@@ -250,7 +257,7 @@ function BracketSection({ label, rounds, onSpectate, scale }: {
                                         top: getMatchY(idx, r.matches.length, totalHeight, matchHeight),
                                     }}
                                 >
-                                    <ScaledMatchNode match={m} onSpectate={onSpectate} scale={scale} />
+                                    <ScaledMatchNode match={m} allMatches={allMatches} onSpectate={onSpectate} scale={scale} />
                                 </div>
                             ))}
                         </div>
@@ -287,7 +294,7 @@ function SwissView({
                     <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Round {round}</div>
                     <div className="flex flex-wrap" style={{ gap }}>
                         {rMatches.sort((a, b) => a.order - b.order).map((m) => (
-                            <ScaledMatchNode key={m.id} match={m} onSpectate={onSpectate} scale={scale} />
+                            <ScaledMatchNode key={m.id} match={m} allMatches={matches} onSpectate={onSpectate} scale={scale} />
                         ))}
                     </div>
                 </div>
@@ -314,11 +321,12 @@ function SingleElimView({
 
     return (
         <div className="space-y-2">
-            <BracketSection label="Championship Bracket" rounds={winnersRounds} onSpectate={onSpectate} scale={scale} />
+            <BracketSection label="Championship Bracket" rounds={winnersRounds} allMatches={matches} onSpectate={onSpectate} scale={scale} />
             {thirdPlaceMatches.length > 0 && (
                 <BracketSection
                     label="Third Place"
                     rounds={[{ round: 1, matches: thirdPlaceMatches }]}
+                    allMatches={matches}
                     onSpectate={onSpectate}
                     scale={scale}
                 />
@@ -353,9 +361,9 @@ function DoubleElimView({
 
     return (
         <div className="space-y-2">
-            <BracketSection label="Winners Bracket" rounds={groupBracketRounds(matches, `winners`)} onSpectate={onSpectate} scale={scale} />
-            <BracketSection label="Losers Bracket" rounds={groupBracketRounds(matches, `losers`)} onSpectate={onSpectate} scale={scale} />
-            {gfRounds.length > 0 && <BracketSection label="Grand Final" rounds={gfRounds} onSpectate={onSpectate} scale={scale} />}
+            <BracketSection label="Winners Bracket" rounds={groupBracketRounds(matches, `winners`)} allMatches={matches} onSpectate={onSpectate} scale={scale} />
+            <BracketSection label="Losers Bracket" rounds={groupBracketRounds(matches, `losers`)} allMatches={matches} onSpectate={onSpectate} scale={scale} />
+            {gfRounds.length > 0 && <BracketSection label="Grand Final" rounds={gfRounds} allMatches={matches} onSpectate={onSpectate} scale={scale} />}
         </div>
     );
 }
