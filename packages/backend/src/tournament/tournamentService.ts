@@ -1722,13 +1722,13 @@ export class TournamentService {
 
         changed = this.refreshParticipantStatuses(tournament) || changed;
 
-        if (changed) {
-            tournament.updatedAt = Date.now();
-        }
-
         if (tournament.activity.length > 200) {
             tournament.activity = tournament.activity.slice(0, 200);
             changed = true;
+        }
+
+        if (changed) {
+            tournament.updatedAt = Date.now();
         }
 
         return changed;

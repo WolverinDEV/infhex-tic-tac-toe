@@ -857,8 +857,8 @@ function useCountdown(deadlineMs: number | null) {
 
 /* ── Match card ─────────────────────────────────────── */
 
-function MatchCard({ match, canManage, viewerProfileId, tournamentStatus, timeoutAt, extensionMinutes, pendingExtension, claimWinExpiresAt, onOpen, onWalkover, onReopen, onRequestExtension, onResolveExtension }: {
-    match: TournamentMatch; canManage: boolean; viewerProfileId: string | null; tournamentStatus: TournamentDetail[`status`]
+function MatchCard({ match, allMatches, canManage, viewerProfileId, tournamentStatus, timeoutAt, extensionMinutes, pendingExtension, claimWinExpiresAt, onOpen, onWalkover, onReopen, onRequestExtension, onResolveExtension }: {
+    match: TournamentMatch; allMatches: TournamentMatch[]; canManage: boolean; viewerProfileId: string | null; tournamentStatus: TournamentDetail[`status`]
     timeoutAt: number | null; extensionMinutes: number; pendingExtension: TournamentExtensionRequest | null; claimWinExpiresAt: number | null
     onOpen: (sid: string) => void; onWalkover: (mid: string, pid: string) => void; onReopen: (mid: string) => void
     onRequestExtension: (mid: string) => void; onResolveExtension: (eid: string, approve: boolean) => void
@@ -872,12 +872,13 @@ function MatchCard({ match, canManage, viewerProfileId, tournamentStatus, timeou
 
     const slot = (s: TournamentMatch[`slots`][number], wins: number, isW: boolean) => {
         const isTbd = !s.profileId && !s.isBye;
-        const sourceMatch = s.source && s.source.type !== `seed` ? s.source : null;
-        const canNavigate = isTbd && sourceMatch;
+        const sourceRef = s.source && s.source.type !== `seed` ? s.source : null;
+        const sourceMatchRecord = sourceRef ? allMatches.find((entry) => entry.id === sourceRef.matchId) ?? null : null;
+        const canNavigate = isTbd && sourceRef;
         return (
             <div
                 className={`flex items-center justify-between rounded px-2 py-1 ${isW ? `bg-emerald-400/8` : s.isBye ? `bg-white/2` : `bg-white/3`} ${canNavigate ? `cursor-pointer transition hover:bg-white/6` : ``}`}
-                onClick={canNavigate ? () => scrollToMatch(sourceMatch.matchId) : undefined}
+                onClick={canNavigate ? () => scrollToMatch(sourceRef.matchId) : undefined}
             >
                 <span className={`flex items-center gap-1.5 text-[12px] ${s.isBye ? `italic text-slate-600` : isTbd ? `italic text-slate-500` : isW ? `font-bold text-emerald-200` : `font-medium text-white`}`}>
                     {s.seed && <span className="text-[9px] text-slate-500">
@@ -885,10 +886,10 @@ function MatchCard({ match, canManage, viewerProfileId, tournamentStatus, timeou
                                </span>}
 
                     {s.displayName ?? `TBD`}
-                    {canNavigate && <span className="text-[9px] text-slate-600">
-                        {sourceMatch.type === `winner` ? `W` : `L`}
-                        {` of M`}
-                        {sourceMatch.matchId.split(`-`).at(-1)}
+                    {canNavigate && sourceMatchRecord && <span className="text-[9px] text-slate-600">
+                        {sourceRef.type === `winner` ? `W` : `L`}
+                        {` of R${sourceMatchRecord.round}M${sourceMatchRecord.order}`}
+                        {sourceMatchRecord.bracket === `losers` ? ` (LB)` : sourceMatchRecord.bracket === `grand-final` ? ` (GF)` : sourceMatchRecord.bracket === `grand-final-reset` ? ` (GF Reset)` : ``}
                                     </span>}
                 </span>
 
@@ -1433,7 +1434,7 @@ function TournamentRoute() {
                                                 <div className="grid gap-2 sm:grid-cols-2">
                                                     {matches.sort((a, b) => a.order - b.order).map((m) => (
                                                         <MatchCard
-                                                            key={m.id} match={m} canManage={t.viewer.canManage}
+                                                            key={m.id} match={m} allMatches={t.matches} canManage={t.viewer.canManage}
                                                             viewerProfileId={acct?.id ?? null}
                                                             tournamentStatus={t.status}
                                                             timeoutAt={t.matchJoinTimeoutMinutes > 0 && m.waitingForPlayers && m.startedAt !== null ? m.startedAt + t.matchJoinTimeoutMinutes * 60_000 : null}
