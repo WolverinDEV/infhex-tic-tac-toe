@@ -568,12 +568,16 @@ export const zSessionTournamentInfo = z.object({
         .nonnegative(),
     matchExtensionMs: z.number().int()
         .nonnegative(),
-    pendingExtension: z.boolean(),
-    matchJoinTimeoutInMs: z.number().int().nullable(),
+    pendingExtension: z.boolean().default(false),
+    matchJoinTimeoutInMs: z.number().int()
+        .nullable()
+        .default(null),
     leftDisplayName: z.string().nullable(),
     rightDisplayName: z.string().nullable(),
-    leftProfileId: zIdentifier.nullable(),
-    rightProfileId: zIdentifier.nullable(),
+    leftProfileId: zIdentifier.nullable()
+        .default(null),
+    rightProfileId: zIdentifier.nullable()
+        .default(null),
 });
 export type SessionTournamentInfo = z.infer<typeof zSessionTournamentInfo>;
 
