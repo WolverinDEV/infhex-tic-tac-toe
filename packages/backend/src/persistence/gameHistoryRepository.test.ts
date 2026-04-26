@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { zDatabaseGame, zFinishedGameRecord } from '@ih3t/shared';
 
-void test(`parses legacy tournament replay records without live timeout fields`, () => {
+test(`parses legacy tournament replay records with defaulted timeout, pending extension, and profile fields`, () => {
     const legacyTournamentGame = {
         id: `game-1`,
         version: 3,
