@@ -1,9 +1,11 @@
 import './index.css';
 import 'react-toastify/dist/ReactToastify.css';
 
+import { initializeOpenReplay } from './openReplay';
 import { installSoundEffects } from './soundEffects';
 
 installSoundEffects();
+void initializeOpenReplay();
 
 const start = performance.now();
 import(`./main`).then(() => {

@@ -52,3 +52,4 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   build-args: |
                     GITHUB_SHA=${{ github.sha }}
+                    VITE_OPENREPLAY_INGEST_POINT=https://hexo.did.science/api/ingest

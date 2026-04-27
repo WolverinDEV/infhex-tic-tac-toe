@@ -4,6 +4,7 @@ import type { Socket } from 'socket.io';
 
 export type RequestClientInfo = {
     deviceId: string;
+    openReplaySessionId: string | null;
     ip: string;
     userAgent: string;
     origin: string;
@@ -51,6 +52,7 @@ export function getRequestClientInfo(request: Request): RequestClientInfo {
 
     return {
         deviceId,
+        openReplaySessionId: request.get(`x-openreplay-sessionid`) ?? null,
         ip: request.ip ?? ``,
         userAgent: request.get(`user-agent`) ?? ``,
         origin: request.get(`origin`) ?? ``,
@@ -66,6 +68,7 @@ export function getSocketClientInfo(socket: Socket<ClientToServerEvents, ServerT
         versionHash,
 
         socketId: socket.id,
+        openReplaySessionId: null,
         ip: socket.handshake.address ?? ``,
 
         userAgent: getHeaderValue(socket.handshake.headers[`user-agent`]) ?? ``,

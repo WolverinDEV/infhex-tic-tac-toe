@@ -1,4 +1,5 @@
 import { getOrCreateDeviceId } from '../deviceId';
+import { createTrackedHeaders } from '../openReplay';
 
 let cachedDeviceId: string | null = null;
 
@@ -40,13 +41,13 @@ export function getDeviceId() {
 
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     const deviceId = getDeviceId();
+    const headers = createTrackedHeaders(init?.headers);
+    headers.set(`X-Device-Id`, deviceId);
+
     const response = await fetch(`${getApiBaseUrl()}${path}`, {
         credentials: `include`,
         ...init,
-        headers: {
-            'X-Device-Id': deviceId,
-            ...init?.headers,
-        },
+        headers,
     });
 
     if (!response.ok) {

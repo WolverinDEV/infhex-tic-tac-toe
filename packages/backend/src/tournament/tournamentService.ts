@@ -41,6 +41,7 @@ import { buildSwissRoundMatches, calculateSwissStandings } from './tournamentSwi
 
 const kTournamentSystemClient: RequestClientInfo = {
     deviceId: `tournament-system`,
+    openReplaySessionId: null,
     ip: ``,
     userAgent: `tournament-system`,
     origin: ``,

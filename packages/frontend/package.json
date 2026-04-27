@@ -19,6 +19,7 @@
     "dependencies": {
         "@ih3t/bot-worker": "workspace:*",
         "@ih3t/shared": "workspace:*",
+        "@openreplay/tracker": "^18.0.6",
         "@tanstack/react-query": "^5.91.2",
         "@tanstack/react-query-devtools": "^5.95.2",
         "clsx": "^2.1.1",

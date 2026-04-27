@@ -46,7 +46,7 @@ export class CorsConfiguration {
             methods: [
                 `GET`, `POST`, `PATCH`, `PUT`, `OPTIONS`, `DELETE`,
             ],
-            allowedHeaders: [`Content-Type`, `X-Device-Id`],
+            allowedHeaders: [`Content-Type`, `X-Device-Id`, `X-OpenReplay-SessionId`],
             credentials: true,
         };
     }

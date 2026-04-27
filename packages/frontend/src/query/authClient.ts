@@ -1,3 +1,4 @@
+import { createTrackedHeaders } from '../openReplay';
 import { getApiBaseUrl } from './apiClient';
 
 type CsrfResponse = {
@@ -7,6 +8,7 @@ type CsrfResponse = {
 async function fetchCsrfToken() {
     const response = await fetch(`${getApiBaseUrl()}/auth/csrf`, {
         credentials: `include`,
+        headers: createTrackedHeaders(),
     });
 
     if (!response.ok) {

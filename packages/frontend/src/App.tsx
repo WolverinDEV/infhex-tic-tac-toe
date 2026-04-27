@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { RouterProvider } from 'react-router';
 
 import AppErrorBoundary from './components/AppErrorBoundary';
+import { trackOpenReplayUser } from './openReplay';
+import { useQueryAccount } from './query/accountClient';
 import { clearHydrationRenderPassFlag, useRenderMode } from './ssrState';
 
 type AppProps = {
@@ -11,6 +13,25 @@ type AppProps = {
     queryClient: QueryClient
     dehydratedState?: DehydratedState
 };
+
+function OpenReplayUserSync() {
+    const renderMode = useRenderMode();
+    const accountQuery = useQueryAccount({ enabled: renderMode !== `ssr` });
+    const account = accountQuery.data?.user ?? null;
+
+    useEffect(() => {
+        if (!account) {
+            return;
+        }
+
+        trackOpenReplayUser({
+            id: account.id,
+            username: account.username,
+        });
+    }, [account]);
+
+    return null;
+}
 
 function App({ router, queryClient, dehydratedState }: Readonly<AppProps>) {
     const renderMode = useRenderMode();
@@ -31,6 +52,7 @@ function App({ router, queryClient, dehydratedState }: Readonly<AppProps>) {
 
             <QueryClientProvider client={queryClient}>
                 {renderMode === `normal` && <ReactQueryDevtools />}
+                <OpenReplayUserSync />
 
                 <HydrationBoundary state={dehydratedState}>
                     <RouterProvider router={router} />

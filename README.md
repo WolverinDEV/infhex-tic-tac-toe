@@ -118,7 +118,7 @@ docker run -d \
   ih3t:latest
 ```
 
-The Docker build context excludes `.env` files, so runtime configuration must be provided with `--env-file` or `-e` flags when the container starts.
+The Docker build context excludes `.env` files, so backend runtime configuration must be provided with `--env-file` or `-e` flags when the container starts. Frontend Vite variables such as the OpenReplay project key and ingest point are build-time settings in this Docker setup, so they must be overridden with `--build-arg` when building the image.
 
 ## AI Use
 

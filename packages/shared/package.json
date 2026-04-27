@@ -11,5 +11,8 @@
             "types": "./src/index.ts",
             "import": "./src/index.ts"
         }
+    },
+    "devDependencies": {
+        "@openreplay/tracker": "^18.0.6"
     }
 }
