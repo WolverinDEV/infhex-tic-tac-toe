@@ -1,6 +1,6 @@
-import { APP_VERSION_HASH } from './appVersion';
-
 import type Tracker from '@openreplay/tracker';
+
+import { APP_VERSION_HASH } from './appVersion';
 
 type OpenReplayUser = {
     id: string;
@@ -77,11 +77,18 @@ export function initializeOpenReplay(): Promise<void> {
 
     trackerStartPromise = (async () => {
         try {
-            const { default: Tracker } = await import(`@openreplay/tracker`);
+            const [
+                { default: Tracker },
+                { default: trackerAssist },
+            ] = await Promise.all([
+                import(`@openreplay/tracker`),
+                import(`@openreplay/tracker-assist`),
+            ]);
             tracker = new Tracker({
                 projectKey,
-                ...(ingestPoint ? { ingestPoint } : {}),
+                ingestPoint,
             });
+            tracker.use(trackerAssist());
 
             await tracker.start({
                 metadata: {

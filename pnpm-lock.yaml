@@ -179,6 +179,9 @@ importers:
       '@openreplay/tracker':
         specifier: ^18.0.6
         version: 18.0.6
+      '@openreplay/tracker-assist':
+        specifier: ^11.0.13
+        version: 11.0.13(@openreplay/tracker@18.0.6)
       '@tanstack/react-query':
         specifier: ^5.91.2
         version: 5.91.2(react@19.2.4)
@@ -876,6 +879,11 @@ packages:
 
   '@openreplay/network-proxy@1.2.4':
     resolution: {integrity: sha512-egSeDXscqPXllrBKf7QIDRbEDWLyKsCmtnNgtL0ORG/99rVAJpYny6KnZLggfbBbwQedIGeliQzZDhmIZOkkxQ==}
+
+  '@openreplay/tracker-assist@11.0.13':
+    resolution: {integrity: sha512-cp/lufPcDtxEOz9cscUDlh1R6wse6cweZk/sKSTzf8MmkcWpmpNpfZfyEIblZLIFuLsdce1Sw2GT2BiwJcQFKA==}
+    peerDependencies:
+      '@openreplay/tracker': '>=14.0.14'
 
   '@openreplay/tracker@18.0.6':
     resolution: {integrity: sha512-UlwpZQrPNys5qARbwZbEcuCLiNi1tHe/L+6UL1t7TWc+lOTqno8Bmo3WVnSDwCOQMTVqypC6jufeEBIH99Q6Tg==}
@@ -2108,6 +2116,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
   file-entry-cache@8.0.0:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
@@ -4136,6 +4147,17 @@ snapshots:
 
   '@openreplay/network-proxy@1.2.4': {}
 
+  '@openreplay/tracker-assist@11.0.13(@openreplay/tracker@18.0.6)':
+    dependencies:
+      '@openreplay/tracker': 18.0.6
+      csstype: 3.2.3
+      fflate: 0.8.2
+      socket.io-client: 4.8.3
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   '@openreplay/tracker@18.0.6':
     dependencies:
       '@openreplay/network-proxy': 1.2.4
@@ -5498,6 +5520,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
+
+  fflate@0.8.2: {}
 
   file-entry-cache@8.0.0:
     dependencies:
