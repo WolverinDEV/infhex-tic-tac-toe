@@ -254,6 +254,7 @@ function GameOverlayFinishedPlayer({
                                 to={buildFinishedGamePath(state.gameId)}
                                 className={`block w-full rounded-2xl border px-5 py-4 text-center text-sm font-semibold uppercase tracking-[0.16em] transition ${theme.secondaryButton}`}
                                 onClick={onReviewGame}
+                                target="_blank"
                             >
                                 Review Game
                             </NavLink>
