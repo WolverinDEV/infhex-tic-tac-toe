@@ -219,7 +219,13 @@ function BoardHelpOverlay() {
                                             Shift
                                         </ShortcutKey>
 
-                                        +
+                                    /
+
+                                    <ShortcutKey>
+                                        Ctrl
+                                    </ShortcutKey>
+
+                                    +
 
                                         <ShortcutKey>
                                             Right Drag
