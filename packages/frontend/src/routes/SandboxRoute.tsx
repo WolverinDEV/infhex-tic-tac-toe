@@ -41,6 +41,7 @@ import { useSandboxBotController } from '../sandbox/useSandboxBotController';
 import { playTilePlacedSound } from '../soundEffects';
 import { formatPlacementSummary, formatSandboxPlayerLabel } from '../utils/routeMetadata';
 import type { SandboxRouteState } from './sandboxRouteState';
+import BoardHelp from "../components/game-screen/BoardHelp.tsx";
 
 type SandboxSnapshot = {
     positionName: string | null
@@ -693,6 +694,10 @@ function SandboxRoute() {
                         className={canvasClassName}
                         handlers={canvasHandlers}
                     />
+                )}
+
+                {!isWelcomeModalVisible && !isImportModalOpen && (
+                    <BoardHelp showUndoRedoShortcuts={true} />
                 )}
 
                 <div className="pointer-events-none absolute inset-0">

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/experimental-ct-react'
 
-import BoardHelpOverlay from './BoardHelpOverlay'
+import BoardHelpOverlay from './BoardHelp.tsx'
 
 test('opens the centered help dialog from the board hint', async ({ mount }) => {
   const component = await mount(

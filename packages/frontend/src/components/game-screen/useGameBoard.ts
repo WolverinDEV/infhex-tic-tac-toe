@@ -835,7 +835,7 @@ function useGameBoard({
                 const isHighlightPointerDown = event.button === 2 || (event.button === 0 && event.shiftKey);
                 if (isHighlightPointerDown) {
                     event.preventDefault();
-                    const color = (event.shiftKey && event.button === 2) ? `yellow` : event.altKey ? `blue` : `neutral`;
+                    const color = (event.button === 2 && (event.shiftKey || event.ctrlKey)) ? `yellow` : event.altKey ? `blue` : `neutral`;
                     startHighlightPointerInteraction(
                         event.clientX,
                         event.clientY,
