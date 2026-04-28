@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
-import React from 'react';
 import { useEffect, useState } from 'react';
+
+type DisplayShortcuts = {
+    showNthLastMoveShortcuts?: boolean
+    showUndoRedoShortcuts?: boolean
+};
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) {
@@ -15,7 +19,10 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 
 function InfoIcon() {
     return (
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+            aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        >
             <circle cx="12" cy="12" r="9" />
             <path d="M12 10v5" />
             <path d="M12 7.5h.01" />
@@ -61,19 +68,259 @@ function ShortcutRow({
     description: string
 }>) {
     return (
-        <React.Fragment>
-            <div>
+        <>
+            <div className="flex flex-wrap gap-1.5 self-center">
                 {label}
             </div>
 
-            <div className="text-sm leading-6 text-slate-300">
+            <div className="flex text-sm leading-6 text-slate-300 ">
                 {description}
             </div>
-        </React.Fragment>
+        </>
     );
 }
 
-function BoardHelpOverlay() {
+function ShortcutSection({
+    title,
+    icon,
+    children,
+}: Readonly<{
+    title: string
+    icon: ReactNode
+    children: ReactNode
+}>) {
+    return (
+        <section className="rounded-3xl border border-sky-300/10 bg-sky-300/6 p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100">
+                {icon}
+                {title}
+            </div>
+
+            <div className="mt-3 gap-y-3 gap-x-3 grid grid-cols-[fit-content(40%)_1fr]">
+                {children}
+            </div>
+        </section>
+    );
+}
+
+function BoardHelpOverlay({
+    showNthLastMoveShortcuts,
+    showUndoRedoShortcuts,
+    onClose,
+}: Readonly<DisplayShortcuts & {
+    onClose: () => void
+}>) {
+    return (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/76 backdrop-blur-sm">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Board help"
+                className="w-full max-w-4xl max-h-full rounded-[2rem] overflow-y-auto border border-white/10 bg-slate-950/96 p-5 text-white shadow-[0_30px_120px_rgba(2,6,23,0.7)] sm:p-6"
+            >
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-200/75">
+                            Board Help
+                        </div>
+
+                        <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
+                            Shortcuts and markup
+                        </h2>
+
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+                            Review recent moves, mark up candidate lines, and navigate the board without leaving the game.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => onClose()}
+                        className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200 transition hover:bg-white/10"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    <ShortcutSection title="Keyboard" icon={<KeyboardIcon />}>
+                        {showNthLastMoveShortcuts && (
+                            <ShortcutRow
+                                label={(
+                                    <ShortcutKey>
+                                        1-9
+                                    </ShortcutKey>
+                                )}
+                                description="Show and center the nth last move on the board."
+                            />
+                        )}
+
+                        {showUndoRedoShortcuts && (
+                            <>
+                                <ShortcutRow
+                                    label={(
+                                        <ShortcutKey>
+                                            Arrow Left
+                                        </ShortcutKey>
+                                    )}
+                                    description="Undo the last move."
+                                />
+
+                                <ShortcutRow
+                                    label={(
+                                        <ShortcutKey>
+                                            Arrow Right
+                                        </ShortcutKey>
+                                    )}
+                                    description="Redo the next move."
+                                />
+                            </>
+                        )}
+
+                        <ShortcutRow
+                            label={(
+                                <>
+                                    <ShortcutKey>
+                                        ?
+                                    </ShortcutKey>
+
+                                    <ShortcutKey>
+                                        F1
+                                    </ShortcutKey>
+                                </>
+                            )}
+                            description="Open this help card."
+                        />
+
+                        <ShortcutRow
+                            label={(
+                                <ShortcutKey>
+                                    Esc
+                                </ShortcutKey>
+                            )}
+                            description="Close this help card."
+                        />
+                    </ShortcutSection>
+
+                    <ShortcutSection title="Mouse" icon={<MouseIcon />}>
+                        <ShortcutRow
+                            label={(
+                                <ShortcutKey>
+                                    Right Drag
+                                </ShortcutKey>
+                            )}
+                            description="Draw a markup line or mark a single cell."
+                        />
+
+                        <ShortcutRow
+                            label={(
+                                <ShortcutKey>
+                                    Right Click
+                                </ShortcutKey>
+                            )}
+                            description="Remove an existing mark."
+                        />
+
+                        <ShortcutRow
+                            label={(
+                                <>
+                                    <ShortcutKey>
+                                        Shift
+                                    </ShortcutKey>
+
+                                    /
+
+                                    <ShortcutKey>
+                                        Ctrl
+                                    </ShortcutKey>
+
+                                    +
+
+                                    <ShortcutKey>
+                                        Right Drag
+                                    </ShortcutKey>
+                                </>
+                            )}
+                            description="Draw markup in yellow."
+                        />
+
+                        <ShortcutRow
+                            label={(
+                                <>
+                                    <ShortcutKey>
+                                        Alt
+                                    </ShortcutKey>
+
+                                    +
+
+                                    <ShortcutKey>
+                                        Right Drag
+                                    </ShortcutKey>
+                                </>
+                            )}
+                            description="Draw markup in blue."
+                        />
+
+                        <ShortcutRow
+                            label={(
+                                <>
+                                    <ShortcutKey>
+                                        Shift
+                                    </ShortcutKey>
+
+                                    +
+
+                                    <ShortcutKey>
+                                        Left Drag
+                                    </ShortcutKey>
+                                </>
+                            )}
+                            description="Start drawing without using the right mouse button."
+                        />
+                    </ShortcutSection>
+                </div>
+
+                <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
+                    Drag to pan, use the mouse wheel or pinch to zoom, and click or tap an empty hex on your turn to place a tile.
+                </div>
+
+                <div className="mt-5 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => onClose()}
+                        className="rounded-full bg-sky-600 px-5 py-2.5 text-sm font-semibold shadow-lg transition hover:bg-sky-500"
+                    >
+                        Continue Game
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function HelpButton({
+    onClick,
+}: Readonly<{
+    onClick: () => void
+}>) {
+    return (
+        <button
+            className="absolute bottom-0 left-0 p-5 cursor-pointer"
+            title="Board help"
+            onClick={(event) => {
+                onClick();
+                event.currentTarget.blur();
+            }}
+        >
+            <InfoIcon />
+        </button>
+    );
+}
+
+function BoardHelp({
+    showNthLastMoveShortcuts = false,
+    showUndoRedoShortcuts = false,
+}: Readonly<DisplayShortcuts>) {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
@@ -100,194 +347,19 @@ function BoardHelpOverlay() {
         return () => document.removeEventListener(`keydown`, handleKeyDown);
     }, []);
 
-    if (!isOpen) {
-        return null;
-    }
-
     return (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/76 px-4 py-6 backdrop-blur-sm">
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Board help"
-                className="w-full max-w-3xl rounded-[2rem] border border-white/10 bg-slate-950/96 p-5 text-white shadow-[0_30px_120px_rgba(2,6,23,0.7)] sm:p-6"
-            >
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-200/75">
-                            Board Help
-                        </div>
+        <>
+            {isOpen && (
+                <BoardHelpOverlay
+                    showNthLastMoveShortcuts={showNthLastMoveShortcuts}
+                    showUndoRedoShortcuts={showUndoRedoShortcuts}
+                    onClose={() => setIsOpen(false)}
+                />
+            )}
 
-                        <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
-                            Shortcuts and markup
-                        </h2>
-
-                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
-                            Review recent moves, mark up candidate lines, and navigate the board without leaving the game.
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setIsOpen(false)}
-                        className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200 transition hover:bg-white/10"
-                    >
-                        Close
-                    </button>
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-[45fr_55fr]">
-                    <section className="rounded-3xl border border-sky-300/10 bg-sky-300/6 p-4">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100">
-                            <KeyboardIcon />
-                            Keyboard
-                        </div>
-
-                        <div className="mt-3 gap-y-3 gap-x-1 grid grid-cols-[4em_1fr]">
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            1-9
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Show and center the nth last move on the board."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            ?
-                                        </ShortcutKey>
-
-                                        <ShortcutKey>
-                                            F1
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Open this help card from anywhere in the match."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Esc
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Close the help card."
-                            />
-                        </div>
-                    </section>
-
-                    <section className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-100">
-                            <MouseIcon />
-                            Markup
-                        </div>
-
-                        <div className="mt-3 gap-y-3 gap-x-1 grid grid-cols-[8em_1fr]">
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Right Drag
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Draw a markup line or mark a single cell."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Right Click
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Remove an existing mark."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Shift
-                                        </ShortcutKey>
-
-                                    /
-
-                                    <ShortcutKey>
-                                        Ctrl
-                                    </ShortcutKey>
-
-                                    +
-
-                                        <ShortcutKey>
-                                            Right Drag
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Draw markup in yellow."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Alt
-                                        </ShortcutKey>
-
-                                        +
-
-                                        <ShortcutKey>
-                                            Right Drag
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Draw markup in blue."
-                            />
-
-                            <ShortcutRow
-                                label={(
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <ShortcutKey>
-                                            Shift
-                                        </ShortcutKey>
-
-                                        +
-
-                                        <ShortcutKey>
-                                            Left Drag
-                                        </ShortcutKey>
-                                    </div>
-                                )}
-                                description="Start drawing without using the right mouse button."
-                            />
-                        </div>
-                    </section>
-                </div>
-
-                <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
-                    Drag to pan, use the mouse wheel or pinch to zoom, and click or tap an empty hex on your turn to place a tile.
-                </div>
-
-                <div className="mt-5 flex justify-end">
-                    <button
-                        type="button"
-                        onClick={() => setIsOpen(false)}
-                        className="rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg transition hover:bg-sky-400"
-                    >
-                        Continue Game
-                    </button>
-                </div>
-            </div>
-        </div>
+            <HelpButton onClick={() => setIsOpen(true)} />
+        </>
     );
 }
 
-export default BoardHelpOverlay;
+export default BoardHelp;
