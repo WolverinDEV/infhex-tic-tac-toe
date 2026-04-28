@@ -1,7 +1,6 @@
 import type { AccountProfile, CreateSessionRequest, LobbyInfo, ShutdownState } from '@ih3t/shared';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { useSsrCompatibleNow } from '../ssrState';
 import { useHydratedDelay } from '../useHydratedDelay';
 import CreateLobbyDialog from './CreateLobbyDialog';
 import ShutdownTimer from './game-screen/ShutdownTimer';
@@ -49,17 +48,8 @@ function LobbyScreen({
     onViewTournaments,
 }: Readonly<LobbyScreenProps>) {
     const isPlayingDisabled = !isConnected || Boolean(shutdown);
-    const [now, setNow] = useState(useSsrCompatibleNow());
     const [isCreateLobbyDialogOpen, setIsCreateLobbyDialogOpen] = useState(false);
     const showClientBadges = useHydratedDelay(500);
-
-    useEffect(() => {
-        const interval = window.setInterval(() => {
-            setNow(Date.now());
-        }, 1000);
-
-        return () => window.clearInterval(interval);
-    }, []);
 
     return (
         <div className="flex grow sm:h-full flex-col px-4 py-4 text-white sm:px-6 sm:py-6">
@@ -181,7 +171,6 @@ function LobbyScreen({
 
                 <PublicMatchesList
                     liveSessions={liveSessions}
-                    now={now}
                     isConnected={isConnected}
                     account={account}
                     isAccountLoading={isAccountLoading}

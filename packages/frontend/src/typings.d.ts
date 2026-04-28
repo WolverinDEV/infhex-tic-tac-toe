@@ -20,6 +20,5 @@ declare global {
   interface Window {
     __IH3T_DEHYDRATED_STATE__?: DehydratedState;
     __IH3T_RENDERED_AT__?: number;
-    __IH3T_OPENREPLAY_SESSION_ID__?: string;
   }
 }

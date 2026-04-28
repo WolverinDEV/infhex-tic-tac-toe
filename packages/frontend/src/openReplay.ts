@@ -1,5 +1,3 @@
-import type Tracker from '@openreplay/tracker';
-
 import { APP_VERSION_HASH } from './appVersion';
 
 type OpenReplayUser = {
@@ -7,38 +5,20 @@ type OpenReplayUser = {
     username: string;
 };
 
-let tracker: Tracker | null = null;
+type TrackerSingleton = typeof import("@openreplay/tracker").tracker;
+
+let trackerSingleton: TrackerSingleton | null = null;
 let trackerStartPromise: Promise<void> | null = null;
-let cachedSessionId: string | null = null;
 let trackedUser: OpenReplayUser | null = null;
 
 function isBrowser(): boolean {
     return typeof window !== `undefined` && typeof document !== `undefined`;
 }
 
-function normalizeSessionId(value: string | null | undefined): string | null {
-    return value && value.trim().length > 0 ? value : null;
-}
-
-function setCachedSessionId(value: string | null | undefined): void {
-    cachedSessionId = normalizeSessionId(value);
-
-    if (typeof window !== `undefined`) {
-        window.__IH3T_OPENREPLAY_SESSION_ID__ = cachedSessionId ?? undefined;
-    }
-}
-
-export function getOpenReplaySessionId(): string | null {
-    const windowSessionId = typeof window !== `undefined`
-        ? normalizeSessionId(window.__IH3T_OPENREPLAY_SESSION_ID__)
-        : null;
-
-    return windowSessionId ?? cachedSessionId;
-}
 
 export function createTrackedHeaders(init?: HeadersInit): Headers {
     const headers = new Headers(init);
-    const sessionId = getOpenReplaySessionId();
+    const sessionId = trackerSingleton?.getSessionID();
     if (sessionId) {
         headers.set(`X-OpenReplay-SessionId`, sessionId);
     }
@@ -47,12 +27,12 @@ export function createTrackedHeaders(init?: HeadersInit): Headers {
 }
 
 function applyTrackedUser(): void {
-    if (!tracker || !trackedUser) {
+    if (!trackerSingleton || !trackedUser) {
         return;
     }
 
-    tracker.setUserID(trackedUser.id);
-    tracker.setMetadata(`username`, trackedUser.username);
+    trackerSingleton.setUserID(trackedUser.id);
+    trackerSingleton.setMetadata(`username`, trackedUser.username);
 }
 
 export function trackOpenReplayUser(user: OpenReplayUser | null): void {
@@ -78,28 +58,35 @@ export function initializeOpenReplay(): Promise<void> {
     trackerStartPromise = (async () => {
         try {
             const [
-                { default: Tracker },
-                { default: trackerAssist },
+                tracker,
+                trackerAssist,
             ] = await Promise.all([
-                import(`@openreplay/tracker`),
-                import(`@openreplay/tracker-assist`),
+                import(`@openreplay/tracker`).then(module => module.tracker),
+                import(`@openreplay/tracker-assist`).then(module => module.default),
             ]);
-            tracker = new Tracker({
+
+            trackerSingleton = tracker;
+            tracker.configure({
                 projectKey,
                 ingestPoint,
-            });
-            tracker.use(trackerAssist());
 
-            await tracker.start({
-                metadata: {
-                    appVersion: APP_VERSION_HASH,
+                revID: APP_VERSION_HASH,
+
+                /* else requestAnimationFrame will constantly be called */
+                capturePerformance: false,
+
+                /* do not capture the games canvas */
+                canvas: {
+                    disableCanvas: true,
                 },
             });
 
-            setCachedSessionId(tracker.getSessionID());
+            tracker.use(trackerAssist());
+
+            await tracker.start();
             applyTrackedUser();
         } catch (error) {
-            tracker = null;
+            trackerSingleton = null;
             trackerStartPromise = null;
             console.error(`Failed to initialize OpenReplay`, error);
         }

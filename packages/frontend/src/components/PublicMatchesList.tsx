@@ -1,13 +1,13 @@
 import type { AccountProfile, LobbyInfo } from '@ih3t/shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { cn } from '../utils/cn';
 import { formatTimeControl } from '../utils/gameTimeControl';
 import { formatLobbyLiveDuration } from '../utils/lobby';
+import { useSsrCompatibleNow } from '../ssrState';
 
 type PublicMatchesListProps = {
     liveSessions: LobbyInfo[]
-    now: number
     isConnected: boolean
     account: AccountProfile | null
     isAccountLoading: boolean
@@ -146,13 +146,21 @@ function PlayerMatchup({ session }: { session: LobbyInfo }) {
 
 export default function PublicMatchesList({
     liveSessions,
-    now,
     isConnected,
     account,
     isAccountLoading,
     onJoinGame,
     className,
 }: Readonly<PublicMatchesListProps>) {
+    const [now, setNow] = useState(useSsrCompatibleNow());
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            setNow(Date.now());
+        }, 1000);
+
+        return () => window.clearInterval(interval);
+    }, []);
+
     const [activeFilter, setActiveFilter] = useState<LobbyFilter>(`all`);
     const filteredSessions = liveSessions.filter((session) => {
         if (activeFilter === `rated`) {
