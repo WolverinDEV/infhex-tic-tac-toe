@@ -99,7 +99,7 @@ function TurnTimerHud({
     return (
         <div className="absolute left-3 right-3 top-3 flex justify-center md:left-0 md:right-0">
             <div className="pointer-events-none min-w-0 w-110">
-                <div className="shadow-xxl w-full max-w-xl border rounded-md bg-slate-800/60 px-3 py-2.5 sm:px-4">
+                <div className="shadow-md shadow-black/20 w-full max-w-xl border rounded-md bg-slate-800/75 px-3 py-2.5 sm:px-4">
                     <TurnIndicator
                         playerIds={playerIds}
                         playerNames={playerNames}
