@@ -5,6 +5,8 @@ import type {
     AdminServerSettingsResponse,
     AdminShutdownControlResponse,
     AdminStatsResponse,
+    AdminActiveGamesTimeline,
+    AdminTimelineRange,
     AdminTerminateSessionResponse,
     AdminUpdateServerSettingsRequest,
 } from '@ih3t/shared';
@@ -98,5 +100,15 @@ export function useQueryAdminServerSettings(options?: { enabled?: boolean }) {
         queryFn: fetchAdminServerSettings,
         enabled: options?.enabled,
         staleTime: 10_000,
+    });
+}
+
+export function useQueryAdminActiveGamesTimeline(timelineRange: AdminTimelineRange, options?: { enabled?: boolean }) {
+    return useQuery({
+        queryKey: queryKeys.adminActiveGamesTimeline(timelineRange),
+        queryFn: () => fetchJson<AdminActiveGamesTimeline>(`/api/admin/active-games-timeline?timelineRange=${timelineRange}`),
+        enabled: options?.enabled,
+        refetchInterval: 60_000,
+        refetchIntervalInBackground: true,
     });
 }

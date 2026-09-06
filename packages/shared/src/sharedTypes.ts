@@ -836,6 +836,15 @@ export const zAdminUserStatsWindow = z.object({
 });
 export type AdminUserStatsWindow = z.infer<typeof zAdminUserStatsWindow>;
 
+export const zAdminTimelineRange = z.enum([`24h`, `7d`, `14d`, `30d`]);
+export type AdminTimelineRange = z.infer<typeof zAdminTimelineRange>;
+export const ADMIN_TIMELINE_WINDOWS = {
+    '24h': { durationMs: 24 * 60 * 60 * 1000, bucketSizeMs: 5 * 60 * 1000 },
+    '7d': { durationMs: 7 * 24 * 60 * 60 * 1000, bucketSizeMs: 10 * 60 * 1000 },
+    '14d': { durationMs: 14 * 24 * 60 * 60 * 1000, bucketSizeMs: 60 * 60 * 1000 },
+    '30d': { durationMs: 30 * 24 * 60 * 60 * 1000, bucketSizeMs: 60 * 60 * 1000 },
+} satisfies Record<AdminTimelineRange, { durationMs: number; bucketSizeMs: number }>;
+
 export const zAdminActiveGamesTimelinePoint = z.object({
     timestamp: zTimestamp,
     activeGames: z.number().int().nonnegative(),

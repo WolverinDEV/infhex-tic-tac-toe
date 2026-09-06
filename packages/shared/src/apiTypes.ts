@@ -5,7 +5,6 @@ import {
     zAccountPreferences,
     zAccountProfile,
     zAccountStatistics,
-    zAdminActiveGamesTimeline,
     zAdminBroadcastMessage,
     zAdminStatsWindow,
     zAdminUserStatsWindow,
@@ -183,7 +182,6 @@ export const zAdminStatsResponse = z.object({
         last24Hours: zAdminStatsWindow,
         last7Days: zAdminStatsWindow,
     }),
-    activeGamesTimeline: zAdminActiveGamesTimeline,
 });
 export type AdminStatsResponse = z.infer<typeof zAdminStatsResponse>;
 

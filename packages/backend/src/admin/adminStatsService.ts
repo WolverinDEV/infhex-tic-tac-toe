@@ -1,4 +1,6 @@
 import {
+    ADMIN_TIMELINE_WINDOWS,
+    type AdminTimelineRange,
     type AdminActiveGamesTimeline,
     type AdminStatsResponse,
     type AdminStatsWindow,
@@ -20,7 +22,6 @@ type AdminStatsInterval = {
 
 @injectable()
 export class AdminStatsService {
-    private static readonly ACTIVE_GAMES_TIMELINE_BUCKET_SIZE_MS = 5 * 60 * 1000;
 
     constructor(
         @inject(AuthRepository) private readonly authRepository: AuthRepository,
@@ -42,7 +43,6 @@ export class AdminStatsService {
             usersSinceMidnight,
             usersLast7Days,
             usersLastMonth,
-            activeGamesTimeline,
         ] = await Promise.all([
             this.getIntervalStats(intervals.sinceMidnight),
             this.getIntervalStats(intervals.last24Hours),
@@ -51,7 +51,6 @@ export class AdminStatsService {
             this.getUserWindowStats(intervals.sinceMidnight),
             this.getUserWindowStats(intervals.last7Days),
             this.getUserWindowStats(intervals.lastMonth),
-            this.getActiveGamesTimeline(intervals.last7Days),
         ]);
 
         return zAdminStatsResponse.parse({
@@ -71,7 +70,6 @@ export class AdminStatsService {
                 last24Hours,
                 last7Days,
             },
-            activeGamesTimeline,
         } satisfies AdminStatsResponse);
     }
 
@@ -107,8 +105,10 @@ export class AdminStatsService {
         };
     }
 
-    private async getActiveGamesTimeline(interval: AdminStatsInterval): Promise<AdminActiveGamesTimeline> {
-        const bucketSizeMs = AdminStatsService.ACTIVE_GAMES_TIMELINE_BUCKET_SIZE_MS;
+    async getActiveGamesTimeline(timelineRange: AdminTimelineRange = `7d`, now = new Date()): Promise<AdminActiveGamesTimeline> {
+        const { durationMs, bucketSizeMs } = ADMIN_TIMELINE_WINDOWS[timelineRange];
+        const endAt = Math.floor(now.getTime() / bucketSizeMs) * bucketSizeMs;
+        const interval = { startAt: endAt - durationMs, endAt };
         const points = await this.gameHistoryRepository.getActiveGamesTimeline(
             interval.startAt,
             interval.endAt,

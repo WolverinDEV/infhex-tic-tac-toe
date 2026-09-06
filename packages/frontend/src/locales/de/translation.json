@@ -919,5 +919,9 @@
   "yourRematchRequestHasBeenSentWaitingForTheOpponentToAccept": "Deine Rückkampfanfrage wurde gesendet. Warte auf die Zustimmung deines Gegners.",
   "youveWon": "Du hast gewonnen",
   "zenModeHidesEloInTheHud": "Der Zen-Modus verbirgt Elo im HUD.",
-  "zenModeIngame": "Zen-Modus im Spiel"
+  "zenModeIngame": "Zen-Modus im Spiel",
+  "timelineRange": "Zeitraum",
+  "last14Days": "Letzte 14 Tage",
+  "last30Days": "Letzte 30 Tage",
+  "peakConcurrentActiveGamesBuckets": "Maximal gleichzeitig aktive Spiele in Intervallen von {{bucketSize}}"
 }

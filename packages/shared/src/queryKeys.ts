@@ -1,3 +1,5 @@
+import type { AdminTimelineRange } from './sharedTypes';
+
 export const FINISHED_GAMES_PAGE_SIZE = 20;
 export type FinishedGamesArchiveView = `all` | `mine`;
 export type FinishedGamesRatedFilter = `all` | `rated` | `unrated`;
@@ -17,6 +19,8 @@ export const queryKeys = {
     adminStats: (timezoneOffsetMinutes: number) => [
         `admin`, `stats`, timezoneOffsetMinutes,
     ] as const,
+
+    adminActiveGamesTimeline: (range: AdminTimelineRange) => [`admin`, `active-games-timeline`, range] as const,
 
     leaderboard: [`leaderboard`] as const,
     tournaments: [`tournaments`] as const,

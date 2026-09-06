@@ -14,6 +14,7 @@ import {
     type LobbyOptions,
     type ServerSettings,
     type UserSearchResponse,
+    zAdminTimelineRange,
     zAdminBroadcastMessageRequest,
     zAdminScheduleShutdownRequest,
     zAdminUpdateServerSettingsRequest,
@@ -921,6 +922,16 @@ export class ApiRouter {
             }
 
             res.json(sandboxPosition);
+        });
+
+        router.get(`/admin/active-games-timeline`, async (req, res) => {
+            const user = await this.requireAdminUser(req, res);
+            if (!user) {
+                return;
+            }
+
+            const timelineRange = zAdminTimelineRange.default(`7d`).parse(req.query.timelineRange);
+            res.json(await this.adminStatsService.getActiveGamesTimeline(timelineRange));
         });
 
         router.get(`/admin/stats`, async (req, res) => {

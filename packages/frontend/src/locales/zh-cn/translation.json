@@ -919,5 +919,9 @@
   "yourRematchRequestHasBeenSentWaitingForTheOpponentToAccept": "再战请求已发送，正在等待对手接受。",
   "youveWon": "你赢了",
   "zenModeHidesEloInTheHud": "禅模式会隐藏对局界面中的 ELO。",
-  "zenModeIngame": "对局内禅模式"
+  "zenModeIngame": "对局内禅模式",
+  "timelineRange": "时间范围",
+  "last14Days": "最近 14 天",
+  "last30Days": "最近 30 天",
+  "peakConcurrentActiveGamesBuckets": "每 {{bucketSize}} 时间段内同时进行的对局数峰值"
 }

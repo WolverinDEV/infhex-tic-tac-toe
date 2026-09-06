@@ -919,5 +919,9 @@
   "yourRematchRequestHasBeenSentWaitingForTheOpponentToAccept": "재대결 요청을 보냈습니다. 상대의 수락을 기다리는 중입니다.",
   "youveWon": "승리했습니다",
   "zenModeHidesEloInTheHud": "젠 모드에서는 HUD의 ELO를 숨깁니다.",
-  "zenModeIngame": "게임 내 젠 모드"
+  "zenModeIngame": "게임 내 젠 모드",
+  "timelineRange": "타임라인 기간",
+  "last14Days": "최근 14일",
+  "last30Days": "최근 30일",
+  "peakConcurrentActiveGamesBuckets": "{{bucketSize}} 구간별 최대 동시 진행 게임 수"
 }

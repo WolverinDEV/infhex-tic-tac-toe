@@ -919,5 +919,9 @@
   "yourRematchRequestHasBeenSentWaitingForTheOpponentToAccept": "Your rematch request has been sent. Waiting for the opponent to accept.",
   "youveWon": "You've Won",
   "zenModeHidesEloInTheHud": "Zen mode hides Elo in the HUD.",
-  "zenModeIngame": "Zen Mode In-Game"
+  "zenModeIngame": "Zen Mode In-Game",
+  "timelineRange": "Timeline range",
+  "last14Days": "Last 14 Days",
+  "last30Days": "Last 30 Days",
+  "peakConcurrentActiveGamesBuckets": "Peak concurrent active games in {{bucketSize}} buckets"
 }

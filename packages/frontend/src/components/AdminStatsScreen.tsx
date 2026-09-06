@@ -1,9 +1,12 @@
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useQueryAdminActiveGamesTimeline, useQueryAdminStats } from '../query/adminClient';
+import { ADMIN_TIMELINE_WINDOWS } from '@ih3t/shared';
 import { Button } from '@/components/ui/button';
 import type {
-    AdminActiveGamesTimeline,
     AdminLongestGameInDuration,
     AdminLongestGameInMoves,
-    AdminStatsResponse,
+    AdminTimelineRange,
     AdminStatsWindow,
     AdminUserStatsWindow,
 } from '@ih3t/shared';
@@ -24,10 +27,6 @@ import PageCorpus from './PageCorpus';
 import { useTranslation } from 'react-i18next'
 
 type AdminStatsScreenProps = {
-    stats: AdminStatsResponse | null
-    isLoading: boolean
-    errorMessage: string | null
-    onRefresh: () => void
     onOpenGame: (gameId: string) => void
 };
 
@@ -164,11 +163,11 @@ function UserWindowCard({
     );
 }
 
-function ActiveGamesChartSection({
-    timeline,
-}: {
-    timeline: AdminActiveGamesTimeline
-}) {
+function ActiveGamesChartSection() {
+    const [timelineRange, setTimelineRange] = useState<AdminTimelineRange>(`7d`);
+    const timelineQuery = useQueryAdminActiveGamesTimeline(timelineRange);
+    const timeline = timelineQuery.data ?? null;
+    const errorMessage = timelineQuery.error instanceof Error ? timelineQuery.error.message : null;
     const { t } = useTranslation()
     const intlFormatProvider = useIntlFormatProvider();
     return (
@@ -180,7 +179,7 @@ function ActiveGamesChartSection({
                     </div>
 
                     <div className="mt-1 text-sm font-semibold text-white">
-                        {t('peakConcurrentActiveGames', 'Peak concurrent active games in {{bucketSize}} buckets over the last 7 days', { bucketSize: formatBucketSize(timeline.bucketSizeMs) })}
+                        {t('peakConcurrentActiveGamesBuckets', 'Peak concurrent active games in {{bucketSize}} buckets', { bucketSize: formatBucketSize(ADMIN_TIMELINE_WINDOWS[timelineRange].bucketSizeMs) })}
                     </div>
 
                     <div className="mt-1 text-xs leading-5 text-slate-400">
@@ -189,15 +188,28 @@ function ActiveGamesChartSection({
                 </div>
 
                 <div className="text-xs leading-5 text-slate-400">
-                    {formatDateTime(intlFormatProvider, timeline.startAt)}
-                    {` to `}
-                    {formatDateTime(intlFormatProvider, timeline.endAt)}
+                    <select
+                        aria-label={t('timelineRange', 'Timeline range')}
+                        value={timelineRange}
+                        onChange={(event) => setTimelineRange(event.target.value as AdminTimelineRange)}
+                        className="mb-2 block rounded-lg border border-white/20 bg-slate-900 px-3 py-2 text-sm text-white"
+                    >
+                        <option value="24h">{t('last24Hours', 'Last 24 Hours')}</option>
+                        <option value="7d">{t('last7Days', 'Last 7 Days')}</option>
+                        <option value="14d">{t('last14Days', 'Last 14 Days')}</option>
+                        <option value="30d">{t('last30Days', 'Last 30 Days')}</option>
+                    </select>
+                    {timeline && formatDateTime(intlFormatProvider, timeline.startAt)}
+                    {timeline && ` to `}
+                    {timeline && formatDateTime(intlFormatProvider, timeline.endAt)}
                 </div>
             </div>
 
-            <div className="mt-5 h-72 rounded-[1.25rem] border border-white/8 bg-slate-950/45 p-3">
+            {errorMessage && <div role="alert" className="mt-4 text-sm text-rose-300">{errorMessage}</div>}
+            {!timeline && !errorMessage && <div className="mt-4 text-sm text-slate-400">{t('loadingStatistics', 'Loading statistics...')}</div>}
+            {timeline && <div className="mt-5 h-72 rounded-[1.25rem] border border-white/8 bg-slate-950/45 p-3">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={timeline.points} margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
+                    <LineChart key={timelineRange} data={timeline.points} margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
                         <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
 
                         <XAxis
@@ -248,7 +260,7 @@ function ActiveGamesChartSection({
                         />
                     </LineChart>
                 </ResponsiveContainer>
-            </div>
+            </div>}
         </section>
     );
 }
@@ -307,13 +319,16 @@ function IntervalSection({
     );
 }
 
-function AdminStatsScreen({
-    stats,
-    isLoading,
-    errorMessage,
-    onRefresh,
-    onOpenGame,
-}: Readonly<AdminStatsScreenProps>) {
+function AdminStatsScreen({ onOpenGame }: Readonly<AdminStatsScreenProps>) {
+    const queryClient = useQueryClient();
+    const statsQuery = useQueryAdminStats(new Date().getTimezoneOffset());
+    const stats = statsQuery.data ?? null;
+    const isLoading = statsQuery.isLoading;
+    const errorMessage = statsQuery.error instanceof Error ? statsQuery.error.message : null;
+    const onRefresh = () => {
+        void statsQuery.refetch();
+        void queryClient.invalidateQueries({ queryKey: [`admin`, `active-games-timeline`] });
+    };
     const { t } = useTranslation()
     const intlFormatProvider = useIntlFormatProvider();
     return (
@@ -363,7 +378,7 @@ function AdminStatsScreen({
                         </div>
 
                         <div className="mt-4">
-                            <ActiveGamesChartSection timeline={stats.activeGamesTimeline} />
+                            <ActiveGamesChartSection />
                         </div>
 
                         <div className="mt-4 grid gap-4 xl:grid-cols-3">
