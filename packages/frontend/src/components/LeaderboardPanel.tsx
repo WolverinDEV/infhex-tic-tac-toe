@@ -2,7 +2,7 @@ import type { Leaderboard, LeaderboardPlacement, LeaderboardPlayer } from '@ih3t
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
-import { useQueryAccount } from '../query/accountClient';
+import { useQueryAccount, useQueryProfileStatistics } from '../query/accountClient';
 import { useSsrCompatibleNow } from '../ssrState';
 import { cn } from '../utils/cn';
 import { formatDateTime, useIntlFormatProvider } from '../utils/dateTime';
@@ -76,6 +76,9 @@ function PersonalLeaderboardCard({
 }>) {
     const { t } = useTranslation()
     const queryAccount = useQueryAccount();
+    const queryStatistics = useQueryProfileStatistics(queryAccount.data?.user?.id ?? null, {
+        enabled: !placement,
+    });
     if (!queryAccount.data?.user) {
         /* user is not logged in */
         return;
@@ -95,9 +98,13 @@ function PersonalLeaderboardCard({
                     {queryAccount.data.user.username}
                 </Link>
 
-                <div className="mt-1 text-slate-300">
-                    {t('youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot', 'You are not ranked yet. Finish a rated game to claim a leaderboard spot.')}
-                </div>
+                {queryStatistics.data && (
+                    <div className="mt-1 text-slate-300">
+                        {queryStatistics.data.statistics.rankedGames.played > 0
+                            ? t('leaderboardInactiveHint', 'You have not completed a rated game in the last 30 days. Finish a rated game to return to the leaderboard.')
+                            : t('youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot', 'You are not ranked yet. Finish a rated game to claim a leaderboard spot.')}
+                    </div>
+                )}
             </div>
         );
     }
@@ -263,6 +270,7 @@ export function LeaderboardRefreshIndicator({
                 {`Last updated `}
                 {formatDateTime(intlFormatProvider, leaderboard.generatedAt)}
                 {t('nextRecalculation', '. Next recalculation')}
+                {` `}
                 {formatDateTime(intlFormatProvider, leaderboard.nextRefreshAt)}
             </div>
         </div>

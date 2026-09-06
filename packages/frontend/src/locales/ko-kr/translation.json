@@ -901,6 +901,7 @@
   "yes": "예",
   "you": "나",
   "youAreAllCaughtUp": "새로운 소식을 모두 확인했습니다",
+  "leaderboardInactiveHint": "최근 30일 동안 레이팅전을 완료하지 않았습니다. 레이팅전을 완료하여 순위표에 복귀하세요.",
   "youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot": "아직 순위가 없습니다. 레이팅전을 완료하여 순위표에 이름을 올리세요.",
   "youCanNotSendAMessage": "메시지를 보낼 수 없습니다",
   "youCanReturnToTheLobbyInspectTheReplayOrRequestARematch": "로비로 돌아가거나 리플레이를 확인하고 재대결을 요청할 수 있습니다.",

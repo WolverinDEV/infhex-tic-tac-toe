@@ -901,6 +901,7 @@
   "yes": "Ja",
   "you": "Du",
   "youAreAllCaughtUp": "Du bist auf dem neuesten Stand",
+  "leaderboardInactiveHint": "Du hast in den letzten 30 Tagen keine gewertete Partie beendet. Beende eine gewertete Partie, um wieder in der Rangliste zu erscheinen.",
   "youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot": "Du bist noch nicht in der Rangliste. Beende eine gewertete Partie, um dir einen Platz zu sichern.",
   "youCanNotSendAMessage": "Du kannst keine Nachricht senden",
   "youCanReturnToTheLobbyInspectTheReplayOrRequestARematch": "Du kannst zur Lobby zurückkehren, dir die Wiederholung ansehen oder einen Rückkampf anfordern.",

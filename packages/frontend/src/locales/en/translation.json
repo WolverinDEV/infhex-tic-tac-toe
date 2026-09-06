@@ -901,6 +901,7 @@
   "yes": "Yes",
   "you": "You",
   "youAreAllCaughtUp": "You are all caught up",
+  "leaderboardInactiveHint": "You have not completed a rated game in the last 30 days. Finish a rated game to return to the leaderboard.",
   "youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot": "You are not ranked yet. Finish a rated game to claim a leaderboard spot.",
   "youCanNotSendAMessage": "You can not send a message",
   "youCanReturnToTheLobbyInspectTheReplayOrRequestARematch": "You can return to the lobby, inspect the replay, or request a rematch.",

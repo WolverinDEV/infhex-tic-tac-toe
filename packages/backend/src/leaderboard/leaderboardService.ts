@@ -45,7 +45,7 @@ export class LeaderboardService {
             refreshIntervalMs: placementCache.refreshIntervalMs,
             players,
 
-            ownPlacement: await this.getTargetLeaderboardPlayer(targetProfileId),
+            ownPlacement: await this.getTargetLeaderboardPlayer(targetProfileId, nowMs),
         };
     }
 
@@ -60,7 +60,7 @@ export class LeaderboardService {
             };
         }
 
-        const topPlayers = await this.eloRepository.getTopLeaderboardPlayers(LEADERBOARD_PLAYER_LIMIT);
+        const topPlayers = await this.eloRepository.getTopLeaderboardPlayers(LEADERBOARD_PLAYER_LIMIT, nowMs);
         const topProfileIds = topPlayers.map((player) => player.profileId);
         const [topPlayerProfiles, topPlayerStats] = await Promise.all([
             this.authRepository.getUserProfilesByIds(topProfileIds),
@@ -79,7 +79,7 @@ export class LeaderboardService {
         return this.leaderboardCache;
     }
 
-    private async getTargetLeaderboardPlayer(profileId: string | null): Promise<LeaderboardPlacement | null> {
+    private async getTargetLeaderboardPlayer(profileId: string | null, nowMs: number): Promise<LeaderboardPlacement | null> {
         if (!profileId) {
             return null;
         }
@@ -87,7 +87,7 @@ export class LeaderboardService {
         const [
             placement, profiles, stats,
         ] = await Promise.all([
-            this.eloRepository.getLeaderboardPlacement(profileId),
+            this.eloRepository.getLeaderboardPlacement(profileId, nowMs),
             this.authRepository.getUserProfilesByIds([profileId]),
             this.gameHistoryRepository.getPlayerLeaderboardStatsForPlayers([profileId], { ratedOnly: true }),
         ]);

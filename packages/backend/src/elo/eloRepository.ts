@@ -11,6 +11,8 @@ type EloUserDocument = {
     _id: ObjectId;
     elo?: number;
     ratedGamesPlayed?: number;
+    // Timestamp of the most recently completed rated game.
+    lastGamePlayedAt?: number | null;
 } & Document;
 
 
@@ -27,6 +29,7 @@ export type EloLeaderboardPlacement = {
 
 export const DEFAULT_PLAYER_ELO = 1000;
 const MINIMUM_PLAYER_ELO = 100;
+const LEADERBOARD_ACTIVITY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 @injectable()
 export class EloRepository {
@@ -92,6 +95,7 @@ export class EloRepository {
         const document = await collection.findOneAndUpdate(
             { _id: objectId },
             {
+                $max: { lastGamePlayedAt: Date.now() },
                 $inc: {
                     elo: delta,
                     ratedGamesPlayed: 1,
@@ -112,13 +116,14 @@ export class EloRepository {
         return this.mapRating(document);
     }
 
-    async getTopLeaderboardPlayers(limit: number): Promise<EloLeaderboardPlayer[]> {
+    async getTopLeaderboardPlayers(limit: number, nowMs = Date.now()): Promise<EloLeaderboardPlayer[]> {
         if (limit <= 0) {
             return [];
         }
 
         const collection = await this.getUsersCollection();
         const documents = await collection.find({
+            lastGamePlayedAt: { $gte: nowMs - LEADERBOARD_ACTIVITY_WINDOW_MS, $lte: nowMs },
             ratedGamesPlayed: { $gt: 0 },
         }).sort({
             elo: -1,
@@ -134,14 +139,17 @@ export class EloRepository {
         }));
     }
 
-    async getLeaderboardPlacement(profileId: string): Promise<EloLeaderboardPlacement | null> {
+    async getLeaderboardPlacement(profileId: string, nowMs = Date.now()): Promise<EloLeaderboardPlacement | null> {
         const collection = await this.getUsersCollection();
         const objectId = this.parseObjectId(profileId);
         if (!objectId) {
             return null;
         }
 
-        const document = await collection.findOne({ _id: objectId });
+        const document = await collection.findOne({
+            _id: objectId,
+            lastGamePlayedAt: { $gte: nowMs - LEADERBOARD_ACTIVITY_WINDOW_MS, $lte: nowMs },
+        });
         if (!document) {
             return null;
         }
@@ -152,6 +160,7 @@ export class EloRepository {
         }
 
         const higherRankedPlayers = await collection.countDocuments({
+            lastGamePlayedAt: { $gte: nowMs - LEADERBOARD_ACTIVITY_WINDOW_MS, $lte: nowMs },
             ratedGamesPlayed: { $gt: 0 },
             $or: [
                 { elo: { $gt: rating.eloScore } },

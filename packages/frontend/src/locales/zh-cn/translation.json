@@ -901,6 +901,7 @@
   "yes": "是",
   "you": "你",
   "youAreAllCaughtUp": "你已查看全部更新",
+  "leaderboardInactiveHint": "你在最近 30 天内没有完成过计分对局。完成一场计分对局即可重返排行榜。",
   "youAreNotRankedYetFinishARatedGameToClaimALeaderboardSpot": "你尚未进入排名。完成一场计分对局即可登上排行榜。",
   "youCanNotSendAMessage": "你无法发送消息",
   "youCanReturnToTheLobbyInspectTheReplayOrRequestARematch": "你可以返回房间、查看回放或请求再战。",
