@@ -140,7 +140,7 @@ function GameBoardView({
 
             {children?.({
                 renderableCellCount,
-                resetView: controller.resetView,
+                resetView: () => controller.resetView(),
             })}
         </div>
     );

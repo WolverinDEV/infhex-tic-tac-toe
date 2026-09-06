@@ -37,10 +37,6 @@ function SandboxShareModal({
         setPositionName(initialName ?? ``);
     }, [initialName, isOpen]);
 
-    if (!isOpen) {
-        return null;
-    }
-
     const trimmedName = positionName.trim();
     const validationMessage = useMemo(() => {
         if (trimmedName.length === 0) {
@@ -55,6 +51,10 @@ function SandboxShareModal({
     }, [trimmedName]);
     const visibleErrorMessage = errorMessage ?? validationMessage;
     const isLinkReady = Boolean(shareUrl);
+
+    if (!isOpen) {
+        return null;
+    }
 
     return (
         <div className="absolute inset-0 flex items-center justify-center px-4">

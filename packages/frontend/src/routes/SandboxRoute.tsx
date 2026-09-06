@@ -272,8 +272,7 @@ function SandboxRoute() {
     });
     const isBotBusy = sandboxBotController.isThinking;
 
-    const [boardController] = useState(() => new BoardController());
-    const resetView = boardController.resetView;
+    const boardController = useMemo(() => new BoardController(), []);
     const rendererBoardState = useMemo(
         () => toRendererBoardState(
             currentGameState,
@@ -348,7 +347,7 @@ function SandboxRoute() {
         setImportModalError(null);
         setShareModalError(null);
         setIsShareModalOpen(false);
-        resetView();
+        boardController.resetView();
     }
 
     function applyLoadedSandboxPosition(response: SandboxPositionResponse) {
@@ -475,9 +474,9 @@ function SandboxRoute() {
         const nextGameState = createSandboxGameState();
         previousCellCountRef.current = nextGameState.cells.length;
         resetGame();
-        resetView();
+        boardController.resetView();
     }, [
-        location.key, resetView, routeBotGame, routeInitialPosition, routePositionId,
+        location.key, boardController, routeBotGame, routeInitialPosition, routePositionId,
     ]);
 
     useEffect(() => {
@@ -543,7 +542,7 @@ function SandboxRoute() {
         }
 
         previousCellCountRef.current = previousGameState.cells.length;
-        setGame({...game, currentStateIndex: game.currentStateIndex - 1});
+        setGame({ ...game, currentStateIndex: game.currentStateIndex - 1 });
         setIsWinnerBannerVisible(false);
         closeShareModal();
     };
@@ -555,7 +554,7 @@ function SandboxRoute() {
         }
 
         previousCellCountRef.current = nextGameState.cells.length;
-        setGame({...game, currentStateIndex: game.currentStateIndex + 1});
+        setGame({ ...game, currentStateIndex: game.currentStateIndex + 1 });
         closeShareModal();
     };
 
@@ -805,7 +804,7 @@ function SandboxRoute() {
                                     onResetBoard={resetSandbox}
                                     onUndo={undoMove}
                                     onRedo={redoMove}
-                                    onResetView={resetView}
+                                    onResetView={() => boardController.resetView()}
                                     canUndo={canUndo}
                                     canRedo={canRedo}
                                     onSharePosition={() => {
