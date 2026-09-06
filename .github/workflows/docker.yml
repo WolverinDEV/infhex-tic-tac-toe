@@ -35,7 +35,7 @@ jobs:
               uses: docker/metadata-action@v5
               with:
                   images: |
-                      ghcr.io/wolverindev/infhex-tic-tac-toe
+                      ghcr.io/HeXO-Game/infhex-tic-tac-toe
                   tags: |
                       type=ref,event=branch
                       type=sha
