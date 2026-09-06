@@ -1,5 +1,6 @@
 import {
     CellKey,
+    type PlayerColorIndex,
     getCellKey,
     getHexDistance,
     type HexCoordinate,
@@ -35,6 +36,7 @@ type EmptyRenderableCell = HexCoordinate & {
 type OccupiedRenderableCell = Omit<EmptyRenderableCell, `status`> & {
     status: `occupied`;
     marker: CellMarker;
+    colorIndex: PlayerColorIndex;
 };
 
 export type RenderableCell = EmptyRenderableCell | OccupiedRenderableCell;
@@ -84,12 +86,16 @@ export function buildRenderableCells(
         const point = axialToUnitPoint(placedCell.x, placedCell.y);
         cells.set(key, {
             key,
+            
             x: placedCell.x,
             y: placedCell.y,
+
             pointX: point.x,
             pointY: point.y,
+
             status: `occupied`,
             marker: placedCell.marker,
+            colorIndex: placedCell.colorIndex,
         });
     }
 

@@ -27,7 +27,7 @@ import {
 import { formatCompactDuration, formatDetailedDuration } from '../utils/duration';
 import { formatEloChange } from '../utils/elo';
 import { getPersonalResultLabel, type PersonalResultTone } from '../utils/finishedGames';
-import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../utils/gameBoard';
 import { formatTimeControl } from '../utils/gameTimeControl';
 import { formatLobbyPlayers } from '../utils/lobby';
 import {
@@ -388,7 +388,7 @@ function RecentGamesSection({
                                                 >
                                                     <span
                                                         className="h-2.5 w-2.5 rounded-full"
-                                                        style={{ backgroundColor: getPlayerTileColor(game.playerTiles, player.playerId) }}
+                                                        style={{ backgroundColor: getPlayerColor(game.playerTiles, player.playerId) }}
                                                     />
 
                                                     <span>

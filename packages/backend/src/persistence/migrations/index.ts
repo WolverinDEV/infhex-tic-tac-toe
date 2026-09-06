@@ -7,6 +7,7 @@ import { serverSettingsMigration } from './006-server-settings';
 import k007 from "./007-fix-elo-new-users";
 import { tournamentsMigration } from './008-tournaments';
 import { boardThemePreferencesMigration } from './009-board-theme-preferences';
+import { playerColorIndicesMigration } from './010-player-color-indices';
 import type { DatabaseMigration } from './types';
 
 export const databaseMigrations: readonly DatabaseMigration[] = [
@@ -19,4 +20,5 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
     k007,
     tournamentsMigration,
     boardThemePreferencesMigration,
+    playerColorIndicesMigration,
 ];

@@ -708,6 +708,7 @@ function SandboxRoute() {
                     <div className="flex h-full flex-col justify-between gap-4">
                         {!isWelcomeModalVisible && !isImportModalOpen && (
                             <SandboxTurnIndicator
+                                theme={getBoardTheme(accountPreferences?.preferences.boardTheme)}
                                 players={SANDBOX_PLAYERS.map(player => ({
                                     ...player,
                                     displayName: botPlayerIds.includes(player.id) ? t('botAsDisplayname', 'Bot as {{displayName}}', { displayName: player.displayName }) : player.displayName,
@@ -721,6 +722,7 @@ function SandboxRoute() {
 
                         {!isWelcomeModalVisible && !isImportModalOpen && (
                             <SandboxWinnerBanner
+                                theme={getBoardTheme(accountPreferences?.preferences.boardTheme)}
                                 players={SANDBOX_PLAYERS}
                                 gameState={currentGameState}
                                 winnerId={isWinnerBannerVisible ? currentGameState.winner?.playerId ?? null : null}

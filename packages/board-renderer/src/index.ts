@@ -1,4 +1,4 @@
-import { type HexCoordinate, type CellKey, getCellKey } from "@ih3t/shared";
+import { type PlayerColorIndex, type HexCoordinate, type CellKey, getCellKey } from "@ih3t/shared";
 
 import { axialToUnitPoint, clampScale, kDefaultScale } from "./utils";
 
@@ -6,6 +6,7 @@ export type CellMarker = `X` | `O`;
 
 export type PlacedCell = HexCoordinate & {
     marker: CellMarker;
+    colorIndex: PlayerColorIndex;
 };
 
 export type CellLabel = HexCoordinate & {

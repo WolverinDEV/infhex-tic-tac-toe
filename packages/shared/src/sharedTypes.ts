@@ -66,27 +66,13 @@ export type PlayerNames = z.infer<typeof zPlayerNames>;
 export const zPlayerProfileIds = z.record(z.string(), z.string().nullable());
 export type PlayerProfileIds = z.infer<typeof zPlayerProfileIds>;
 
-export const PLAYER_TILE_COLORS = [
-    `#fbbf24`,
-    `#38bdf8`,
-    `#f472b6`,
-    `#34d399`,
-    `#c084fc`,
-    `#fb7185`,
-] as const;
+export const zPlayerColorIndex = z.union([z.literal(0), z.literal(1)]);
+export type PlayerColorIndex = z.infer<typeof zPlayerColorIndex>;
 
 export const zPlayerTileConfig = z.object({
-    color: z.string(),
+    colorIndex: zPlayerColorIndex,
 });
 export type PlayerTileConfig = z.infer<typeof zPlayerTileConfig>;
-
-export function getDefaultPlayerTileColor(playerIndex: number): string {
-    return (
-        PLAYER_TILE_COLORS[
-            Math.min(playerIndex, PLAYER_TILE_COLORS.length - 1)
-        ] ?? PLAYER_TILE_COLORS[0]
-    );
-}
 
 export function buildPlayerTileConfigMap(
     playerIds: readonly string[],
@@ -95,7 +81,7 @@ export function buildPlayerTileConfigMap(
         playerIds.map((playerId, playerIndex) => [
             playerId,
             {
-                color: getDefaultPlayerTileColor(playerIndex),
+                colorIndex: zPlayerColorIndex.parse(playerIndex),
             },
         ]),
     );

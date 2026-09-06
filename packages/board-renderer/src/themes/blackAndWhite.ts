@@ -7,6 +7,7 @@ import { traceHexPath } from "../utils";
 import { drawMarker } from "./markerDrawing";
 
 const blackAndWhiteColors: BoardThemeColors = {
+    players: [`#555555`, `#888888`],
     background: `#ffffff`,
     grid: `rgba(0, 0, 0, 0.18)`,
     emphasisFill: `rgba(0, 0, 0, 0.08)`,
@@ -22,10 +23,6 @@ const blackAndWhiteColors: BoardThemeColors = {
     highlightBlue: `#888888`,
     highlightDot: `#000000`,
     highlightLineShadow: `rgba(255, 255, 255, 0.72)`,
-    marker: {
-        X: `#555555`,
-        O: `#888888`,
-    },
 };
 
 export const blackAndWhiteBoardTheme: BoardTheme = {
@@ -39,7 +36,7 @@ export const blackAndWhiteBoardTheme: BoardTheme = {
         context.lineWidth = Math.max(1.5, scale * 0.055);
         context.stroke();
 
-        const markerColor = blackAndWhiteColors.marker[cell.marker];
+        const markerColor = blackAndWhiteColors.players[cell.colorIndex];
         drawMarker(options, { outline: markerColor, fill: markerColor });
     },
 };

@@ -1,9 +1,11 @@
+import type { BoardTheme } from "@ih3t/board-renderer";
 import type { GameState, SessionPlayer } from '@ih3t/shared';
 
-import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../../utils/gameBoard';
 import { useTranslation } from 'react-i18next'
 
 type SandboxTurnIndicatorProps = {
+    theme?: BoardTheme
     players: SessionPlayer[]
     gameState: GameState
     winnerId: string | null
@@ -13,6 +15,7 @@ type SandboxTurnIndicatorProps = {
 
 function SandboxTurnIndicator({
     players,
+    theme,
     gameState,
     winnerId,
     botPlayerIds = [],
@@ -24,7 +27,7 @@ function SandboxTurnIndicator({
     const focusPlayerId = winnerId ?? gameState.currentTurnPlayerId;
     const focusPlayerLabel = getPlayerLabel(playerIds, focusPlayerId, playerNames, `Sandbox`);
     const focusPlayerColor = focusPlayerId
-        ? getPlayerTileColor(gameState.playerTiles, focusPlayerId)
+        ? getPlayerColor(gameState.playerTiles, focusPlayerId, theme)
         : `#7dd3fc`;
     const placementsRemaining = gameState.placementsRemaining;
     const isBotTurn = !winnerId && Boolean(focusPlayerId && botPlayerIds.includes(focusPlayerId));

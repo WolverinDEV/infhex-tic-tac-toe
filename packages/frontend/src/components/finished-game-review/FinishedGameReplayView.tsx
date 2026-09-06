@@ -16,7 +16,7 @@ import type { SandboxRouteInitialPosition, SandboxRouteState } from '../../route
 import { formatDateTimeWithSeconds, useIntlFormatProvider } from '../../utils/dateTime';
 import { formatMinutesSeconds } from '../../utils/duration';
 import { formatEloChange } from '../../utils/elo';
-import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../../utils/gameBoard';
 import { formatTimeControl } from '../../utils/gameTimeControl';
 import { getSessionFinishReasonSentenceLabel } from '../../utils/sessionResult';
 import GameBoardView from '../game-screen/GameBoardView';
@@ -530,7 +530,7 @@ function FinishedGameReplayView({
                                                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                                                     <span
                                                         className="h-2.5 w-2.5 rounded-full"
-                                                        style={{ backgroundColor: getPlayerTileColor(game.playerTiles, player.playerId) }}
+                                                        style={{ backgroundColor: getPlayerColor(game.playerTiles, player.playerId, theme) }}
                                                     />
 
                                                     {playerProfileHref
@@ -641,7 +641,7 @@ function FinishedGameReplayView({
 
                                             <span
                                                 className="h-3 w-3 rounded-full"
-                                                style={{ backgroundColor: getPlayerTileColor(game.playerTiles, move.playerId) }}
+                                                style={{ backgroundColor: getPlayerColor(game.playerTiles, move.playerId, theme) }}
                                             />
                                         </div>
 

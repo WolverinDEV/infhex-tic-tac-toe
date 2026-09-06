@@ -9,7 +9,7 @@ import {
     getPersonalResultLabel,
     type PersonalResultTone,
 } from '../utils/finishedGames';
-import { getPlayerLabel, getPlayerTileColor } from '../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../utils/gameBoard';
 import { getVisiblePageNumbers } from '../utils/pagination';
 import PageCorpus from './PageCorpus';
 import RatedFilterTabs from './RatedFilterTabs';
@@ -240,7 +240,7 @@ function FinishedGamesScreen({
                                                             >
                                                                 <span
                                                                     className="h-2 w-2 rounded-full"
-                                                                    style={{ backgroundColor: getPlayerTileColor(game.playerTiles, player.playerId) }}
+                                                                    style={{ backgroundColor: getPlayerColor(game.playerTiles, player.playerId) }}
                                                                 />
 
                                                                 <span>

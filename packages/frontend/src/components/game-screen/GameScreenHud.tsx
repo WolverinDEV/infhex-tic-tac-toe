@@ -11,7 +11,7 @@ import GameHudShell from './GameHudShell';
 import HudInfoBlock from './HudInfoBlock';
 import { ShutdownTimer } from './ShutdownTimer';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import { useTranslation, Trans } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 
 export type HudPlayerInfo = {

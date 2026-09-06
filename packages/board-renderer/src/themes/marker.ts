@@ -7,7 +7,7 @@ export const markerBoardTheme: BoardTheme = {
     colors: darkBoardColors,
     drawCell(options: BoardCellRenderOptions) {
         const { context, cell, centerX, centerY, radius, scale } = options;
-        const palette = getMarkerPalette(darkBoardColors.marker[cell.marker]);
+        const palette = getMarkerPalette(darkBoardColors.players[cell.colorIndex]);
 
         traceHexPath(context, centerX, centerY, radius - 2);
         context.fillStyle = palette.tileTint;

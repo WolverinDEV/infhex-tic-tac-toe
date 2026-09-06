@@ -32,8 +32,8 @@ const finishedGame: FinishedGameRecord = {
     },
   ],
   playerTiles: {
-    'player-1': { color: '#fbbf24' },
-    'player-2': { color: '#38bdf8' },
+    'player-1': { colorIndex: 0 },
+    'player-2': { colorIndex: 1 },
   },
   gameOptions: {
     visibility: 'public',

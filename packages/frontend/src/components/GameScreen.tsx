@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { playTilePlacedSound } from '../soundEffects';
-import { getPlayerTileColor } from '../utils/gameBoard';
+import { getPlayerColor } from '../utils/gameBoard';
 import BoardHelp from "./game-screen/BoardHelp.tsx";
 import GameBoardView from './game-screen/GameBoardView';
 import GameChatBox from './game-screen/GameChatBox';
@@ -88,13 +88,13 @@ function GameScreen({
             profileId: player.profileId,
 
             displayName: player.displayName,
-            displayColor: getPlayerTileColor(gameState.playerTiles, player.id),
+            displayColor: getPlayerColor(gameState.playerTiles, player.id, theme),
 
             rankingEloScore: player.rating.eloScore,
 
             isConnected: player.connection.status === `connected`,
         }));
-    }, [gameState.playerTiles, players]);
+    }, [gameState.playerTiles, players, theme]);
 
     useEffect(() => {
         previousCellCountRef.current = gameState.cells.length;
@@ -129,6 +129,7 @@ function GameScreen({
                         <div className="flex h-full flex-col justify-between gap-4">
                             {interactionEnabled && (
                                 <TurnTimerHud
+                                    theme={theme}
                                     gameOptions={gameOptions}
                                     players={players}
                                     gameState={gameState}

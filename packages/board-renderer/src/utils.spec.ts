@@ -28,7 +28,7 @@ test(`hex coordinates survive a pixel round trip`, () => {
 
 test(`renderable cells include occupied cells and their placement area`, () => {
     const cells = buildRenderableCells({
-        placedCells: [{ x: 0, y: 0, marker: "X" }],
+        placedCells: [{ x: 0, y: 0, marker: "X", colorIndex: 0 }],
     });
 
     assert.equal(cells.get(`0,0`)?.status, `occupied`);
@@ -77,7 +77,7 @@ test(`built-in themes provide distinct cell renderers`, () => {
     );
     assert.equal(blackAndWhiteBoardTheme.colors.background, `#ffffff`);
     assert.equal(omokBoardTheme.intersectionGrid, true);
-    assert.equal(omokBoardTheme.colors.marker.X, `#111111`);
-    assert.equal(omokBoardTheme.colors.marker.O, `#f4f4f4`);
+    assert.equal(omokBoardTheme.colors.players[0], `#111111`);
+    assert.equal(omokBoardTheme.colors.players[1], `#f4f4f4`);
     assert.equal(omokBoardTheme.colors.highlightYellow, `#ffffff`);
 });

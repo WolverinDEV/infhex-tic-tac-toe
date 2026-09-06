@@ -1,13 +1,15 @@
+import type { BoardTheme } from "@ih3t/board-renderer";
 import type { GameState, LobbyOptions, SessionPlayer } from '@ih3t/shared';
 import { useEffect, useRef, useState } from 'react';
 
 import { playCountdownWarningSound } from '../../soundEffects';
-import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../../utils/gameBoard';
 import ClockCard from './ClockCard';
 import TurnIndicator from './TurnIndicator';
 import { useTranslation } from 'react-i18next'
 
 type TurnTimerHudProps = {
+    theme?: BoardTheme
     gameOptions: LobbyOptions
     players: SessionPlayer[]
     gameState: GameState
@@ -17,6 +19,7 @@ type TurnTimerHudProps = {
 function TurnTimerHud({
     gameOptions,
     players,
+    theme,
     gameState,
     localPlayerId,
 }: Readonly<TurnTimerHudProps>) {
@@ -34,7 +37,7 @@ function TurnTimerHud({
     const isSpectator = localPlayerId === null;
     const canPlaceCell = localPlayerId !== null && currentTurnPlayerId === localPlayerId;
     const clockPlayers = players.slice(0, 2);
-    const activePlayerColor = currentTurnPlayerId ? getPlayerTileColor(gameState.playerTiles, currentTurnPlayerId) : `#7dd3fc`;
+    const activePlayerColor = currentTurnPlayerId ? getPlayerColor(gameState.playerTiles, currentTurnPlayerId, theme) : `#7dd3fc`;
 
     const getDisplayedPlayerClockMs = (playerId: string) => {
         if (effectiveTimeControl.mode === `unlimited`) {
@@ -119,7 +122,7 @@ function TurnTimerHud({
                                     key={player.id}
                                     label={getPlayerLabel(playerIds, player.id, playerNames)}
                                     timeMs={getDisplayedPlayerClockMs(player.id)}
-                                    markerColor={getPlayerTileColor(gameState.playerTiles, player.id)}
+                                    markerColor={getPlayerColor(gameState.playerTiles, player.id, theme)}
                                     isHighlighted={isActivePlayer}
                                     trailingBadge={isLocalPlayer && !isSpectator ? (
                                         <div className="rounded bg-white/10 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-200 sm:text-[9px]">

@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 
 import GameBoardView from './game-screen/GameBoardView';
 import { formatMinutesSeconds } from '../utils/duration';
-import { getPlayerTileColor } from '../utils/gameBoard';
+import { getPlayerColor } from '../utils/gameBoard';
 import { formatTimeControl } from '../utils/gameTimeControl';
 import { useTranslation } from 'react-i18next'
 
@@ -177,7 +177,7 @@ function MultiviewTimerStrip({
                             key={player.id}
                             label={player.displayName}
                             value={formatMinutesSeconds(displayedClockMs)}
-                            accentColor={getPlayerTileColor(gameState.playerTiles, player.id)}
+                            accentColor={getPlayerColor(gameState.playerTiles, player.id)}
                             active={isActivePlayer && status === `live`}
                         />
                     );
@@ -200,7 +200,7 @@ function MultiviewTimerStrip({
                 <TimerPill
                     label={currentTurnPlayer?.displayName ?? `Turn Clock`}
                     value={formatMinutesSeconds(turnClockMs)}
-                    accentColor={currentTurnPlayer ? getPlayerTileColor(gameState.playerTiles, currentTurnPlayer.id) : null}
+                    accentColor={currentTurnPlayer ? getPlayerColor(gameState.playerTiles, currentTurnPlayer.id) : null}
                     active={status === `live`}
                 />
 

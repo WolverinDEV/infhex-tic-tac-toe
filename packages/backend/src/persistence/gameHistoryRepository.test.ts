@@ -27,8 +27,8 @@ test(`parses legacy tournament replay records with defaulted timeout, pending ex
             },
         ],
         playerTiles: {
-            'player-left': { color: `#fbbf24` },
-            'player-right': { color: `#38bdf8` },
+            'player-left': { colorIndex: 0 },
+            'player-right': { colorIndex: 1 },
         },
         gameOptions: {
             visibility: `public`,

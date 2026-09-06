@@ -5,7 +5,6 @@ import {
     type DatabaseGameResult,
     DEFAULT_LOBBY_OPTIONS,
     type LobbyOptions,
-    type PlayerTileConfig,
     zDatabaseGame,
     zDatabaseGamePlayer,
     zDatabaseGameResult,
@@ -36,9 +35,6 @@ const zVersion2GameHistoryDocument = z.object({
     moveCount: z.number().int()
         .nonnegative(),
     gameResult: zDatabaseGameResult.nullable(),
-    playerTiles: z.record(z.string(), z.object({
-        color: z.string(),
-    })).optional(),
 });
 type Version2GameHistoryDocument = z.infer<typeof zVersion2GameHistoryDocument> & Document;
 
@@ -74,9 +70,6 @@ const zLegacyGameHistoryDocument = z.object({
     updatedAt: z.number().int()
         .optional(),
     gameOptions: zLobbyOptions.optional(),
-    playerTiles: z.record(z.string(), z.object({
-        color: z.string(),
-    })).optional(),
 });
 type LegacyGameHistoryDocument = z.infer<typeof zLegacyGameHistoryDocument> & Document;
 
@@ -167,9 +160,7 @@ function migrateLegacyDocument(document: unknown, logger: Logger): DatabaseGame 
         ?? Date.now();
     const finishedAt = parsedDocument.finishedAt ?? null;
     const players = mapLegacyPlayers(parsedDocument.players ?? [], parsedDocument);
-    const playerTiles = parsedDocument.playerTiles
-        ? clonePlayerTiles(parsedDocument.playerTiles)
-        : buildPlayerTileConfigMap(players.map((player) => player.playerId));
+    const playerTiles = buildPlayerTileConfigMap(players.map((player) => player.playerId));
     const moveCount = Math.max(parsedDocument.moveCount ?? 0, moves.length);
     const durationMs = parsedDocument.gameDurationMs
         ?? (finishedAt === null ? null : Math.max(0, finishedAt - startedAt));
@@ -206,9 +197,7 @@ function migrateVersion2Document(document: Version2GameHistoryDocument): Databas
         startedAt: document.startedAt,
         finishedAt: document.finishedAt,
         players: document.players.map((player) => ({ ...player })),
-        playerTiles: document.playerTiles
-            ? clonePlayerTiles(document.playerTiles)
-            : buildPlayerTileConfigMap(document.players.map((player) => player.playerId)),
+        playerTiles: buildPlayerTileConfigMap(document.players.map((player) => player.playerId)),
         gameOptions: cloneGameOptions(document.gameOptions),
         moves: document.moves.map((move) => ({ ...move })),
         moveCount: document.moveCount,
@@ -233,10 +222,6 @@ function cloneGameOptions(gameOptions: LobbyOptions): LobbyOptions {
         ...gameOptions,
         timeControl: { ...gameOptions.timeControl },
     };
-}
-
-function clonePlayerTiles(playerTiles: Record<string, PlayerTileConfig>): Record<string, PlayerTileConfig> {
-    return Object.fromEntries(Object.entries(playerTiles).map(([playerId, playerTileConfig]) => [playerId, { ...playerTileConfig }]));
 }
 
 function createDefaultGameOptions(): LobbyOptions {

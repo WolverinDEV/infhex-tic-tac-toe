@@ -1,6 +1,7 @@
 import type { BoardThemeColors } from "../themes";
 
 export const darkBoardColors: BoardThemeColors = {
+    players: [`#fbbf24`, `#38bdf8`],
     background: `#0f172a`,
     grid: `rgba(148, 163, 184, 0.18)`,
     emphasisFill: `rgba(255, 255, 255, 0.12)`,
@@ -16,8 +17,4 @@ export const darkBoardColors: BoardThemeColors = {
     highlightBlue: `#38bdf8`,
     highlightDot: `rgba(255, 255, 255, 0.92)`,
     highlightLineShadow: `rgba(15, 23, 42, 0.34)`,
-    marker: {
-        X: `#38bdf8`,
-        O: `#fbbf24`,
-    },
 };

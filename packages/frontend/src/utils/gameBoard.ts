@@ -40,22 +40,22 @@ export function getBoardTheme(
 }
 
 export function toRendererBoardState(gameState: GameState): RendererBoardState {
-    const firstPlayerId = Object.keys(gameState.playerTiles)[0];
     return {
         placedCells: gameState.cells.map((cell) => ({
             x: cell.x,
             y: cell.y,
-            color: gameState.playerTiles[cell.occupiedBy]?.color ?? `#FF00FF`,
-            marker: cell.occupiedBy === firstPlayerId ? `X` : `O`,
+            colorIndex: gameState.playerTiles[cell.occupiedBy]?.colorIndex ?? 0,
+            marker: (gameState.playerTiles[cell.occupiedBy]?.colorIndex ?? 0) === 0 ? `X` : `O`,
         })),
     };
 }
 
-export function getPlayerTileColor(
+export function getPlayerColor(
     playerTiles: Record<string, PlayerTileConfig> | null | undefined,
     playerId: string,
+    theme: BoardTheme = normalBoardTheme,
 ): string {
-    return playerTiles?.[playerId]?.color ?? `#FF00FF`;
+    return theme.colors.players[playerTiles?.[playerId]?.colorIndex ?? 0];
 }
 
 export function getPlayerLabel(

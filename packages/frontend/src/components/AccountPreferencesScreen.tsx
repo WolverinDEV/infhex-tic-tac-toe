@@ -58,15 +58,15 @@ const themeChoices: readonly {
 
 const previewBoard: BoardState = {
     placedCells: [
-        { x: -2, y: 0, marker: `X` },
-        { x: -1, y: 0, marker: `O` },
-        { x: 0, y: 0, marker: `O` },
-        { x: 1, y: 0, marker: `X` },
-        { x: 2, y: 0, marker: `X` },
-        { x: -1, y: -1, marker: `X` },
-        { x: 0, y: -1, marker: `O` },
-        { x: 1, y: -1, marker: `X` },
-        { x: 0, y: 1, marker: `X` },
+        { x: -2, y: 0, marker: `X`, colorIndex: 0 },
+        { x: -1, y: 0, marker: `O`, colorIndex: 1 },
+        { x: 0, y: 0, marker: `O`, colorIndex: 1 },
+        { x: 1, y: 0, marker: `X`, colorIndex: 0 },
+        { x: 2, y: 0, marker: `X`, colorIndex: 0 },
+        { x: -1, y: -1, marker: `X`, colorIndex: 0 },
+        { x: 0, y: -1, marker: `O`, colorIndex: 1 },
+        { x: 1, y: -1, marker: `X`, colorIndex: 0 },
+        { x: 0, y: 1, marker: `X`, colorIndex: 0 },
     ],
     labels: [{ x: -1, y: 1, text: `A1` }],
 };

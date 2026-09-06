@@ -6,7 +6,7 @@ export const normalBoardTheme: BoardTheme = {
     colors: darkBoardColors,
     drawCell({ context, cell, centerX, centerY, radius }: BoardCellRenderOptions) {
         traceHexPath(context, centerX, centerY, radius - 2);
-        context.fillStyle = darkBoardColors.marker[cell.marker];
+        context.fillStyle = darkBoardColors.players[cell.colorIndex];
         context.fill();
     },
 };

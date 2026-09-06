@@ -1,10 +1,12 @@
+import type { BoardTheme } from "@ih3t/board-renderer";
 import { Button } from '@/components/ui/button';
 import type { GameState, SessionPlayer } from '@ih3t/shared';
 
-import { getPlayerLabel, getPlayerTileColor } from '../../utils/gameBoard';
+import { getPlayerLabel, getPlayerColor } from '../../utils/gameBoard';
 import { useTranslation } from 'react-i18next'
 
 type SandboxWinnerBannerProps = {
+    theme?: BoardTheme
     players: SessionPlayer[]
     gameState: GameState
     winnerId: string | null
@@ -14,6 +16,7 @@ type SandboxWinnerBannerProps = {
 
 function SandboxWinnerBanner({
     players,
+    theme,
     gameState,
     winnerId,
     onResetBoard,
@@ -27,7 +30,7 @@ function SandboxWinnerBanner({
     const playerIds = players.map(player => player.id);
     const playerNames = Object.fromEntries(players.map(player => [player.id, player.displayName]));
     const winnerLabel = getPlayerLabel(playerIds, winnerId, playerNames, `Winner`);
-    const winnerColor = getPlayerTileColor(gameState.playerTiles, winnerId);
+    const winnerColor = getPlayerColor(gameState.playerTiles, winnerId, theme);
 
     return (
         <div className="absolute inset-0 flex items-center justify-center px-4">

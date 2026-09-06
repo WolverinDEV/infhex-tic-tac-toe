@@ -1,6 +1,7 @@
-import type { CellMarker, PlacedCell } from ".";
+import type { PlacedCell } from ".";
 
 export type BoardThemeColors = Readonly<{
+    players: readonly [string, string];
     background: string;
     grid: string;
     emphasisFill: string;
@@ -16,7 +17,6 @@ export type BoardThemeColors = Readonly<{
     highlightBlue: string;
     highlightDot: string;
     highlightLineShadow: string;
-    marker: Record<CellMarker, string>;
 }>;
 
 export type BoardCellRenderOptions = Readonly<{

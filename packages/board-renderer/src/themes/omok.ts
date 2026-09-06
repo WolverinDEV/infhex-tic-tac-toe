@@ -5,6 +5,7 @@ import type {
 } from "../themes";
 
 const omokBoardColors: BoardThemeColors = {
+    players: [`#111111`, `#f4f4f4`],
     background: `#d0a979`,
     grid: `rgba(17, 17, 17, 0.86)`,
     emphasisFill: `rgba(255, 255, 255, 0.08)`,
@@ -20,10 +21,6 @@ const omokBoardColors: BoardThemeColors = {
     highlightBlue: `#111111`,
     highlightDot: `#d0a979`,
     highlightLineShadow: `rgba(255, 255, 255, 0.5)`,
-    marker: {
-        X: `#111111`,
-        O: `#f4f4f4`,
-    },
 };
 
 export const omokBoardTheme: BoardTheme = {
@@ -38,7 +35,8 @@ export const omokBoardTheme: BoardTheme = {
     }: BoardCellRenderOptions) {
         context.beginPath();
         context.arc(centerX, centerY, radius * 0.78, 0, Math.PI * 2);
-        context.fillStyle = omokBoardColors.marker[cell.marker];
+        
+        context.fillStyle = omokBoardColors.players[cell.colorIndex];
         context.fill();
     },
 };
