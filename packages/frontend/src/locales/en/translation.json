@@ -792,7 +792,7 @@
   "timesAreEnteredInYourLocalTimezone": "Times are entered in your local timezone.",
   "toJoin": "to join",
   "toMove": "To Move",
-  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "Top 10 players ranked by ELO from rated games and refreshed every 10 minutes.",
+  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "Top 10 players by ELO who completed at least one rated game in the past 30 days. Refreshed every 10 minutes.",
   "totalGames": "Total Games",
   "totalminutesminute": "{{totalMinutes}}-minute",
   "totalMoves": "Total Moves",

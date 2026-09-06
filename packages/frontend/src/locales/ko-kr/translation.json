@@ -792,7 +792,7 @@
   "timesAreEnteredInYourLocalTimezone": "시간은 현지 시간대로 입력됩니다.",
   "toJoin": "참가까지",
   "toMove": "둘 차례",
-  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "레이팅전 ELO 기준 상위 10명이며 10분마다 갱신됩니다.",
+  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "최근 30일 동안 레이팅전을 한 경기 이상 완료한 플레이어 중 ELO 기준 상위 10명입니다. 10분마다 갱신됩니다.",
   "totalGames": "전체 게임",
   "totalminutesminute": "{{totalMinutes}}분",
   "totalMoves": "전체 수",

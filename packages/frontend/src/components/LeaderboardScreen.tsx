@@ -37,7 +37,7 @@ function LeaderboardScreen({
         <PageCorpus
             category="Player Leaderboard"
             title={t('highestRatedPlayers', 'Highest rated players')}
-            description={t('top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes', 'Top 10 players ranked by ELO from rated games and refreshed every 10 minutes.')}
+            description={t('top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes', 'Top 10 players by ELO who completed at least one rated game in the past 30 days. Refreshed every 10 minutes.')}
         >
             {errorMessage && (
                 <div className="mt-6 rounded-3xl border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-100">

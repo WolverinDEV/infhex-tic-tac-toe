@@ -138,6 +138,7 @@ test('renders leaderboard entries and the signed-in player placement outside the
   )
 
   await expect(component.getByRole('heading', { name: 'Highest rated players' })).toBeVisible()
+  await expect(component.getByText('Top 10 players by ELO who completed at least one rated game in the past 30 days. Refreshed every 10 minutes.')).toBeVisible()
   await expect(component.getByRole('heading', { name: 'Top 10 Players' })).toBeVisible()
   await expect(component.getByRole('link', { name: 'Alpha' })).toHaveAttribute('href', '/profile/player-1')
   await expect(component.getByText('Leaderboard Refresh')).toBeVisible()

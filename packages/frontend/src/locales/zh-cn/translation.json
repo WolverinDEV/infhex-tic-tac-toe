@@ -792,7 +792,7 @@
   "timesAreEnteredInYourLocalTimezone": "时间以你当地的时区输入。",
   "toJoin": "加入",
   "toMove": "轮到",
-  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "计分对局中 ELO 最高的 10 名玩家；每 10 分钟刷新一次。",
+  "top10PlayersRankedByEloFromRatedGamesAndRefreshedEvery10Minutes": "过去 30 天内至少完成一场计分对局的玩家中，ELO 最高的 10 名；每 10 分钟刷新一次。",
   "totalGames": "总对局数",
   "totalminutesminute": "{{totalMinutes}} 分钟",
   "totalMoves": "总步数",
